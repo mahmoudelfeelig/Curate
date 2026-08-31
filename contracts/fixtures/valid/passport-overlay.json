@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "overlay_id": "ov_study2026",
+  "version": 1,
+  "passport_id": "fp_alex2026",
+  "base_passport_version": 1,
+  "title": "Three-hour research visa",
+  "mode": "isolated_feed",
+  "status": "scheduled",
+  "created_at": "2026-08-29T11:00:00Z",
+  "starts_at": "2026-08-29T18:00:00Z",
+  "expires_at": "2026-08-29T21:00:00Z",
+  "topic_targets": [
+    {
+      "topic_id": "research",
+      "label": "Research",
+      "target_percent": 70
+    },
+    {
+      "topic_id": "independent_games",
+      "label": "Independent games",
+      "target_percent": 30
+    }
+  ],
+  "cross_cutting_override": {
+    "serendipity_percent": 10
+  },
+  "added_hard_exclusions": [],
+  "removed_exclusion_refs": [],
+  "consent": {
+    "consent_id": "consent.overlay.001",
+    "subject_ref": "user.alex",
+    "purpose": "Apply an isolated research feed for three hours.",
+    "granted_at": "2026-08-29T11:00:00Z",
+    "expires_at": "2026-08-29T21:00:00Z",
+    "revocable": true
+  },
+  "rollback_required": false,
+  "underlying_algorithm_training": "none_by_design"
+}

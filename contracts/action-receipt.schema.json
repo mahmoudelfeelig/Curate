@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/action-receipt.schema.json",
+  "title": "ActionReceipt",
+  "description": "An auditable record of one attempted platform action and its normalized before and after state.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "action_id",
+    "envelope_id",
+    "account",
+    "action_kind",
+    "execution_mode",
+    "outcome",
+    "started_at",
+    "completed_at",
+    "idempotency_fingerprint",
+    "reversible",
+    "provenance",
+    "credentials_included",
+    "raw_private_content_included"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "receipt_id": {
+      "$ref": "common.schema.json#/$defs/ReceiptId"
+    },
+    "action_id": {
+      "$ref": "common.schema.json#/$defs/ActionId"
+    },
+    "envelope_id": {
+      "$ref": "common.schema.json#/$defs/EnvelopeId"
+    },
+    "account": {
+      "$ref": "common.schema.json#/$defs/AccountRef"
+    },
+    "action_kind": {
+      "$ref": "common.schema.json#/$defs/ActionKind"
+    },
+    "execution_mode": {
+      "$ref": "common.schema.json#/$defs/ExecutionMode"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "succeeded",
+        "failed",
+        "skipped",
+        "guided"
+      ]
+    },
+    "started_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "completed_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "idempotency_fingerprint": {
+      "$ref": "common.schema.json#/$defs/Sha256"
+    },
+    "reversible": {
+      "type": "boolean"
+    },
+    "before_state": {
+      "$ref": "common.schema.json#/$defs/NormalizedState"
+    },
+    "after_state": {
+      "$ref": "common.schema.json#/$defs/NormalizedState"
+    },
+    "rollback_strategy": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "adapter_reference": {
+      "$ref": "common.schema.json#/$defs/NonSecretRef"
+    },
+    "error": {
+      "$ref": "common.schema.json#/$defs/ErrorDetail"
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "common.schema.json#/$defs/EvidenceRef"
+      }
+    },
+    "credentials_included": {
+      "type": "boolean",
+      "const": false
+    },
+    "raw_private_content_included": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "succeeded"
+          },
+          "reversible": {
+            "const": true
+          }
+        },
+        "required": [
+          "outcome",
+          "reversible"
+        ]
+      },
+      "then": {
+        "required": [
+          "before_state",
+          "after_state",
+          "rollback_strategy",
+          "adapter_reference"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "failed"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "required": [
+          "error"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "guided"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution_mode": {
+            "const": "guided"
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

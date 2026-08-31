@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0.0",
+  "evaluation_id": "eval_after001",
+  "passport_id": "fp_alex2026",
+  "passport_version": 1,
+  "sample_id": "sample_after01",
+  "evaluated_at": "2026-08-29T13:11:00Z",
+  "evaluator_kind": "independent_deterministic",
+  "target_topics": [
+    {
+      "topic_id": "independent_games",
+      "label": "Independent games",
+      "target_percent": 40
+    },
+    {
+      "topic_id": "design",
+      "label": "Design",
+      "target_percent": 35
+    },
+    {
+      "topic_id": "local_culture",
+      "label": "Local culture",
+      "target_percent": 25
+    }
+  ],
+  "observed_topics": [
+    {
+      "topic_id": "independent_games",
+      "observed_percent": 40
+    },
+    {
+      "topic_id": "design",
+      "observed_percent": 35
+    },
+    {
+      "topic_id": "local_culture",
+      "observed_percent": 25
+    }
+  ],
+  "metrics": {
+    "topic_distance": 0,
+    "hard_exclusion_percent": 0,
+    "serendipity_percent": 20,
+    "outrage_percent": 2,
+    "source_diversity": 1,
+    "creator_concentration": 0.34,
+    "actions_consumed": 1
+  },
+  "thresholds": {
+    "maximum_topic_distance": 0.1,
+    "maximum_hard_exclusion_percent": 0,
+    "maximum_outrage_percent": 5,
+    "minimum_source_diversity": 0.7
+  },
+  "passed": true,
+  "decision": "success",
+  "reason_codes": [
+    "all_thresholds_satisfied"
+  ],
+  "remaining_action_budget": 0,
+  "next_actions_allowed": false
+}

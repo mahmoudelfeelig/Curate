@@ -1,0 +1,14 @@
+{
+  "item_count": 2,
+  "items": [
+    {
+      "rank": 1
+    }
+  ],
+  "topic_distribution": [
+    {
+      "topic_id": "design",
+      "observed_percent": 100
+    }
+  ]
+}

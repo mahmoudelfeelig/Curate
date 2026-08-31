@@ -1,0 +1,16 @@
+{
+  "target_topics": [
+    {
+      "topic_id": "design",
+      "target_percent": 100
+    }
+  ],
+  "observed_topics": [
+    {
+      "topic_id": "design",
+      "observed_percent": 100
+    }
+  ],
+  "decision": "success",
+  "passed": false
+}

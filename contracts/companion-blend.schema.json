@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/companion-blend.schema.json",
+  "title": "CompanionBlend",
+  "description": "A consented, expiring blend of two or more ShareablePassportSlices.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "blend_id",
+    "version",
+    "mode",
+    "status",
+    "created_at",
+    "starts_at",
+    "expires_at",
+    "participants",
+    "output_overlay_id",
+    "raw_history_included"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "blend_id": {
+      "$ref": "common.schema.json#/$defs/BlendId"
+    },
+    "version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "common_ground",
+        "taste_swap",
+        "bridge",
+        "weighted"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "active",
+        "expired",
+        "revoked"
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "starts_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "expires_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "revoked_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "participants": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": [
+          "slice_id",
+          "slice_version",
+          "owner_ref",
+          "weight_percent",
+          "consent_ref"
+        ],
+        "properties": {
+          "slice_id": {
+            "$ref": "common.schema.json#/$defs/SliceId"
+          },
+          "slice_version": {
+            "$ref": "common.schema.json#/$defs/ResourceVersion"
+          },
+          "owner_ref": {
+            "$ref": "common.schema.json#/$defs/NonSecretRef"
+          },
+          "weight_percent": {
+            "$ref": "common.schema.json#/$defs/PositivePercentage"
+          },
+          "consent_ref": {
+            "$ref": "common.schema.json#/$defs/NonSecretRef"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "output_overlay_id": {
+      "$ref": "common.schema.json#/$defs/OverlayId"
+    },
+    "raw_history_included": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "revoked"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "revoked_at"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}

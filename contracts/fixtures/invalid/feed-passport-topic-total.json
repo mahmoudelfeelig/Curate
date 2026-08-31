@@ -1,0 +1,14 @@
+{
+  "created_at": "2026-08-29T10:00:00Z",
+  "updated_at": "2026-08-29T10:05:00Z",
+  "topics": [
+    {
+      "topic_id": "design",
+      "target_percent": 45
+    },
+    {
+      "topic_id": "research",
+      "target_percent": 45
+    }
+  ]
+}

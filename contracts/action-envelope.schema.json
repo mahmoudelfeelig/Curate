@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/action-envelope.schema.json",
+  "title": "ActionEnvelope",
+  "description": "The explicit mutation authority a person grants for one destination and time window.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "envelope_id",
+    "version",
+    "passport_id",
+    "passport_version",
+    "destination",
+    "status",
+    "requested_at",
+    "expires_at",
+    "allowed_action_kinds",
+    "max_total_actions",
+    "per_kind_limits",
+    "stop_conditions",
+    "actions",
+    "trust_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "envelope_id": {
+      "$ref": "common.schema.json#/$defs/EnvelopeId"
+    },
+    "version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "passport_id": {
+      "$ref": "common.schema.json#/$defs/PassportId"
+    },
+    "passport_version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "destination": {
+      "$ref": "common.schema.json#/$defs/AccountRef"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "expired",
+        "consumed",
+        "cancelled"
+      ]
+    },
+    "requested_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "expires_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "allowed_action_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/ActionKind"
+      }
+    },
+    "max_total_actions": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "per_kind_limits": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "required": [
+          "action_kind",
+          "max_actions"
+        ],
+        "properties": {
+          "action_kind": {
+            "$ref": "common.schema.json#/$defs/ActionKind"
+          },
+          "max_actions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "success",
+          "budget_exhausted",
+          "capability_unavailable",
+          "low_confidence",
+          "permission_required",
+          "adapter_failure",
+          "cancellation",
+          "human_judgment_required",
+          "expired"
+        ]
+      }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "$ref": "proposed-action.schema.json"
+      }
+    },
+    "approval": {
+      "$ref": "common.schema.json#/$defs/ApprovalRecord"
+    },
+    "trust_boundary": {
+      "$ref": "common.schema.json#/$defs/TrustBoundary"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "approved"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "approval"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "approval"
+          ]
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

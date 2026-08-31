@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0.0",
+  "observation_id": "obs_source001",
+  "account": {
+    "platform": "feed_passport_lab",
+    "account_ref": "lab.source",
+    "display_label": "Established source account"
+  },
+  "capability_manifest_id": "cap_lab2026a",
+  "captured_at": "2026-08-29T13:05:00Z",
+  "access_mode": "lab_fixture",
+  "topic_distribution": [
+    {
+      "topic_id": "independent_games",
+      "observed_percent": 40
+    },
+    {
+      "topic_id": "design",
+      "observed_percent": 30
+    },
+    {
+      "topic_id": "local_culture",
+      "observed_percent": 20
+    },
+    {
+      "topic_id": "research",
+      "observed_percent": 10
+    }
+  ],
+  "followed_creator_refs": [
+    "creator.studio_one",
+    "creator.local_press"
+  ],
+  "subscription_refs": [],
+  "native_preferences": [
+    {
+      "state_kind": "topic_mute",
+      "exists": true,
+      "value": "celebrity_gossip",
+      "captured_at": "2026-08-29T13:05:00Z"
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_ref": "fixture.observation.001",
+      "kind": "lab_fixture",
+      "collected_at": "2026-08-29T13:05:00Z",
+      "confidence": 1
+    }
+  ],
+  "confidence": 1,
+  "raw_private_content_included": false,
+  "credentials_included": false
+}

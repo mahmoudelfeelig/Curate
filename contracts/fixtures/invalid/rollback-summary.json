@@ -1,0 +1,14 @@
+{
+  "started_at": "2026-08-29T14:00:00Z",
+  "completed_at": "2026-08-29T14:00:01Z",
+  "results": [
+    {
+      "outcome": "restored"
+    }
+  ],
+  "summary": {
+    "requested": 1,
+    "restored": 0,
+    "failed": 0
+  }
+}

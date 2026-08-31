@@ -1,0 +1,148 @@
+{
+  "schemas": [
+    "feed-passport.schema.json",
+    "passport-overlay.schema.json",
+    "shareable-passport-slice.schema.json",
+    "companion-blend.schema.json",
+    "platform-capability-manifest.schema.json",
+    "proposed-action.schema.json",
+    "action-envelope.schema.json",
+    "account-observation.schema.json",
+    "feed-sample.schema.json",
+    "action-receipt.schema.json",
+    "rollback-receipt.schema.json",
+    "translation-loss-report.schema.json",
+    "feed-evaluation.schema.json",
+    "event-envelope.schema.json"
+  ],
+  "valid": [
+    {
+      "schema": "feed-passport.schema.json",
+      "instance": "valid/feed-passport.json"
+    },
+    {
+      "schema": "passport-overlay.schema.json",
+      "instance": "valid/passport-overlay.json"
+    },
+    {
+      "schema": "shareable-passport-slice.schema.json",
+      "instance": "valid/shareable-passport-slice.json"
+    },
+    {
+      "schema": "companion-blend.schema.json",
+      "instance": "valid/companion-blend.json"
+    },
+    {
+      "schema": "platform-capability-manifest.schema.json",
+      "instance": "valid/platform-capability-manifest.json"
+    },
+    {
+      "schema": "proposed-action.schema.json",
+      "instance": "valid/proposed-action.json"
+    },
+    {
+      "schema": "action-envelope.schema.json",
+      "instance": "valid/action-envelope.json"
+    },
+    {
+      "schema": "account-observation.schema.json",
+      "instance": "valid/account-observation.json"
+    },
+    {
+      "schema": "feed-sample.schema.json",
+      "instance": "valid/feed-sample.json"
+    },
+    {
+      "schema": "action-receipt.schema.json",
+      "instance": "valid/action-receipt.json"
+    },
+    {
+      "schema": "rollback-receipt.schema.json",
+      "instance": "valid/rollback-receipt.json"
+    },
+    {
+      "schema": "translation-loss-report.schema.json",
+      "instance": "valid/translation-loss-report.json"
+    },
+    {
+      "schema": "feed-evaluation.schema.json",
+      "instance": "valid/feed-evaluation.json"
+    },
+    {
+      "schema": "event-envelope.schema.json",
+      "instance": "valid/event-envelope.json"
+    }
+  ],
+  "invalid": [
+    {
+      "schema": "feed-passport.schema.json",
+      "instance": "invalid/feed-passport-topic-total.json",
+      "expected_error": "composition must total 100"
+    },
+    {
+      "schema": "passport-overlay.schema.json",
+      "instance": "invalid/passport-overlay-expiry.json",
+      "expected_error": "timestamps are not increasing"
+    },
+    {
+      "schema": "shareable-passport-slice.schema.json",
+      "instance": "invalid/shareable-slice-raw-history.json",
+      "expected_error": "expected const false"
+    },
+    {
+      "schema": "companion-blend.schema.json",
+      "instance": "invalid/companion-blend-weights.json",
+      "expected_error": "blend weights must total 100"
+    },
+    {
+      "schema": "platform-capability-manifest.schema.json",
+      "instance": "invalid/capability-false-closed-loop.json",
+      "expected_error": "expected const \"authorized\""
+    },
+    {
+      "schema": "proposed-action.schema.json",
+      "instance": "invalid/proposed-action-public-engagement.json",
+      "expected_error": "outside enum"
+    },
+    {
+      "schema": "action-envelope.schema.json",
+      "instance": "invalid/action-envelope-over-budget.json",
+      "expected_error": "exceeds total budget"
+    },
+    {
+      "schema": "account-observation.schema.json",
+      "instance": "invalid/account-observation-private-content.json",
+      "expected_error": "expected const false"
+    },
+    {
+      "schema": "feed-sample.schema.json",
+      "instance": "invalid/feed-sample-count.json",
+      "expected_error": "item count does not match"
+    },
+    {
+      "schema": "action-receipt.schema.json",
+      "instance": "invalid/action-receipt-missing-before-state.json",
+      "expected_error": "missing required property before_state"
+    },
+    {
+      "schema": "rollback-receipt.schema.json",
+      "instance": "invalid/rollback-summary.json",
+      "expected_error": "summary does not match results"
+    },
+    {
+      "schema": "translation-loss-report.schema.json",
+      "instance": "invalid/translation-loss-summary.json",
+      "expected_error": "summary does not match entries"
+    },
+    {
+      "schema": "feed-evaluation.schema.json",
+      "instance": "invalid/feed-evaluation-success-flag.json",
+      "expected_error": "expected const true"
+    },
+    {
+      "schema": "event-envelope.schema.json",
+      "instance": "invalid/event-envelope-sensitive-key.json",
+      "expected_error": "forbidden key"
+    }
+  ]
+}

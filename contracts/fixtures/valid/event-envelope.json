@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "event_id": "evt_action0001",
+  "aggregate_type": "action_envelope",
+  "aggregate_id": "env_migrate001",
+  "aggregate_version": 2,
+  "event_type": "action.executed",
+  "occurred_at": "2026-08-29T13:03:01Z",
+  "actor": {
+    "actor_type": "adapter",
+    "actor_ref": "adapter.lab"
+  },
+  "trace_id": "trace_migration001",
+  "correlation_id": "migration.alex.001",
+  "causation_event_id": "evt_approval001",
+  "payload": {
+    "payload_schema": "action.executed.v1",
+    "fields": {
+      "action_id": "act_follow001",
+      "receipt_id": "receipt_follow001",
+      "outcome": "succeeded",
+      "reversible": true
+    }
+  },
+  "contains_sensitive_data": false,
+  "credentials_included": false,
+  "raw_private_content_included": false
+}

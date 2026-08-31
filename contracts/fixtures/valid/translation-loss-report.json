@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "report_id": "loss_destination01",
+  "passport_id": "fp_alex2026",
+  "passport_version": 1,
+  "destination": {
+    "platform": "youtube",
+    "account_ref": "youtube.destination"
+  },
+  "capability_manifest_id": "cap_youtube01",
+  "generated_at": "2026-08-29T13:20:00Z",
+  "losses": [
+    {
+      "loss_id": "loss.home_feed_control",
+      "intent_ref": "cross_cutting.outrage_ceiling_percent",
+      "reason_code": "unsupported_capability",
+      "severity": "partial",
+      "requested_intent": "Keep outrage-oriented recommendations below five percent.",
+      "explanation": "The authorized adapter cannot directly set or fully verify the personalized Home feed.",
+      "nearest_supported_alternative": "Preserve subscriptions and provide guided native controls without claiming Home-feed mutation.",
+      "evidence_refs": [
+        "capability.youtube.official.001"
+      ]
+    }
+  ],
+  "summary": {
+    "total_losses": 1,
+    "informational": 0,
+    "partial": 1,
+    "blocking": 0
+  },
+  "fabricated_successes": 0
+}

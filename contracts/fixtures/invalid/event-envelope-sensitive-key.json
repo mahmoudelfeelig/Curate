@@ -1,0 +1,7 @@
+{
+  "payload": {
+    "fields": {
+      "oauth_token": "must-never-be-persisted"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "topic_distribution": [
+    {
+      "topic_id": "design",
+      "observed_percent": 100
+    }
+  ],
+  "raw_private_content_included": true
+}

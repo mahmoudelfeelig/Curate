@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "blend_id": "blend_weekend01",
+  "version": 1,
+  "mode": "bridge",
+  "status": "scheduled",
+  "created_at": "2026-08-29T12:10:00Z",
+  "starts_at": "2026-08-29T18:00:00Z",
+  "expires_at": "2026-08-31T12:00:00Z",
+  "participants": [
+    {
+      "slice_id": "slice_alexdesign",
+      "slice_version": 1,
+      "owner_ref": "user.alex",
+      "weight_percent": 50,
+      "consent_ref": "consent.slice.001"
+    },
+    {
+      "slice_id": "slice_samlocal",
+      "slice_version": 1,
+      "owner_ref": "user.sam",
+      "weight_percent": 50,
+      "consent_ref": "consent.slice.002"
+    }
+  ],
+  "output_overlay_id": "ov_companion01",
+  "raw_history_included": false
+}

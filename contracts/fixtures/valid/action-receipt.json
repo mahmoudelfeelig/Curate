@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "receipt_follow001",
+  "action_id": "act_follow001",
+  "envelope_id": "env_migrate001",
+  "account": {
+    "platform": "feed_passport_lab",
+    "account_ref": "lab.destination"
+  },
+  "action_kind": "follow_creator",
+  "execution_mode": "lab",
+  "outcome": "succeeded",
+  "started_at": "2026-08-29T13:03:00Z",
+  "completed_at": "2026-08-29T13:03:01Z",
+  "idempotency_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "reversible": true,
+  "before_state": {
+    "state_kind": "creator_follow",
+    "exists": false,
+    "value": null,
+    "captured_at": "2026-08-29T13:03:00Z"
+  },
+  "after_state": {
+    "state_kind": "creator_follow",
+    "exists": true,
+    "value": "creator.studio_one",
+    "captured_at": "2026-08-29T13:03:01Z"
+  },
+  "rollback_strategy": "Remove the Lab follow edge identified by this receipt.",
+  "adapter_reference": "lab.mutation.001",
+  "provenance": [
+    {
+      "evidence_ref": "receipt.envelope.env_migrate001",
+      "kind": "conformance_receipt",
+      "collected_at": "2026-08-29T13:03:01Z",
+      "confidence": 1
+    }
+  ],
+  "credentials_included": false,
+  "raw_private_content_included": false
+}

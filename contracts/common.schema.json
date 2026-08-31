@@ -1,0 +1,734 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/common.schema.json",
+  "title": "Feed Passport shared contract definitions",
+  "description": "Reusable primitive definitions for the version 1 public contract family.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false,
+  "$defs": {
+    "SchemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "ResourceVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "DateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "Percentage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "PositivePercentage": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100
+    },
+    "Ratio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "NonSecretRef": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]+$"
+    },
+    "PassportId": {
+      "type": "string",
+      "pattern": "^fp_[a-z0-9][a-z0-9_-]{7,63}$"
+    },
+    "OverlayId": {
+      "type": "string",
+      "pattern": "^ov_[a-z0-9][a-z0-9_-]{7,63}$"
+    },
+    "SliceId": {
+      "type": "string",
+      "pattern": "^slice_[a-z0-9][a-z0-9_-]{5,63}$"
+    },
+    "BlendId": {
+      "type": "string",
+      "pattern": "^blend_[a-z0-9][a-z0-9_-]{5,63}$"
+    },
+    "ManifestId": {
+      "type": "string",
+      "pattern": "^cap_[a-z0-9][a-z0-9_-]{7,63}$"
+    },
+    "ActionId": {
+      "type": "string",
+      "pattern": "^act_[a-z0-9][a-z0-9_-]{7,63}$"
+    },
+    "EnvelopeId": {
+      "type": "string",
+      "pattern": "^env_[a-z0-9][a-z0-9_-]{7,63}$"
+    },
+    "ObservationId": {
+      "type": "string",
+      "pattern": "^obs_[a-z0-9][a-z0-9_-]{7,63}$"
+    },
+    "SampleId": {
+      "type": "string",
+      "pattern": "^sample_[a-z0-9][a-z0-9_-]{5,63}$"
+    },
+    "ReceiptId": {
+      "type": "string",
+      "pattern": "^(?:receipt|rollback)_[a-z0-9][a-z0-9_-]{5,63}$"
+    },
+    "ReportId": {
+      "type": "string",
+      "pattern": "^(?:loss|eval)_[a-z0-9][a-z0-9_-]{5,63}$"
+    },
+    "EventId": {
+      "type": "string",
+      "pattern": "^evt_[a-z0-9][a-z0-9_-]{7,63}$"
+    },
+    "TraceId": {
+      "type": "string",
+      "pattern": "^trace_[a-z0-9][a-z0-9_-]{7,95}$"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "TopicId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "PlatformKey": {
+      "type": "string",
+      "enum": [
+        "feed_passport_lab",
+        "bluesky",
+        "x",
+        "youtube",
+        "reddit",
+        "instagram",
+        "facebook",
+        "threads",
+        "tiktok",
+        "linkedin",
+        "snapchat",
+        "twin:bluesky",
+        "twin:x",
+        "twin:youtube",
+        "twin:reddit",
+        "twin:instagram",
+        "twin:facebook",
+        "twin:threads",
+        "twin:tiktok",
+        "twin:linkedin",
+        "twin:snapchat",
+        "mastodon",
+        "other"
+      ]
+    },
+    "CapabilityLevel": {
+      "type": "string",
+      "enum": [
+        "closed_loop",
+        "executable",
+        "guided",
+        "lab",
+        "unavailable"
+      ]
+    },
+    "SupportMode": {
+      "type": "string",
+      "enum": [
+        "authorized",
+        "guided",
+        "lab",
+        "unavailable"
+      ]
+    },
+    "ExecutionMode": {
+      "type": "string",
+      "enum": [
+        "executable",
+        "guided",
+        "lab"
+      ]
+    },
+    "ActionKind": {
+      "type": "string",
+      "enum": [
+        "follow_creator",
+        "unfollow_creator",
+        "mute_creator",
+        "unmute_creator",
+        "mute_keyword",
+        "unmute_keyword",
+        "mute_topic",
+        "unmute_topic",
+        "subscribe_creator",
+        "unsubscribe_creator",
+        "subscribe_channel",
+        "unsubscribe_channel",
+        "create_custom_feed",
+        "install_custom_feed",
+        "remove_custom_feed",
+        "create_list",
+        "add_to_list",
+        "remove_from_list",
+        "hide_topic",
+        "show_topic",
+        "set_topic_preference",
+        "set_serendipity",
+        "set_source_cap",
+        "set_native_preference",
+        "guided_step"
+      ]
+    },
+    "ContentFormat": {
+      "type": "string",
+      "enum": [
+        "short_text",
+        "long_text",
+        "image",
+        "short_video",
+        "long_video",
+        "audio",
+        "live",
+        "link",
+        "discussion",
+        "mixed"
+      ]
+    },
+    "LanguageTag": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 35,
+      "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+    },
+    "TopicTarget": {
+      "type": "object",
+      "required": [
+        "topic_id",
+        "label",
+        "target_percent"
+      ],
+      "properties": {
+        "topic_id": {
+          "$ref": "#/$defs/TopicId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "target_percent": {
+          "$ref": "#/$defs/PositivePercentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TopicShare": {
+      "type": "object",
+      "required": [
+        "topic_id",
+        "observed_percent"
+      ],
+      "properties": {
+        "topic_id": {
+          "$ref": "#/$defs/TopicId"
+        },
+        "observed_percent": {
+          "$ref": "#/$defs/Percentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CrossCuttingPolicy": {
+      "type": "object",
+      "required": [
+        "serendipity_percent",
+        "outrage_ceiling_percent",
+        "maximum_source_share_percent"
+      ],
+      "properties": {
+        "serendipity_percent": {
+          "$ref": "#/$defs/Percentage"
+        },
+        "outrage_ceiling_percent": {
+          "$ref": "#/$defs/Percentage"
+        },
+        "maximum_source_share_percent": {
+          "$ref": "#/$defs/PositivePercentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PartialCrossCuttingPolicy": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "serendipity_percent": {
+          "$ref": "#/$defs/Percentage"
+        },
+        "outrage_ceiling_percent": {
+          "$ref": "#/$defs/Percentage"
+        },
+        "maximum_source_share_percent": {
+          "$ref": "#/$defs/PositivePercentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FormatPreference": {
+      "type": "object",
+      "required": [
+        "format",
+        "label",
+        "preference",
+        "weight"
+      ],
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "preference": {
+          "type": "string",
+          "enum": [
+            "prefer",
+            "neutral",
+            "avoid"
+          ]
+        },
+        "weight": {
+          "$ref": "#/$defs/Ratio"
+        }
+      },
+      "additionalProperties": false
+    },
+    "HardExclusion": {
+      "type": "object",
+      "required": [
+        "exclusion_id",
+        "kind",
+        "value",
+        "reason"
+      ],
+      "properties": {
+        "exclusion_id": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "topic",
+            "creator",
+            "source",
+            "keyword",
+            "format",
+            "language"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 300
+        }
+      },
+      "additionalProperties": false
+    },
+    "CreatorPreference": {
+      "type": "object",
+      "required": [
+        "creator_ref",
+        "display_name",
+        "intent",
+        "identity_confidence",
+        "verified_cross_link"
+      ],
+      "properties": {
+        "creator_ref": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "intent": {
+          "type": "string",
+          "enum": [
+            "follow",
+            "prefer",
+            "neutral",
+            "avoid",
+            "mute"
+          ]
+        },
+        "weight": {
+          "$ref": "#/$defs/Ratio"
+        },
+        "identity_confidence": {
+          "$ref": "#/$defs/Ratio"
+        },
+        "verified_cross_link": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvidenceRef": {
+      "type": "object",
+      "required": [
+        "evidence_ref",
+        "kind",
+        "collected_at"
+      ],
+      "properties": {
+        "evidence_ref": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "explicit_user_intent",
+            "official_api",
+            "data_export",
+            "user_provided",
+            "lab_fixture",
+            "guided_confirmation",
+            "conformance_receipt"
+          ]
+        },
+        "collected_at": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Ratio"
+        },
+        "source": {
+          "$ref": "#/$defs/NonSecretRef"
+        }
+      },
+      "additionalProperties": false
+    },
+    "AccountRef": {
+      "type": "object",
+      "required": [
+        "platform",
+        "account_ref"
+      ],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/PlatformKey"
+        },
+        "account_ref": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "display_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConsentRecord": {
+      "type": "object",
+      "required": [
+        "consent_id",
+        "subject_ref",
+        "purpose",
+        "granted_at",
+        "expires_at",
+        "revocable"
+      ],
+      "properties": {
+        "consent_id": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "subject_ref": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 300
+        },
+        "granted_at": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "revocable": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "ApprovalRecord": {
+      "type": "object",
+      "required": [
+        "approval_id",
+        "approved_by",
+        "approved_at",
+        "approved_action_count"
+      ],
+      "properties": {
+        "approval_id": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "approved_by": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "approved_at": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "approved_action_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "ActionTarget": {
+      "type": "object",
+      "required": [
+        "kind",
+        "target_ref"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "creator",
+            "topic",
+            "channel",
+            "custom_feed",
+            "list",
+            "setting",
+            "instruction"
+          ]
+        },
+        "target_ref": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "additionalProperties": false
+    },
+    "ActionDetails": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "topic_id": {
+          "$ref": "#/$defs/TopicId"
+        },
+        "creator_ref": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "feed_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "list_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "setting_key": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "setting_value": {
+          "type": [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "null"
+          ]
+        },
+        "instruction_steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300
+          }
+        },
+        "expiry_at": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "NormalizedState": {
+      "type": "object",
+      "required": [
+        "state_kind",
+        "exists",
+        "value",
+        "captured_at"
+      ],
+      "properties": {
+        "state_kind": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            },
+            {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              }
+            }
+          ]
+        },
+        "captured_at": {
+          "$ref": "#/$defs/DateTime"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TrustBoundary": {
+      "type": "object",
+      "required": [
+        "credentials_in_model_context",
+        "public_engagement_automation",
+        "raw_private_history_transfer"
+      ],
+      "properties": {
+        "credentials_in_model_context": {
+          "type": "boolean",
+          "const": false
+        },
+        "public_engagement_automation": {
+          "type": "boolean",
+          "const": false
+        },
+        "raw_private_history_transfer": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Actor": {
+      "type": "object",
+      "required": [
+        "actor_type",
+        "actor_ref"
+      ],
+      "properties": {
+        "actor_type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "agent",
+            "system",
+            "adapter",
+            "evaluator"
+          ]
+        },
+        "actor_ref": {
+          "$ref": "#/$defs/NonSecretRef"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PublicPayload": {
+      "type": "object",
+      "maxProperties": 40,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ErrorDetail": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/NonSecretRef"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 500
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

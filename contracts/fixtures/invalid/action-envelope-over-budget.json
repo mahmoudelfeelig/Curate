@@ -1,0 +1,32 @@
+{
+  "requested_at": "2026-08-29T13:00:00Z",
+  "expires_at": "2026-08-29T14:00:00Z",
+  "destination": {
+    "platform": "feed_passport_lab",
+    "account_ref": "lab.destination"
+  },
+  "allowed_action_kinds": [
+    "follow_creator"
+  ],
+  "max_total_actions": 1,
+  "per_kind_limits": [
+    {
+      "action_kind": "follow_creator",
+      "max_actions": 2
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "act_follow001",
+      "platform": "feed_passport_lab",
+      "account_ref": "lab.destination",
+      "action_kind": "follow_creator"
+    },
+    {
+      "action_id": "act_follow002",
+      "platform": "feed_passport_lab",
+      "account_ref": "lab.destination",
+      "action_kind": "follow_creator"
+    }
+  ]
+}

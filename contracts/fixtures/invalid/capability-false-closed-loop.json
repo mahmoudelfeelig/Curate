@@ -1,0 +1,16 @@
+{
+  "evidence_level": "closed_loop",
+  "operations": {
+    "observe": "authorized",
+    "execute": "authorized",
+    "sample": "authorized",
+    "rollback": "unavailable",
+    "health": "authorized"
+  },
+  "allowed_action_kinds": [],
+  "conformance": {
+    "environment": "authorized_live",
+    "result": "passed",
+    "receipt_ref": "receipt.live.001"
+  }
+}

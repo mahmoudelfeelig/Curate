@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/shareable-passport-slice.schema.json",
+  "title": "ShareablePassportSlice",
+  "description": "An explicit, revocable subset of a Passport that can participate in a companion blend.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "slice_id",
+    "version",
+    "passport_id",
+    "passport_version",
+    "owner_ref",
+    "purpose",
+    "status",
+    "created_at",
+    "expires_at",
+    "included_topics",
+    "included_formats",
+    "included_creator_refs",
+    "excluded_sensitive_categories",
+    "raw_history_included",
+    "raw_feed_items_included",
+    "consent"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "slice_id": {
+      "$ref": "common.schema.json#/$defs/SliceId"
+    },
+    "version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "passport_id": {
+      "$ref": "common.schema.json#/$defs/PassportId"
+    },
+    "passport_version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "owner_ref": {
+      "$ref": "common.schema.json#/$defs/NonSecretRef"
+    },
+    "recipient_ref": {
+      "$ref": "common.schema.json#/$defs/NonSecretRef"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 300
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "revoked",
+        "expired"
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "expires_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "revoked_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "included_topics": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "common.schema.json#/$defs/TopicTarget"
+      }
+    },
+    "included_formats": {
+      "type": "array",
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/ContentFormat"
+      }
+    },
+    "included_creator_refs": {
+      "type": "array",
+      "maxItems": 500,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/NonSecretRef"
+      }
+    },
+    "shared_cross_cutting": {
+      "$ref": "common.schema.json#/$defs/PartialCrossCuttingPolicy"
+    },
+    "excluded_sensitive_categories": {
+      "type": "array",
+      "maxItems": 50,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 100
+      }
+    },
+    "raw_history_included": {
+      "type": "boolean",
+      "const": false
+    },
+    "raw_feed_items_included": {
+      "type": "boolean",
+      "const": false
+    },
+    "consent": {
+      "$ref": "common.schema.json#/$defs/ConsentRecord"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "revoked"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "revoked_at"
+        ]
+      }
+    }
+  ],
+  "anyOf": [
+    {
+      "properties": {
+        "included_topics": {
+          "minItems": 1
+        }
+      },
+      "required": [
+        "included_topics"
+      ]
+    },
+    {
+      "properties": {
+        "included_formats": {
+          "minItems": 1
+        }
+      },
+      "required": [
+        "included_formats"
+      ]
+    },
+    {
+      "properties": {
+        "included_creator_refs": {
+          "minItems": 1
+        }
+      },
+      "required": [
+        "included_creator_refs"
+      ]
+    },
+    {
+      "required": [
+        "shared_cross_cutting"
+      ]
+    }
+  ],
+  "additionalProperties": false
+}

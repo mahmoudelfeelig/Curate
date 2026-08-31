@@ -1,0 +1,12 @@
+{
+  "losses": [
+    {
+      "severity": "blocking"
+    }
+  ],
+  "summary": {
+    "total_losses": 1,
+    "partial": 1,
+    "blocking": 0
+  }
+}

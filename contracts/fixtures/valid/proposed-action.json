@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "action_id": "act_follow001",
+  "envelope_id": "env_migrate001",
+  "platform": "feed_passport_lab",
+  "account_ref": "lab.destination",
+  "action_kind": "follow_creator",
+  "execution_mode": "lab",
+  "target": {
+    "kind": "creator",
+    "target_ref": "creator.studio_one",
+    "label": "Studio One"
+  },
+  "details": {
+    "creator_ref": "creator.studio_one",
+    "reason": "Preserve a verified creator preference on the destination."
+  },
+  "expected_effect": "Increase independent-game and design representation in the destination sample.",
+  "confidence": 0.92,
+  "reversible": true,
+  "requires_human_step": false,
+  "policy_reason_codes": [
+    "approved_creator_continuity",
+    "within_action_budget"
+  ]
+}

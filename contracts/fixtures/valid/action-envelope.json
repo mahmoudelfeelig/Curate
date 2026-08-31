@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0.0",
+  "envelope_id": "env_migrate001",
+  "version": 1,
+  "passport_id": "fp_alex2026",
+  "passport_version": 1,
+  "destination": {
+    "platform": "feed_passport_lab",
+    "account_ref": "lab.destination",
+    "display_label": "Blank destination account"
+  },
+  "status": "approved",
+  "requested_at": "2026-08-29T13:00:00Z",
+  "expires_at": "2026-08-29T14:00:00Z",
+  "allowed_action_kinds": [
+    "follow_creator"
+  ],
+  "max_total_actions": 1,
+  "per_kind_limits": [
+    {
+      "action_kind": "follow_creator",
+      "max_actions": 1
+    }
+  ],
+  "stop_conditions": [
+    "success",
+    "budget_exhausted",
+    "capability_unavailable",
+    "low_confidence",
+    "adapter_failure",
+    "human_judgment_required"
+  ],
+  "actions": [
+    {
+      "schema_version": "1.0.0",
+      "action_id": "act_follow001",
+      "envelope_id": "env_migrate001",
+      "platform": "feed_passport_lab",
+      "account_ref": "lab.destination",
+      "action_kind": "follow_creator",
+      "execution_mode": "lab",
+      "target": {
+        "kind": "creator",
+        "target_ref": "creator.studio_one",
+        "label": "Studio One"
+      },
+      "details": {
+        "creator_ref": "creator.studio_one",
+        "reason": "Preserve a verified creator preference on the destination."
+      },
+      "expected_effect": "Increase independent-game and design representation in the destination sample.",
+      "confidence": 0.92,
+      "reversible": true,
+      "requires_human_step": false,
+      "policy_reason_codes": [
+        "approved_creator_continuity",
+        "within_action_budget"
+      ]
+    }
+  ],
+  "approval": {
+    "approval_id": "approval.migration.001",
+    "approved_by": "user.alex",
+    "approved_at": "2026-08-29T13:02:00Z",
+    "approved_action_count": 1
+  },
+  "trust_boundary": {
+    "credentials_in_model_context": false,
+    "public_engagement_automation": false,
+    "raw_private_history_transfer": false
+  }
+}

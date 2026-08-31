@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "slice_id": "slice_alexdesign",
+  "version": 1,
+  "passport_id": "fp_alex2026",
+  "passport_version": 1,
+  "owner_ref": "user.alex",
+  "recipient_ref": "user.sam",
+  "purpose": "Share design discoveries for a weekend companion feed.",
+  "status": "active",
+  "created_at": "2026-08-29T12:00:00Z",
+  "expires_at": "2026-08-31T12:00:00Z",
+  "included_topics": [
+    {
+      "topic_id": "design",
+      "label": "Design",
+      "target_percent": 30
+    }
+  ],
+  "included_formats": [
+    "image",
+    "long_text"
+  ],
+  "included_creator_refs": [
+    "creator.studio_one"
+  ],
+  "shared_cross_cutting": {
+    "serendipity_percent": 20
+  },
+  "excluded_sensitive_categories": [
+    "private_health",
+    "personal_relationships"
+  ],
+  "raw_history_included": false,
+  "raw_feed_items_included": false,
+  "consent": {
+    "consent_id": "consent.slice.001",
+    "subject_ref": "user.alex",
+    "purpose": "Share only the listed design preference slice with Sam.",
+    "granted_at": "2026-08-29T12:00:00Z",
+    "expires_at": "2026-08-31T12:00:00Z",
+    "revocable": true
+  }
+}

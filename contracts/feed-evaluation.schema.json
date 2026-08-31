@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/feed-evaluation.schema.json",
+  "title": "FeedEvaluation",
+  "description": "An independent deterministic comparison of a FeedSample with one Passport target.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluation_id",
+    "passport_id",
+    "passport_version",
+    "sample_id",
+    "evaluated_at",
+    "evaluator_kind",
+    "target_topics",
+    "observed_topics",
+    "metrics",
+    "thresholds",
+    "passed",
+    "decision",
+    "reason_codes",
+    "remaining_action_budget",
+    "next_actions_allowed"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "evaluation_id": {
+      "$ref": "common.schema.json#/$defs/ReportId"
+    },
+    "passport_id": {
+      "$ref": "common.schema.json#/$defs/PassportId"
+    },
+    "passport_version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "sample_id": {
+      "$ref": "common.schema.json#/$defs/SampleId"
+    },
+    "evaluated_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "evaluator_kind": {
+      "type": "string",
+      "const": "independent_deterministic"
+    },
+    "target_topics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "$ref": "common.schema.json#/$defs/TopicTarget"
+      }
+    },
+    "observed_topics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "$ref": "common.schema.json#/$defs/TopicShare"
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "topic_distance",
+        "hard_exclusion_percent",
+        "serendipity_percent",
+        "outrage_percent",
+        "source_diversity",
+        "creator_concentration",
+        "actions_consumed"
+      ],
+      "properties": {
+        "topic_distance": {
+          "$ref": "common.schema.json#/$defs/Ratio"
+        },
+        "hard_exclusion_percent": {
+          "$ref": "common.schema.json#/$defs/Percentage"
+        },
+        "serendipity_percent": {
+          "$ref": "common.schema.json#/$defs/Percentage"
+        },
+        "outrage_percent": {
+          "$ref": "common.schema.json#/$defs/Percentage"
+        },
+        "source_diversity": {
+          "$ref": "common.schema.json#/$defs/Ratio"
+        },
+        "creator_concentration": {
+          "$ref": "common.schema.json#/$defs/Ratio"
+        },
+        "actions_consumed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "thresholds": {
+      "type": "object",
+      "required": [
+        "maximum_topic_distance",
+        "maximum_hard_exclusion_percent",
+        "maximum_outrage_percent",
+        "minimum_source_diversity"
+      ],
+      "properties": {
+        "maximum_topic_distance": {
+          "$ref": "common.schema.json#/$defs/Ratio"
+        },
+        "maximum_hard_exclusion_percent": {
+          "$ref": "common.schema.json#/$defs/Percentage"
+        },
+        "maximum_outrage_percent": {
+          "$ref": "common.schema.json#/$defs/Percentage"
+        },
+        "minimum_source_diversity": {
+          "$ref": "common.schema.json#/$defs/Ratio"
+        }
+      },
+      "additionalProperties": false
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "success",
+        "adapt",
+        "human_judgment",
+        "budget_exhausted",
+        "capability_unavailable",
+        "low_confidence",
+        "adapter_failure",
+        "cancelled"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/NonSecretRef"
+      }
+    },
+    "remaining_action_budget": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "next_actions_allowed": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "success"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "passed": {
+            "const": true
+          },
+          "next_actions_allowed": {
+            "const": false
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "passed": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "budget_exhausted",
+              "capability_unavailable",
+              "human_judgment",
+              "low_confidence",
+              "adapter_failure",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "next_actions_allowed": {
+            "const": false
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

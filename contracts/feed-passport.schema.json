@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/feed-passport.schema.json",
+  "title": "FeedPassport",
+  "description": "A versioned, portable statement of a person's intended recommendation environment.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "passport_id",
+    "version",
+    "owner_ref",
+    "title",
+    "intent_summary",
+    "status",
+    "created_at",
+    "updated_at",
+    "topics",
+    "cross_cutting",
+    "languages",
+    "formats",
+    "hard_exclusions",
+    "creator_preferences",
+    "provenance",
+    "sharing_defaults",
+    "trust_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "passport_id": {
+      "$ref": "common.schema.json#/$defs/PassportId"
+    },
+    "version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "owner_ref": {
+      "$ref": "common.schema.json#/$defs/NonSecretRef"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "intent_summary": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 1200
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "archived"
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "expires_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "topics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "$ref": "common.schema.json#/$defs/TopicTarget"
+      }
+    },
+    "cross_cutting": {
+      "$ref": "common.schema.json#/$defs/CrossCuttingPolicy"
+    },
+    "languages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/LanguageTag"
+      }
+    },
+    "formats": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 100,
+      "items": {
+        "$ref": "common.schema.json#/$defs/FormatPreference"
+      }
+    },
+    "hard_exclusions": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "common.schema.json#/$defs/HardExclusion"
+      }
+    },
+    "creator_preferences": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "$ref": "common.schema.json#/$defs/CreatorPreference"
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 100,
+      "items": {
+        "$ref": "common.schema.json#/$defs/EvidenceRef"
+      }
+    },
+    "provenance_authenticity": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "key_id",
+        "payload_sha256",
+        "signature"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "hmac-sha256"
+        },
+        "key_id": {
+          "$ref": "common.schema.json#/$defs/NonSecretRef"
+        },
+        "payload_sha256": {
+          "$ref": "common.schema.json#/$defs/Sha256"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "template_ref": {
+      "$ref": "common.schema.json#/$defs/NonSecretRef"
+    },
+    "checkpoint_of": {
+      "type": "object",
+      "required": [
+        "passport_id",
+        "version"
+      ],
+      "properties": {
+        "passport_id": {
+          "$ref": "common.schema.json#/$defs/PassportId"
+        },
+        "version": {
+          "$ref": "common.schema.json#/$defs/ResourceVersion"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sharing_defaults": {
+      "type": "object",
+      "required": [
+        "share_topics",
+        "share_creator_preferences",
+        "share_hard_exclusions",
+        "raw_history_included"
+      ],
+      "properties": {
+        "share_topics": {
+          "type": "boolean"
+        },
+        "share_creator_preferences": {
+          "type": "boolean"
+        },
+        "share_hard_exclusions": {
+          "type": "boolean"
+        },
+        "raw_history_included": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "trust_boundary": {
+      "$ref": "common.schema.json#/$defs/TrustBoundary"
+    }
+  },
+  "additionalProperties": false
+}

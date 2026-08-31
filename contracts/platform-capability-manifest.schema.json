@@ -1,0 +1,480 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/platform-capability-manifest.schema.json",
+  "title": "PlatformCapabilityManifest",
+  "description": "Evidence-backed capabilities published by one platform adapter.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "manifest_version",
+    "platform",
+    "adapter_name",
+    "adapter_version",
+    "evidence_level",
+    "operations",
+    "allowed_action_kinds",
+    "evidence_urls",
+    "limitations",
+    "trust_boundary",
+    "conformance",
+    "published_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "manifest_id": {
+      "$ref": "common.schema.json#/$defs/ManifestId"
+    },
+    "manifest_version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "platform": {
+      "$ref": "common.schema.json#/$defs/PlatformKey"
+    },
+    "adapter_name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 120
+    },
+    "adapter_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?$"
+    },
+    "evidence_level": {
+      "$ref": "common.schema.json#/$defs/CapabilityLevel"
+    },
+    "operations": {
+      "type": "object",
+      "required": [
+        "observe",
+        "execute",
+        "sample",
+        "rollback",
+        "health"
+      ],
+      "properties": {
+        "observe": {
+          "$ref": "common.schema.json#/$defs/SupportMode"
+        },
+        "execute": {
+          "$ref": "common.schema.json#/$defs/SupportMode"
+        },
+        "sample": {
+          "$ref": "common.schema.json#/$defs/SupportMode"
+        },
+        "rollback": {
+          "$ref": "common.schema.json#/$defs/SupportMode"
+        },
+        "health": {
+          "$ref": "common.schema.json#/$defs/SupportMode"
+        }
+      },
+      "additionalProperties": false
+    },
+    "allowed_action_kinds": {
+      "type": "array",
+      "maxItems": 25,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/ActionKind"
+      }
+    },
+    "evidence_urls": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 500
+      }
+    },
+    "trust_boundary": {
+      "$ref": "common.schema.json#/$defs/TrustBoundary"
+    },
+    "conformance": {
+      "type": "object",
+      "required": [
+        "suite_version",
+        "run_id",
+        "environment",
+        "result",
+        "run_at"
+      ],
+      "properties": {
+        "suite_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "run_id": {
+          "$ref": "common.schema.json#/$defs/NonSecretRef"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "authorized_live",
+            "lab",
+            "guided",
+            "not_run"
+          ]
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "not_run"
+          ]
+        },
+        "receipt_ref": {
+          "$ref": "common.schema.json#/$defs/NonSecretRef"
+        },
+        "evidence_sha256": {
+          "$ref": "common.schema.json#/$defs/Sha256"
+        },
+        "receipt_key_id": {
+          "$ref": "common.schema.json#/$defs/NonSecretRef"
+        },
+        "receipt_signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "run_at": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        }
+      },
+      "additionalProperties": false
+    },
+    "published_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "conformance": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "passed",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          }
+        },
+        "required": [
+          "conformance"
+        ]
+      },
+      "then": {
+        "properties": {
+          "conformance": {
+            "required": [
+              "receipt_ref",
+              "evidence_sha256",
+              "receipt_key_id",
+              "receipt_signature"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_level": {
+            "const": "executable"
+          }
+        },
+        "required": [
+          "evidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "operations": {
+            "properties": {
+              "execute": {
+                "const": "authorized"
+              }
+            }
+          },
+          "conformance": {
+            "properties": {
+              "environment": {
+                "const": "authorized_live"
+              },
+              "result": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "receipt_ref"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_level": {
+            "const": "closed_loop"
+          }
+        },
+        "required": [
+          "evidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "operations": {
+            "properties": {
+              "observe": {
+                "const": "authorized"
+              },
+              "execute": {
+                "const": "authorized"
+              },
+              "sample": {
+                "const": "authorized"
+              },
+              "rollback": {
+                "const": "authorized"
+              },
+              "health": {
+                "const": "authorized"
+              }
+            }
+          },
+          "conformance": {
+            "properties": {
+              "environment": {
+                "const": "authorized_live"
+              },
+              "result": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "receipt_ref"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_level": {
+            "const": "lab"
+          }
+        },
+        "required": [
+          "evidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "operations": {
+            "properties": {
+              "observe": {
+                "const": "lab"
+              },
+              "execute": {
+                "const": "lab"
+              },
+              "sample": {
+                "const": "lab"
+              },
+              "rollback": {
+                "const": "lab"
+              },
+              "health": {
+                "const": "lab"
+              }
+            }
+          },
+          "conformance": {
+            "oneOf": [
+              {
+                "properties": {
+                  "environment": {
+                    "const": "lab"
+                  },
+                  "result": {
+                    "enum": [
+                      "passed",
+                      "failed"
+                    ]
+                  }
+                },
+                "required": [
+                  "receipt_ref",
+                  "evidence_sha256",
+                  "receipt_key_id",
+                  "receipt_signature"
+                ]
+              },
+              {
+                "properties": {
+                  "environment": {
+                    "const": "not_run"
+                  },
+                  "result": {
+                    "const": "not_run"
+                  }
+                },
+                "not": {
+                  "anyOf": [
+                    { "required": ["receipt_ref"] },
+                    { "required": ["evidence_sha256"] },
+                    { "required": ["receipt_key_id"] },
+                    { "required": ["receipt_signature"] }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_level": {
+            "const": "guided"
+          }
+        },
+        "required": [
+          "evidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "operations": {
+            "properties": {
+              "execute": {
+                "const": "guided"
+              }
+            }
+          },
+          "conformance": {
+            "oneOf": [
+              {
+                "properties": {
+                  "environment": {
+                    "const": "guided"
+                  },
+                  "result": {
+                    "enum": [
+                      "passed",
+                      "failed"
+                    ]
+                  }
+                },
+                "required": [
+                  "receipt_ref",
+                  "evidence_sha256",
+                  "receipt_key_id",
+                  "receipt_signature"
+                ]
+              },
+              {
+                "properties": {
+                  "environment": {
+                    "const": "not_run"
+                  },
+                  "result": {
+                    "const": "not_run"
+                  }
+                },
+                "not": {
+                  "anyOf": [
+                    { "required": ["receipt_ref"] },
+                    { "required": ["evidence_sha256"] },
+                    { "required": ["receipt_key_id"] },
+                    { "required": ["receipt_signature"] }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_level": {
+            "const": "unavailable"
+          }
+        },
+        "required": [
+          "evidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "operations": {
+            "properties": {
+              "observe": {
+                "const": "unavailable"
+              },
+              "execute": {
+                "const": "unavailable"
+              },
+              "sample": {
+                "const": "unavailable"
+              },
+              "rollback": {
+                "const": "unavailable"
+              },
+              "health": {
+                "const": "unavailable"
+              }
+            }
+          },
+          "allowed_action_kinds": {
+            "maxItems": 0
+          },
+          "conformance": {
+            "properties": {
+              "environment": {
+                "const": "not_run"
+              },
+              "result": {
+                "const": "not_run"
+              }
+            },
+            "not": {
+              "anyOf": [
+                { "required": ["receipt_ref"] },
+                { "required": ["evidence_sha256"] },
+                { "required": ["receipt_key_id"] },
+                { "required": ["receipt_signature"] }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

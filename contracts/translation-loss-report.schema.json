@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/translation-loss-report.schema.json",
+  "title": "TranslationLossReport",
+  "description": "A truthful account of Passport intent that a destination cannot reproduce exactly.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "passport_id",
+    "passport_version",
+    "destination",
+    "capability_manifest_id",
+    "generated_at",
+    "losses",
+    "summary",
+    "fabricated_successes"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "report_id": {
+      "$ref": "common.schema.json#/$defs/ReportId"
+    },
+    "passport_id": {
+      "$ref": "common.schema.json#/$defs/PassportId"
+    },
+    "passport_version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "destination": {
+      "$ref": "common.schema.json#/$defs/AccountRef"
+    },
+    "capability_manifest_id": {
+      "$ref": "common.schema.json#/$defs/ManifestId"
+    },
+    "generated_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "losses": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": [
+          "loss_id",
+          "intent_ref",
+          "reason_code",
+          "severity",
+          "requested_intent",
+          "explanation",
+          "evidence_refs"
+        ],
+        "properties": {
+          "loss_id": {
+            "$ref": "common.schema.json#/$defs/NonSecretRef"
+          },
+          "intent_ref": {
+            "$ref": "common.schema.json#/$defs/NonSecretRef"
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "unsupported_capability",
+              "permission_unavailable",
+              "ambiguous_identity",
+              "nonportable_signal",
+              "platform_limit",
+              "policy_denied",
+              "temporarily_unavailable"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "informational",
+              "partial",
+              "blocking"
+            ]
+          },
+          "requested_intent": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          },
+          "nearest_supported_alternative": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "common.schema.json#/$defs/NonSecretRef"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_losses",
+        "informational",
+        "partial",
+        "blocking"
+      ],
+      "properties": {
+        "total_losses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "informational": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocking": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "fabricated_successes": {
+      "type": "integer",
+      "const": 0
+    }
+  },
+  "additionalProperties": false
+}

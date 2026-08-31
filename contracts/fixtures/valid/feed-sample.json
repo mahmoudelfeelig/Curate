@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0.0",
+  "sample_id": "sample_after01",
+  "observation_id": "obs_source001",
+  "account": {
+    "platform": "feed_passport_lab",
+    "account_ref": "lab.destination",
+    "display_label": "Blank destination account"
+  },
+  "captured_at": "2026-08-29T13:10:00Z",
+  "sampling_mode": "lab_fixture",
+  "seed": 20260829,
+  "item_count": 3,
+  "items": [
+    {
+      "item_ref": "item.game.001",
+      "creator_ref": "creator.studio_one",
+      "source_ref": "source.indie",
+      "topic_ids": [
+        "independent_games"
+      ],
+      "format": "long_text",
+      "rank": 1,
+      "normalized_score": 0.95,
+      "novel": false,
+      "outrage_signal": 0.02
+    },
+    {
+      "item_ref": "item.design.001",
+      "creator_ref": "creator.design_archive",
+      "source_ref": "source.design",
+      "topic_ids": [
+        "design"
+      ],
+      "format": "image",
+      "rank": 2,
+      "normalized_score": 0.87,
+      "novel": true,
+      "outrage_signal": 0
+    },
+    {
+      "item_ref": "item.local.001",
+      "creator_ref": "creator.local_press",
+      "source_ref": "source.local",
+      "topic_ids": [
+        "local_culture"
+      ],
+      "format": "link",
+      "rank": 3,
+      "normalized_score": 0.78,
+      "novel": true,
+      "outrage_signal": 0.04
+    }
+  ],
+  "topic_distribution": [
+    {
+      "topic_id": "independent_games",
+      "observed_percent": 40
+    },
+    {
+      "topic_id": "design",
+      "observed_percent": 35
+    },
+    {
+      "topic_id": "local_culture",
+      "observed_percent": 25
+    }
+  ],
+  "source_diversity": 1,
+  "serendipity_percent": 20,
+  "outrage_percent": 2,
+  "raw_private_content_included": false,
+  "credentials_included": false
+}

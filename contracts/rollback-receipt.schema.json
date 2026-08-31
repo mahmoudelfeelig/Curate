@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/rollback-receipt.schema.json",
+  "title": "RollbackReceipt",
+  "description": "The result of attempting to restore reversible actions named by prior ActionReceipts.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "rollback_id",
+    "passport_id",
+    "passport_version",
+    "account",
+    "status",
+    "started_at",
+    "completed_at",
+    "requested_receipt_ids",
+    "results",
+    "summary",
+    "platform_learning_rollback",
+    "learning_disclaimer",
+    "credentials_included"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "rollback_id": {
+      "$ref": "common.schema.json#/$defs/ReceiptId"
+    },
+    "passport_id": {
+      "$ref": "common.schema.json#/$defs/PassportId"
+    },
+    "passport_version": {
+      "$ref": "common.schema.json#/$defs/ResourceVersion"
+    },
+    "account": {
+      "$ref": "common.schema.json#/$defs/AccountRef"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "failed"
+      ]
+    },
+    "started_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "completed_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "requested_receipt_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/ReceiptId"
+      }
+    },
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": [
+          "action_receipt_id",
+          "outcome",
+          "residual_effects"
+        ],
+        "properties": {
+          "action_receipt_id": {
+            "$ref": "common.schema.json#/$defs/ReceiptId"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "restored",
+              "not_reversible",
+              "already_restored",
+              "failed"
+            ]
+          },
+          "restored_state": {
+            "$ref": "common.schema.json#/$defs/NormalizedState"
+          },
+          "residual_effects": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 500
+            }
+          },
+          "error": {
+            "$ref": "common.schema.json#/$defs/ErrorDetail"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "restored"
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            },
+            "then": {
+              "required": [
+                "restored_state"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "outcome": {
+                  "const": "failed"
+                }
+              },
+              "required": [
+                "outcome"
+              ]
+            },
+            "then": {
+              "required": [
+                "error"
+              ]
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "requested",
+        "restored",
+        "not_reversible",
+        "already_restored",
+        "failed"
+      ],
+      "properties": {
+        "requested": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "restored": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_reversible": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "already_restored": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "platform_learning_rollback": {
+      "type": "string",
+      "enum": [
+        "not_applicable",
+        "not_guaranteed",
+        "confirmed_by_platform"
+      ]
+    },
+    "learning_disclaimer": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 1000
+    },
+    "credentials_included": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "additionalProperties": false
+}

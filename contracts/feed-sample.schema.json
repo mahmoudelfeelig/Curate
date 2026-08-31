@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpassport.dev/contracts/feed-sample.schema.json",
+  "title": "FeedSample",
+  "description": "A normalized ranked sample used to evaluate a recommendation environment without persisting raw bodies.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "sample_id",
+    "account",
+    "captured_at",
+    "sampling_mode",
+    "seed",
+    "item_count",
+    "items",
+    "topic_distribution",
+    "source_diversity",
+    "serendipity_percent",
+    "outrage_percent",
+    "raw_private_content_included",
+    "credentials_included"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "common.schema.json#/$defs/SchemaVersion"
+    },
+    "sample_id": {
+      "$ref": "common.schema.json#/$defs/SampleId"
+    },
+    "observation_id": {
+      "$ref": "common.schema.json#/$defs/ObservationId"
+    },
+    "account": {
+      "$ref": "common.schema.json#/$defs/AccountRef"
+    },
+    "captured_at": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "sampling_mode": {
+      "type": "string",
+      "enum": [
+        "authorized_live",
+        "official_api",
+        "user_capture",
+        "lab_fixture"
+      ]
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "item_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": [
+          "item_ref",
+          "creator_ref",
+          "source_ref",
+          "topic_ids",
+          "format",
+          "rank",
+          "novel",
+          "outrage_signal"
+        ],
+        "properties": {
+          "item_ref": {
+            "$ref": "common.schema.json#/$defs/NonSecretRef"
+          },
+          "creator_ref": {
+            "$ref": "common.schema.json#/$defs/NonSecretRef"
+          },
+          "source_ref": {
+            "$ref": "common.schema.json#/$defs/NonSecretRef"
+          },
+          "topic_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "common.schema.json#/$defs/TopicId"
+            }
+          },
+          "format": {
+            "$ref": "common.schema.json#/$defs/ContentFormat"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "normalized_score": {
+            "$ref": "common.schema.json#/$defs/Ratio"
+          },
+          "novel": {
+            "type": "boolean"
+          },
+          "outrage_signal": {
+            "$ref": "common.schema.json#/$defs/Ratio"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "topic_distribution": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "$ref": "common.schema.json#/$defs/TopicShare"
+      }
+    },
+    "source_diversity": {
+      "$ref": "common.schema.json#/$defs/Ratio"
+    },
+    "serendipity_percent": {
+      "$ref": "common.schema.json#/$defs/Percentage"
+    },
+    "outrage_percent": {
+      "$ref": "common.schema.json#/$defs/Percentage"
+    },
+    "raw_private_content_included": {
+      "type": "boolean",
+      "const": false
+    },
+    "credentials_included": {
+      "type": "boolean",
+      "const": false
+    }
+  },
+  "additionalProperties": false
+}

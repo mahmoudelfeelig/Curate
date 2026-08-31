@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "manifest_id": "cap_lab2026a",
+  "manifest_version": 1,
+  "platform": "feed_passport_lab",
+  "adapter_name": "Deterministic Proof Lab",
+  "adapter_version": "1.0.0",
+  "evidence_level": "lab",
+  "operations": {
+    "observe": "lab",
+    "execute": "lab",
+    "sample": "lab",
+    "rollback": "lab",
+    "health": "lab"
+  },
+  "allowed_action_kinds": [
+    "follow_creator",
+    "unfollow_creator",
+    "mute_topic",
+    "unmute_topic",
+    "install_custom_feed",
+    "remove_custom_feed"
+  ],
+  "evidence_urls": [
+    "https://feedpassport.dev/evidence/conformance.lab.001"
+  ],
+  "limitations": [
+    "This manifest declares deterministic Lab behavior but includes no conformance run receipt or live-platform integration."
+  ],
+  "trust_boundary": {
+    "credentials_in_model_context": false,
+    "public_engagement_automation": false,
+    "raw_private_history_transfer": false
+  },
+  "conformance": {
+    "suite_version": "1.0.0",
+    "run_id": "conformance.not_run.lab.001",
+    "environment": "not_run",
+    "result": "not_run",
+    "run_at": "2026-08-29T12:30:00Z"
+  },
+  "published_at": "2026-08-29T12:31:00Z"
+}

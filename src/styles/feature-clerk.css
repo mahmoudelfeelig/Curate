@@ -1,0 +1,431 @@
+.feature-clerk-book,
+.feature-clerk-book .passport-page {
+  min-height: 990px;
+}
+
+.feature-clerk-heading .feature-clerk-star {
+  width: 25px;
+  height: 25px;
+  border: 2px solid var(--coral-dark);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--coral-dark);
+  font-size: 8px;
+  font-weight: 700;
+  transform: rotate(-8deg);
+}
+
+.clerk-readiness {
+  margin-bottom: 18px;
+  padding: 12px 13px;
+  border: 2px solid var(--green-dark);
+  background: rgba(171, 195, 168, 0.23);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  position: relative;
+  z-index: 1;
+}
+
+.clerk-readiness.clerk-stopped {
+  border-color: #95632d;
+  background: rgba(214, 174, 96, 0.2);
+}
+
+.clerk-readiness > div {
+  display: grid;
+  gap: 3px;
+}
+
+.clerk-readiness b {
+  font-family: "Libre Baskerville", Georgia, serif;
+  font-size: 11px;
+}
+
+.clerk-readiness p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.clerk-request-field {
+  position: relative;
+  z-index: 1;
+}
+
+.clerk-request-field textarea {
+  min-height: 178px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.clerk-request-field textarea:disabled {
+  background: rgba(215, 205, 181, 0.7);
+  color: #6a655c;
+  cursor: not-allowed;
+}
+
+.clerk-authority-ticket {
+  margin: 17px 0;
+  padding: 14px;
+  border: 2px dashed #75664e;
+  background: rgba(230, 213, 178, 0.43);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px 14px;
+  position: relative;
+  z-index: 1;
+  color: #4d473d;
+  font-size: 10px;
+}
+
+.clerk-authority-ticket b {
+  grid-column: span 1;
+  color: var(--coral-dark);
+  letter-spacing: 0.09em;
+}
+
+.clerk-authority-ticket span {
+  padding-left: 12px;
+  position: relative;
+  line-height: 1.35;
+}
+
+.clerk-authority-ticket span::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 5px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--green-dark);
+  transform: rotate(45deg);
+}
+
+.clerk-empty {
+  min-height: 410px;
+  padding: 55px 35px;
+  border: 3px double #857a66;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 13px;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: #686258;
+}
+
+.clerk-empty b {
+  font-family: "Libre Baskerville", Georgia, serif;
+  letter-spacing: 0.09em;
+}
+
+.clerk-empty p {
+  max-width: 390px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.clerk-proposal {
+  display: grid;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.clerk-proposal-title {
+  padding-bottom: 11px;
+  border-bottom: 3px double var(--blue-dark);
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.clerk-proposal-title > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.clerk-proposal-title span:not(.status-stamp) {
+  color: var(--coral-dark);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.clerk-proposal-title h3 {
+  margin: 0;
+  font-family: "Libre Baskerville", Georgia, serif;
+  font-size: 20px;
+}
+
+.clerk-proposal-fields {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid #887b64;
+}
+
+.clerk-proposal-fields > div {
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px dotted #887b64;
+  border-bottom: 1px dotted #887b64;
+  display: grid;
+  gap: 3px;
+}
+
+.clerk-proposal-fields dt,
+.clerk-capability dt,
+.clerk-proof-strip dt {
+  color: #776b5d;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.clerk-proposal-fields dd,
+.clerk-capability dd,
+.clerk-proof-strip dd {
+  margin: 0;
+  color: #292f37;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.clerk-proposal blockquote {
+  margin: 0;
+  padding: 11px 13px;
+  border-left: 4px solid var(--coral);
+  background: rgba(222, 195, 153, 0.25);
+  color: #4b453b;
+  font-family: "Libre Baskerville", Georgia, serif;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.clerk-capability {
+  padding: 12px;
+  border: 2px solid var(--blue-dark);
+  background: rgba(80, 111, 148, 0.08);
+  display: grid;
+  gap: 10px;
+}
+
+.clerk-capability-guided {
+  border-color: var(--purple);
+  background: rgba(102, 84, 134, 0.08);
+}
+
+.clerk-capability > header,
+.clerk-evidence > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.clerk-capability > header > div,
+.clerk-evidence > header > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.clerk-capability > header span:not(.status-stamp),
+.clerk-evidence > header span:not(.status-stamp) {
+  color: var(--coral-dark);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.clerk-capability > header b,
+.clerk-evidence > header b {
+  font-family: "Libre Baskerville", Georgia, serif;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.clerk-capability dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.clerk-capability dl > div {
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px dotted #8c806c;
+  display: grid;
+  gap: 3px;
+}
+
+.clerk-capability ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #5a5145;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.clerk-guided-boundary {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 4px solid var(--purple);
+  background: rgba(102, 84, 134, 0.12);
+  color: #4b405f;
+  font-size: 10px;
+}
+
+.clerk-evidence {
+  padding: 12px;
+  border: 3px double var(--green-dark);
+  background: rgba(198, 211, 185, 0.19);
+  display: grid;
+  gap: 10px;
+}
+
+.clerk-proof-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.clerk-proof-strip dl {
+  min-width: 0;
+  margin: 0;
+  padding: 7px;
+  border: 1px dotted #887b64;
+  display: grid;
+  gap: 3px;
+}
+
+.clerk-tool-trace {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.clerk-tool-trace li {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(70, 92, 67, 0.45);
+  background: rgba(245, 238, 217, 0.52);
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.clerk-tool-trace li > span:first-child {
+  color: var(--coral-dark);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.clerk-tool-trace code {
+  min-width: 0;
+  color: #304f3b;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.clerk-lock-ledger {
+  padding-top: 8px;
+  border-top: 1px dotted #746d5e;
+  display: grid;
+  gap: 4px;
+}
+
+.clerk-lock-ledger b {
+  color: var(--coral-dark);
+  font-size: 9px;
+  letter-spacing: 0.09em;
+}
+
+.clerk-lock-ledger p,
+.clerk-lock-ledger small {
+  margin: 0;
+  color: #5b554a;
+  font-size: 9px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.clerk-apply-boundary,
+.proposal-prefill-note {
+  padding: 11px 12px;
+  border: 2px dashed var(--blue-dark);
+  background: rgba(75, 106, 143, 0.09);
+  color: #384c63;
+}
+
+.clerk-apply-boundary b {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+}
+
+.clerk-apply-boundary p {
+  margin: 4px 0 0;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.proposal-prefill-note {
+  margin-bottom: 15px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  position: relative;
+  z-index: 1;
+}
+
+.proposal-prefill-note > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.proposal-prefill-note b,
+.proposal-prefill-note p,
+.proposal-prefill-note small {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.proposal-prefill-note b {
+  font-family: "Libre Baskerville", Georgia, serif;
+  font-size: 11px;
+}
+
+.proposal-prefill-note p,
+.proposal-prefill-note small {
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.exact-duration-choice {
+  grid-column: 1 / -1;
+}
+
+.clerk-rendered-explanation {
+  display: grid;
+  gap: 5px;
+}
+
+.clerk-rendered-explanation > span {
+  color: var(--blue-dark);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+

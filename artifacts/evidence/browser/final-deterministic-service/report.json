@@ -1,0 +1,125 @@
+{
+  "schema": "feed-passport/browser-service-qa/v2",
+  "generatedAt": "2026-08-31T23:47:30.183Z",
+  "baseUrl": "http://127.0.0.1:15175",
+  "apiUrl": "http://127.0.0.1:18002",
+  "externalNetworkAllowed": false,
+  "isolatedDatabase": true,
+  "expectedPlanner": "deterministic_only",
+  "events": {
+    "console": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "blockedRequests": []
+  },
+  "assertions": [
+    "Isolated Curator API healthy with autonomous scheduler active",
+    "Deterministic-only scenario kept model inference explicitly disabled",
+    "Browser remained in service-backed mode; no fixture fallback occurred",
+    "Feature Clerk stayed locked instead of impersonating AI with a disabled provider",
+    "Two isolated browser contexts recorded independent continuous consent slices before activation",
+    "A partner Passport revision advanced sync revision and refreshed only the effective projection",
+    "Revoking the first consent invalidated the companion and removed the effective partner field",
+    "Execution stayed disabled until one-time mission-bound consent",
+    "Persisted agent observed, planned, acted, re-observed, adapted or stopped, and recorded receipts",
+    "Separately approved reverse-order rollback restored and verified the pre-run local control state",
+    "Zero console errors, page errors, failed requests, or external network attempts"
+  ],
+  "screenshots": [
+    "artifacts/browser-qa/final-service-source-freeze-v1/service-companion-first-consent.png",
+    "artifacts/browser-qa/final-service-source-freeze-v1/service-companion-second-context-active.png",
+    "artifacts/browser-qa/final-service-source-freeze-v1/service-companion-refreshed-first-context.png",
+    "artifacts/browser-qa/final-service-source-freeze-v1/service-mission-consent.png",
+    "artifacts/browser-qa/final-service-source-freeze-v1/service-mission-terminal.png",
+    "artifacts/browser-qa/final-service-source-freeze-v1/service-mission-rolled-back.png"
+  ],
+  "featureClerk": {
+    "readiness": "disabled",
+    "proposalCreated": false
+  },
+  "companion": {
+    "id": "companion-ab52e1e3ac924dbea85b4de13a1622f5",
+    "statusAfterRevocation": "consent_invalidated",
+    "scope": "continuous",
+    "refreshOnRevision": true,
+    "initialSyncRevision": 1,
+    "refreshedSyncRevision": 2,
+    "distinctPrincipals": 2,
+    "distinctConsents": 2,
+    "firstSelectedSerendipity": true,
+    "secondSelectedSerendipity": false,
+    "secondSelectedFormats": true,
+    "twoBrowserContexts": true,
+    "externalAccounts": 0
+  },
+  "mission": {
+    "id": "mission-94045d426900499ab996c5c9ec8ae4c8",
+    "status": "rolled_back",
+    "terminalStatusBeforeRollback": "needs_human",
+    "terminalReasonBeforeRollback": "no_actionable_plan",
+    "iterations": 1,
+    "receipts": 1,
+    "rollbackStatus": "completed",
+    "rollbackFailureCount": 0,
+    "stateRestored": true,
+    "verificationMethod": "local_twin_control_state_sha256",
+    "planner": null
+  },
+  "networkEvidence": [
+    {
+      "method": "POST",
+      "path": "/api/shares",
+      "status": 201,
+      "principal": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports",
+      "status": 201,
+      "principal": "second"
+    },
+    {
+      "method": "POST",
+      "path": "/api/shares",
+      "status": 201,
+      "principal": "second"
+    },
+    {
+      "method": "POST",
+      "path": "/api/companions",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/shares/slice-10c4d51e695549fcb1264d6a9984c043/revoke",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/preview",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/mission-94045d426900499ab996c5c9ec8ae4c8/approval",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/mission-94045d426900499ab996c5c9ec8ae4c8/execute",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/mission-94045d426900499ab996c5c9ec8ae4c8/rollback/approval",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/mission-94045d426900499ab996c5c9ec8ae4c8/rollback",
+      "status": 200
+    }
+  ],
+  "passed": true,
+  "error": null
+}

@@ -1,0 +1,65 @@
+# Feed Passport demo script
+
+Target runtime: **4 minutes 45 seconds**. This leaves a 15-second buffer under the official five-minute limit.
+
+## Recording truth rules
+
+- Record the browser in visibly labeled **Local service** mode after freshly verifying the API integration. If it falls back to **Deterministic fixture**, stop or explicitly identify the fallback.
+- Confirm both Feature Clerk and Agent mission say the local model is ready. Feature Clerk must show one kind-specific three-tool trace, positive token/latency evidence, `proposal_only` authority, deterministic server-rendered text, and the bound capability where relevant. Applying its result must only pre-fill a desk. Agent mission must separately show deterministic admission and consent before execution. Do not replace either with a fixture or deterministic preview while narrating it as model inference.
+- Use the Agent mission desk with a `twin:<platform>` destination for the primary autonomy proof, and Feed Passport Lab for the established migration/overlay flows. A control twin is deterministic local state restricted to declared control semantics; it is not the named platform's ranker and never accesses an account. Never present an external guided plan as a completed social-platform action.
+- Confirm the Visa Ledger matches the runtime manifests before recording: every unprefixed external adapter in this checkout is guided. Feed Passport Lab and `twin:<platform>` adapters are closed loops only over local simulated state. If X reads **Guided + Lab**, explain that “Guided” is the external X plan and “Lab” is local/offline evidence, not a live X adapter.
+- Treat **Selected** or **Included** destination cards as local demo scenarios, never as authenticated external accounts. The WebMCP name `connectedDestinations` is also selection state.
+- If Creator Continuity is shown, call Studio A, Paper Lab, and City Zine canonical synthetic fixtures. The client maps each fixture deterministically into the canonical directory; Studio A and Paper Lab use Lab lookup aliases even though their cards display Bluesky as the source. No external profile was queried.
+- Describe AgentCore as an optional deterministic-command compatibility entrypoint. Broad free-text dispatch is disabled to prevent an implicit hosted/default provider. Do not claim deployment unless the entrant separately approved it and a deployment receipt exists.
+- If Phoenix is mentioned, distinguish the legacy replay harness from the current source-bound bridge. The current official tree is pinned and inspected, but no generator or ranking execution receipt exists; call it current reference-source provenance, not a Phoenix run or ranking Lab.
+- Keep the problem, intended user, and importance in the opening 25 seconds because judges may not watch twice.
+
+## Preflight
+
+- Run the repository's complete Node and Python suites, `npm run build`, the 14-scenario evaluation, and the live-service smoke against a fresh local API database. Copy the exact fresh totals into the recording notes only after the integrated run; do not reuse an older count.
+- Run `scripts/run-local-feature-planner-proof.py` twice. Each run must own and terminate its hash-verified loopback process, cover all three feature kinds with adversarial prose, show positive model usage, and prove every mutable SQLite table stayed unchanged.
+- Run `python -m evaluation --output artifacts/evaluations/feed-passport-evaluation.json` and keep the summary ready.
+- Verify the pinned model and runtime are present, then start `scripts/start-local-model.ps1`. It must report an offline, loopback-only server and must not be replaced with a paid or hosted endpoint.
+- Start the API with `$env:FEED_PASSPORT_MODEL_PROVIDER="llamacpp"`, `$env:FEED_PASSPORT_LLAMACPP_BASE_URL="http://127.0.0.1:8080"`, and `feed-passport-api --reload`. In a second PowerShell window set `$env:VITE_CURATOR_API_URL="http://127.0.0.1:8000"`, then run `npm run dev`.
+- Open `http://127.0.0.1:8000/health` and confirm it reports `"scheduler": "active"`; the standalone service polls persisted due jobs every five seconds by default.
+- Open `http://127.0.0.1:8000/api/agent/model/status` and confirm the provider is `llamacpp`, readiness is `ready`, endpoint scope is `loopback_only`, and paid/external model calls are false.
+- Open the browser overview, Feature Clerk, Agent mission, Migration Desk, Temporary Visa Office, Companion, Action Archive, `http://127.0.0.1:8000/api/demo`, and the architecture diagram in advance.
+- Reset the browser so no mission is open, the mission route uses a seeded `twin:<platform>` account-free scenario, and the Migration Desk starts with Feed Passport Lab as source, YouTube as destination, with no preview applied.
+
+## Timed recording
+
+| Time | Screen and operator action | Narration |
+| --- | --- | --- |
+| 0:00–0:25 | Start on the open-passport overview. Slowly point to the Feed Constitution and Destination Visas. | “When someone changes accounts or platforms, they lose years of recommendation tuning and must retrain a black box. Feed Passport is for that person. They describe the feed they want once, then an agent carries that intent forward without copying private history or pretending it owns a platform’s algorithm.” |
+| 0:25–0:45 | Open **Write the Constitution**. Highlight topic composition, serendipity, outrage cap, exclusions, and the no-public-engagement boundary. | “This is a Feed Passport: a versioned, inspectable policy. It stores what the person wants, not private history or proprietary model state. Public engagement automation is outside the allowed vocabulary.” |
+| 0:45–1:20 | Open **Feature Clerk** and ask for an isolated 48-hour research context. Show local readiness, the exact three-tool trace, tokens, latency, proposal-only authority, deterministic text source, and the typed duration/mode. Click **APPLY TO DETERMINISTIC DESK** and show that only the Temporary Visa form is pre-filled. | “This is genuine local Strands inference, not a guidance paragraph. The model classifies the request and chooses only typed, bounded fields. It cannot author a partner name, approval claim, execution claim, or capability story; deterministic code renders that text from the real server catalogue. Apply means pre-fill, not mutate: no overlay, consent, approval, or account action exists yet.” |
+| 1:20–2:20 | Open **Agent mission**. Choose a platform control twin, keep the seeded local scenario, and click **ASK LOCAL MODEL TO PLAN**. Show its exact trace and admitted/rejected controls, then approve once, execute, inspect the measured receipt, separately approve rollback, and point to the exact fingerprint match. | “A second request-bound agent narrows one declared local control surface. Deterministic code keeps actor, account scenario, budgets, thresholds, consent, execution, and rollback out of model control. The persisted runner acts only after approval, re-observes, measures, and stops with a reason. Rollback needs a separate approval and succeeds only when the local SHA-256 state matches exactly. This twin is not the named platform's ranker and made no external request.” |
+| 2:20–2:45 | Open **Migration Desk** with YouTube as the external destination. Preview translation; point to guided and unsupported rows plus declared loss. Do not apply the external plan. | “Real-platform capability is intentionally different. Documented controls become guided steps; missing controls remain explicit translation loss. The agent cannot turn unsupported into success, and no account is contacted.” |
+| 2:45–3:10 | Return to the pre-filled **Temporary Visa Office**, issue the isolated Lab Visa, then show revoke/expiry. | “The Feature Clerk prepared this exact 48-hour configuration but did not execute it. This explicit action creates an isolated Lab overlay. The scheduler expires persisted jobs, the base Passport stays unchanged, and revocation is idempotent.” |
+| 3:10–3:35 | Open **Companion**. Show the first principal's selected fields and consent, then the isolated second-principal step, active continuous sync, and revoke. | “Companion is not a one-checkbox pretend partnership. Two distinct local principals own distinct Passports and consent separately. Only selected policy fields blend; source revisions refresh the effective projection, while expiry or either revocation invalidates it.” |
+| 3:35–3:55 | Point to WebMCP status and the platform Visa Ledger. | “WebMCP exposes six site-owned inspection and preparation tools, with no approval or execution tool. Each major platform also has an honest guided planner and an account-free local control twin. Neither has credentials or live transport.” |
+| 3:55–4:20 | Show the architecture diagram and fresh model receipts. | “The architecture separates model proposals from deterministic authority. The Feature Clerk proof launches its own hash-verified offline process, resists identity and authority prose, and leaves every mutable table unchanged. The mission proof closes the local consent, measurement, receipt, and rollback loop. AgentCore remains an optional compatibility entrypoint, not a deployment claim.” |
+| 4:20–4:35 | Show the fresh terminal summaries and curated evidence headings. | “These are the exact final counts from this source revision: the complete Python and Node suites, fourteen evaluation scenarios, live-service smoke, responsive fixture flows, two-principal Companion service flow, and genuine local-model browser flow. They recorded zero paid model calls, external accounts, or browser-external requests. None is presented as a live-platform run.” |
+| 4:35–4:45 | Return to the overview and center the passport. | “Feed Passport gives an agent real work, but gives the human the authority: your feed, your rules, portable wherever platforms permit.” |
+
+## Recording inserts
+
+Use only fresh, legible evidence:
+
+- The browser placard and Agent mission desk showing **Local service**
+- Feature Clerk showing **Local model ready**, one exact three-tool proposal, positive token use, deterministic text source, bound capability, and proposal-only desk prefill
+- The Agent mission planner evidence showing **Local model ready**, exactly three completed tools, positive token use, proposal-only authority, and deterministic validation
+- A local mission showing its exact budgets, before/counterfactual/after measures, one-time consent, stop reason, receipt, and exact local-control-state fingerprint match after separately approved rollback
+- A migration preview with visible translation loss
+- A Feed Passport Lab receipt with its approval scope and rollback outcome
+- The `/health` response showing the autonomous scheduler active
+- The evaluation summary produced immediately before recording
+- The Mermaid architecture diagram from the README
+- The curated `artifacts/evidence/` reports after `manifest.json` binds their hashes to the tested source revision
+- Omit AgentCore deployment entirely unless the entrant separately approves it and supplies a real deployment URL plus invocation/trace receipt
+
+This script uses no external accounts. A seeded twin account is deterministic local state, not a dummy account on a social platform. Do not show a dummy social account, a selected destination card, or a twin run as proof that an external platform was accessed. A guided native step may be explained as a future human handoff, but it is not part of the current execution evidence.
+
+## Final upload check
+
+The video must be public on YouTube or Vimeo, no longer than five minutes, in English or accompanied by English translations, and accessible throughout judging. Verify audio, small text, URL visibility, and that no credentials, account identifiers, browser history, or private content appear in the recording.

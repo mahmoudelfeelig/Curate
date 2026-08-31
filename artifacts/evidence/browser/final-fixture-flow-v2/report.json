@@ -1,0 +1,35 @@
+{
+  "schema": "feed-passport/browser-flow-qa/v1",
+  "generatedAt": "2026-08-31T23:44:09.902Z",
+  "baseUrl": "http://127.0.0.1:15174",
+  "runName": "final-fixture-source-freeze-v1",
+  "fixtureOnly": true,
+  "externalNetworkAllowed": false,
+  "steps": [
+    "Passport issuance, constitution validation/save, and visa selection passed",
+    "Capture, non-mutating preview, translation-loss disclosure, and fixture apply passed",
+    "Temporary incognito mode plus visible two-person continuous consent, activation, sync revision, and revocation passed",
+    "Drift decision/correction/monitor, creator preservation, and template loading passed",
+    "Checkpoint creation/restore and strict export/import passed",
+    "Mission preview, consent, adaptive run, receipts, and verified rollback passed at 1440x1024",
+    "Mission preview, consent, adaptive run, receipts, and verified rollback passed at 390x844",
+    "Mission cancellation before execution passed",
+    "Keyboard traversal and visible focus indicators for hidden radios and file input passed",
+    "Six WebMCP preview/inspection tools registered with no approval, execution, or account authority"
+  ],
+  "screenshots": [
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/passport-editing-visas.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/migration-applied.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/companion-first-consent.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/companion-active.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/history-portability.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/mission-consent-desktop.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/mission-rolled-back-desktop.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/mission-consent-mobile.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/mission-rolled-back-mobile.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/mission-ledger-mobile-full.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/mission-phases-mobile.png",
+    "artifacts/browser-qa/final-fixture-source-freeze-v1/mission-terminal-mobile.png"
+  ],
+  "passed": true
+}

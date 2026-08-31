@@ -1,0 +1,510 @@
+{
+  "execution": {
+    "adapter": "feed_passport_lab plus ten local platform control twins",
+    "adapters": [
+      "feed_passport_lab",
+      "twin:bluesky",
+      "twin:facebook",
+      "twin:instagram",
+      "twin:linkedin",
+      "twin:reddit",
+      "twin:snapchat",
+      "twin:threads",
+      "twin:tiktok",
+      "twin:x",
+      "twin:youtube"
+    ],
+    "external_services": [],
+    "mission_adapter": "twin:x",
+    "mode": "deterministic_offline"
+  },
+  "generated_at": "2026-08-29T16:00:00+00:00",
+  "scenarios": [
+    {
+      "checks": {
+        "import_created_new_identity": true,
+        "import_created_new_owner": true,
+        "import_preserved_portable_intent": true,
+        "private_history_field_rejected": true,
+        "public_export_hides_local_identity": true,
+        "public_export_uses_versioned_contract": true,
+        "restore_created_new_version": true,
+        "restore_matches_checkpoint": true,
+        "revision_changed_policy": true
+      },
+      "id": "passport_portability_and_checkpoints",
+      "metrics": {
+        "checkpoint_version": 1,
+        "export_schema_version": "1.0.0",
+        "imported_version": 1,
+        "portable_intent_preserved": true,
+        "restored_version": 3,
+        "source_identifier_reused": false,
+        "source_owner_reused": false
+      },
+      "status": "passed",
+      "title": "Portable intent round-trips while checkpoints remain append-only"
+    },
+    {
+      "checks": {
+        "executed_feed_improves_topic_distance": true,
+        "execution_matches_preview": true,
+        "plan_contains_actions": true,
+        "preview_improves_topic_distance": true,
+        "preview_was_generated": true,
+        "receipt_was_issued": true
+      },
+      "id": "migration_quality",
+      "metrics": {
+        "after_topic_distance": 0.1,
+        "before_topic_distance": 0.375,
+        "executed_actions": 9,
+        "improvement": 0.275,
+        "planned_actions": 9,
+        "preview_topic_distance": 0.1
+      },
+      "status": "passed",
+      "title": "A migration measurably improves the destination feed"
+    },
+    {
+      "checks": {
+        "all_public_actions_denied": true,
+        "denials_use_public_engagement_policy": true,
+        "non_public_control_is_allowed": true
+      },
+      "id": "policy_safety",
+      "metrics": {
+        "allowed_control_action": "follow_creator",
+        "denial_codes": {
+          "comment": "public_engagement_forbidden",
+          "like": "public_engagement_forbidden",
+          "post": "public_engagement_forbidden",
+          "repost": "public_engagement_forbidden",
+          "send_message": "public_engagement_forbidden"
+        },
+        "denied_public_actions": [
+          "comment",
+          "like",
+          "post",
+          "repost",
+          "send_message"
+        ]
+      },
+      "status": "passed",
+      "title": "Public engagement stays forbidden even inside an approval envelope"
+    },
+    {
+      "checks": {
+        "all_executed_actions_restored": true,
+        "migration_changed_state": true,
+        "rollback_has_no_failures": true,
+        "state_restored_exactly": true
+      },
+      "id": "rollback_fidelity",
+      "metrics": {
+        "failed_actions": 0,
+        "receipt_actions": 9,
+        "restored_actions": 9,
+        "state_restored_exactly": true
+      },
+      "status": "passed",
+      "title": "A receipt restores the exact pre-migration Lab state"
+    },
+    {
+      "checks": {
+        "active_overlay_changes_effective_exclusions": true,
+        "active_overlay_changes_effective_topics": true,
+        "base_passport_unchanged": true,
+        "effective_passport_returns_to_base": true,
+        "expiry_processed_once": true,
+        "overlay_marked_expired": true
+      },
+      "id": "temporary_overlay_isolation_expiry",
+      "metrics": {
+        "active_topics": [
+          "design",
+          "indie",
+          "local",
+          "research",
+          "sports"
+        ],
+        "base_passport_unchanged": true,
+        "expiry_jobs_first_pass": 1,
+        "expiry_jobs_second_pass": 0,
+        "mode": "isolated"
+      },
+      "status": "passed",
+      "title": "An isolated temporary feed expires once without training the base Passport"
+    },
+    {
+      "checks": {
+        "effective_policy_returned_to_base": true,
+        "revocation_is_idempotent": true,
+        "revoke_closed_visa": true,
+        "scheduled_expiry_preserved_revocation": true,
+        "visa_changed_effective_policy": true
+      },
+      "id": "temporary_visa_early_revoke",
+      "metrics": {
+        "final_status": "revoked",
+        "mode": "isolated",
+        "scheduled_job_result": "revoked"
+      },
+      "status": "passed",
+      "title": "A temporary visa can close early without changing the base Passport"
+    },
+    {
+      "checks": {
+        "base_passport_remains_immutable": true,
+        "both_people_target_only_their_own_passport": true,
+        "continuous_scope_is_explicit": true,
+        "every_participant_has_consent": true,
+        "only_selected_creators_are_present": true,
+        "only_selected_exclusions_are_present": true,
+        "only_selected_formats_are_present": true,
+        "only_selected_topics_are_present": true,
+        "pair_and_counterparties_are_reciprocally_bound": true,
+        "private_fields_do_not_leak": true,
+        "revocation_removes_effective_blend": true,
+        "revoked_consent_blocks_new_blend": true,
+        "selected_revision_propagates": true
+      },
+      "id": "consent_scoped_companion_blending",
+      "metrics": {
+        "consent_receipts": 2,
+        "initial_sync_revision": 1,
+        "participants": [
+          "person-a",
+          "person-b"
+        ],
+        "private_fields_leaked": [],
+        "refreshed_sync_revision": 2,
+        "scope": "continuous",
+        "shared_creators": [
+          "radio-night",
+          "studio-a"
+        ],
+        "shared_exclusions": [
+          "ragebait"
+        ],
+        "shared_formats": [
+          "longform"
+        ],
+        "shared_topics": [
+          "design",
+          "indie",
+          "music"
+        ],
+        "status_after_revoke": "consent_invalidated"
+      },
+      "status": "passed",
+      "title": "Continuous companion blending uses two explicit, revocable consents"
+    },
+    {
+      "checks": {
+        "first_execution_changes_state": true,
+        "key_collision_is_rejected": true,
+        "replay_does_not_change_state": true,
+        "replay_returns_original_outcome": true
+      },
+      "id": "idempotency",
+      "metrics": {
+        "action_type": "set_topic_preference",
+        "collision_rejected": true,
+        "executions_recorded": 1,
+        "state_changed_on_replay": false
+      },
+      "status": "passed",
+      "title": "Replaying one approved action is exactly-once and collision-safe"
+    },
+    {
+      "checks": {
+        "capability_is_lab": true,
+        "evidence_is_labeled_as_lab": true,
+        "health_mode_is_deterministic_lab": true,
+        "lab_is_not_live_certified": true,
+        "public_engagement_is_not_executable": true,
+        "rollback_is_subset_of_execution": true
+      },
+      "id": "capability_honesty",
+      "metrics": {
+        "certified_at": null,
+        "declared_level": "lab",
+        "evidence_url": "docs://proof-lab",
+        "executable_controls": [
+          "add_to_list",
+          "create_custom_feed",
+          "follow_creator",
+          "hide_topic",
+          "install_custom_feed",
+          "mute_creator",
+          "mute_keyword",
+          "remove_from_list",
+          "set_serendipity",
+          "set_source_cap",
+          "set_topic_preference",
+          "show_topic",
+          "subscribe_creator",
+          "unfollow_creator",
+          "unmute_creator",
+          "unmute_keyword",
+          "unsubscribe_creator"
+        ],
+        "health_mode": "deterministic_lab"
+      },
+      "status": "passed",
+      "title": "The deterministic simulator declares Lab capability, never live access"
+    },
+    {
+      "checks": {
+        "all_declared_platforms_have_twins": true,
+        "every_plan_stays_within_manifest": true,
+        "every_rollback_is_failure_free": true,
+        "every_state_is_restored_exactly": true,
+        "every_twin_changes_local_state": true,
+        "every_twin_declares_simulation": true,
+        "every_twin_executes_a_control": true,
+        "every_twin_is_lab_only": true,
+        "exactly_ten_twins_evaluated": true,
+        "public_engagement_stays_forbidden": true
+      },
+      "id": "local_platform_twin_matrix",
+      "metrics": {
+        "external_accounts_used": 0,
+        "external_services_used": 0,
+        "platform_count": 10,
+        "platforms": [
+          "twin:bluesky",
+          "twin:facebook",
+          "twin:instagram",
+          "twin:linkedin",
+          "twin:reddit",
+          "twin:snapchat",
+          "twin:threads",
+          "twin:tiktok",
+          "twin:x",
+          "twin:youtube"
+        ],
+        "twins": {
+          "twin:bluesky": {
+            "capability_level": "lab",
+            "executed_actions": 5,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 5,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:facebook": {
+            "capability_level": "lab",
+            "executed_actions": 2,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 2,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:instagram": {
+            "capability_level": "lab",
+            "executed_actions": 3,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 3,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:linkedin": {
+            "capability_level": "lab",
+            "executed_actions": 2,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 2,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:reddit": {
+            "capability_level": "lab",
+            "executed_actions": 2,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 2,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:snapchat": {
+            "capability_level": "lab",
+            "executed_actions": 2,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 2,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:threads": {
+            "capability_level": "lab",
+            "executed_actions": 7,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 7,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:tiktok": {
+            "capability_level": "lab",
+            "executed_actions": 6,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 6,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:x": {
+            "capability_level": "lab",
+            "executed_actions": 3,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 3,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          },
+          "twin:youtube": {
+            "capability_level": "lab",
+            "executed_actions": 2,
+            "health_mode": "deterministic_local_control_twin",
+            "plan_within_manifest": true,
+            "planned_actions": 2,
+            "public_engagement_executable": false,
+            "rollback_failures": 0,
+            "simulation_disclosed": true,
+            "state_changed": true,
+            "state_restored_exactly": true
+          }
+        }
+      },
+      "status": "passed",
+      "title": "All ten platform control twins execute and roll back account-free"
+    },
+    {
+      "checks": {
+        "execution_approval_is_one_time": true,
+        "mission_changed_only_local_state": true,
+        "mission_issued_receipts": true,
+        "mission_reaches_a_terminal_state": true,
+        "observable_loop_is_recorded": true,
+        "per_iteration_budget_is_enforced": true,
+        "preview_requires_explicit_approval": true,
+        "rollback_completed": true,
+        "rollback_restored_exact_state": true,
+        "rollback_uses_reverse_receipt_order": true,
+        "total_action_budget_is_enforced": true
+      },
+      "id": "bounded_agent_mission_lifecycle",
+      "metrics": {
+        "environment": "local_platform_control_twin",
+        "external_accounts_used": 0,
+        "external_services_used": 0,
+        "iterations": 2,
+        "platform": "twin:x",
+        "receipt_count": 2,
+        "remaining_action_budget": 0,
+        "rollback_receipt_count": 2,
+        "state_restored_exactly": true,
+        "stop_reason": "budget_exhausted",
+        "submitted_actions": 2
+      },
+      "status": "passed",
+      "title": "A local agent mission observes, adapts, receipts, and rolls back"
+    },
+    {
+      "checks": {
+        "aligned_control_state_has_lower_distance": true,
+        "aligned_control_state_needs_no_action": true,
+        "degraded_feed_requires_decision": true,
+        "drift_has_corrective_plan": true
+      },
+      "id": "drift_detection",
+      "metrics": {
+        "aligned_status": "aligned",
+        "aligned_topic_distance": 0.1,
+        "corrective_actions": 9,
+        "drift_status": "decision_required",
+        "pre_migration_topic_distance": 0.375
+      },
+      "status": "passed",
+      "title": "Drift watch distinguishes a degraded feed from an aligned control state"
+    },
+    {
+      "checks": {
+        "action_allowlist_preserved": true,
+        "bounded_run_issued_receipt": true,
+        "emergency_stop_recorded": true,
+        "first_check_ran": true,
+        "next_job_did_not_run": true,
+        "run_count_recorded": true
+      },
+      "id": "scheduled_drift_monitor",
+      "metrics": {
+        "max_actions_per_run": 3,
+        "mode": "bounded_auto",
+        "receipt_id": "receipt-0011",
+        "run_count": 1,
+        "status_after_stop": "stopped"
+      },
+      "status": "passed",
+      "title": "A bounded monitor repairs only certified Lab controls and stops immediately"
+    },
+    {
+      "checks": {
+        "known_creator_resolves": true,
+        "known_missing_destination_is_not_found": true,
+        "unknown_creator_is_not_guessed": true,
+        "unknown_creator_requires_human_confirmation": true
+      },
+      "id": "creator_continuity",
+      "metrics": {
+        "missing_destination_status": "not_found",
+        "unknown_requires_human_confirmation": true,
+        "unknown_status": "unresolved",
+        "verified_confidence": 1.0,
+        "verified_destination": "@studio-a"
+      },
+      "status": "passed",
+      "title": "Verified cross-platform identity is preserved without guessing unknown creators"
+    }
+  ],
+  "schema_version": "1.0",
+  "suite_id": "feed-passport-deterministic-acceptance-v1",
+  "summary": {
+    "failed": 0,
+    "passed": 14,
+    "status": "passed",
+    "total": 14
+  }
+}

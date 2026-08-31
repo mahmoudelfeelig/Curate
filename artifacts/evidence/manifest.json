@@ -1,0 +1,247 @@
+{
+  "schema": "feed-passport/evidence-manifest/v3",
+  "generated_at": "2026-08-31T23:55:24.9746458Z",
+  "source": {
+    "branch": "main",
+    "commit_count": 20,
+    "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
+    "snapshot_file_count": 217,
+    "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
+    "snapshot_sha256": "cd0851b55b3c2dfc45ed4d29dfd6164c3216a8c19a8f1a1fbdec4d2d91971dfd",
+    "byte_source": "canonical Git index blobs",
+    "checkout_line_ending_independent": true,
+    "tracked_tree_clean_required": true,
+    "history_rewritten_to_logical_commits": true
+  },
+  "environment": {
+    "operating_system": "win32-x64",
+    "node": "v24.11.0",
+    "python": "3.13.13",
+    "browser": "Google Chrome 151.0.7922.175",
+    "python_dependency_lock": {
+      "path": "services/curator/constraints-py313-win.txt",
+      "sha256": "14254b8c35fefcbefca920df5cc10d7aaa9384f5b4f0617ef9371ec8ef164da4",
+      "platform": "win32-x64",
+      "build_backend": "setuptools==84.0.0"
+    },
+    "inference_scope": "loopback_only"
+  },
+  "external_state": {
+    "real_social_accounts_used": 0,
+    "dummy_social_accounts_used": 0,
+    "external_model_calls": 0,
+    "paid_model_calls": 0,
+    "competition_credits_used": 0,
+    "cloud_deployments": 0,
+    "git_remotes_configured": 0,
+    "git_pushes": 0
+  },
+  "model_provenance": {
+    "repository": "Qwen/Qwen3-1.7B-GGUF",
+    "revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
+    "file": "Qwen3-1.7B-Q8_0.gguf",
+    "bytes": 1834426016,
+    "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+    "license": "Apache-2.0"
+  },
+  "runtime_provenance": {
+    "name": "llama.cpp",
+    "release": "b8184",
+    "commit": "319146247e643695f94a558e8ae686277dd4f8da",
+    "archive_sha256": "2d60828f4b90bdd1e93698837c163b54f40e7d682e8018dc40f52eb444c3cceb",
+    "server_sha256": "94254e58f4f73cdf978dcfaa04007eabc38337c839bc674b54161b5ba3cffd3b",
+    "offline": true,
+    "listen_host": "127.0.0.1"
+  },
+  "verification": [
+    {
+      "gate": "python",
+      "command": ".\\services\\curator\\.venv\\Scripts\\python.exe -m pytest services/curator/tests -o addopts= -q -p no:cacheprovider",
+      "status": "passed",
+      "tests": 198,
+      "subtests": 146,
+      "warnings": 2,
+      "warning_scope": "upstream dependency deprecations"
+    },
+    {
+      "gate": "node",
+      "command": "node --test tests/assets.test.mjs tests/contracts.test.mjs tests/sites-worker.test.mjs tests/ui-fixtures.test.mjs tests/webmcp.test.mjs src/apiClient.test.mjs src/webmcp.test.mjs src/features/featureClerk.test.mjs",
+      "status": "passed",
+      "tests": 37
+    },
+    {
+      "gate": "production_build",
+      "command": "npm run build",
+      "status": "passed",
+      "transformed_modules": 42,
+      "sites_artifacts_prepared": true
+    },
+    {
+      "gate": "python_compile",
+      "command": ".\\services\\curator\\.venv\\Scripts\\python.exe -m compileall -q services/curator/src evaluation",
+      "status": "passed"
+    },
+    {
+      "gate": "evidence_manifest",
+      "command": "npm run test:evidence",
+      "status": "passed",
+      "artifacts": 13,
+      "source_files": 217,
+      "tracked_tree_clean": true,
+      "byte_source": "git-index-blobs",
+      "commit_count": 20
+    },
+    {
+      "gate": "deterministic_evaluation",
+      "command": ".\\services\\curator\\.venv\\Scripts\\python.exe -m evaluation --output artifacts/evaluations/feed-passport-evaluation.json",
+      "status": "passed",
+      "scenarios": 14,
+      "external_accounts": 0,
+      "external_services": 0
+    },
+    {
+      "gate": "live_service_smoke",
+      "command": "npm run test:live-service",
+      "status": "passed",
+      "checks": 14,
+      "service": "owned_disposable_loopback_process",
+      "database": "owned_disposable_sqlite_directory",
+      "scheduler": "active",
+      "model_provider": "disabled",
+      "owned_process_terminated": true,
+      "owned_database_removed": true
+    },
+    {
+      "gate": "feature_clerk_cold_start_proofs",
+      "command": "scripts/run-local-feature-planner-proof.py (two independent runs)",
+      "status": "passed",
+      "runs": 2,
+      "feature_kinds": 3,
+      "tokens_per_run": 16706,
+      "semantic_output_sha256": "527c7922a5ca68b392764cba0cb62548895b03f8ce9f692e0310821e10310c78",
+      "all_mutable_tables_unchanged": true,
+      "owned_runtimes_terminated": true
+    },
+    {
+      "gate": "genuine_local_mission_model",
+      "command": "scripts/run-local-model-proof.py against the pinned loopback runtime",
+      "status": "passed",
+      "assertions": 10,
+      "tokens": 3527,
+      "tool_sequence": [
+        "inspect_selected_passport",
+        "inspect_selected_control_surface",
+        "submit_mission_proposal"
+      ],
+      "consent_still_required": true
+    },
+    {
+      "gate": "passive_browser",
+      "recorded_run": "final-passive-source-freeze-v1",
+      "status": "passed",
+      "viewports": 5,
+      "rendered_states": 50,
+      "violations": 0,
+      "external_browser_requests": 0
+    },
+    {
+      "gate": "fixture_browser_journey",
+      "recorded_run": "final-fixture-source-freeze-v1",
+      "status": "passed",
+      "steps": 10,
+      "screenshots": 12,
+      "external_browser_requests": 0
+    },
+    {
+      "gate": "deterministic_service_browser",
+      "recorded_run": "final-service-source-freeze-v1",
+      "status": "passed",
+      "assertions": 11,
+      "two_browser_contexts": true,
+      "feature_clerk_readiness": "disabled",
+      "state_restored": true,
+      "external_browser_requests": 0
+    },
+    {
+      "gate": "local_model_service_browser",
+      "recorded_run": "final-model-source-freeze-v1",
+      "status": "passed",
+      "assertions": 12,
+      "feature_clerk_tokens": 5491,
+      "mission_planner_tokens": 3521,
+      "feature_clerk_apply_api_requests": 0,
+      "feature_clerk_stable_state_unchanged": true,
+      "state_restored": true,
+      "external_browser_requests": 0,
+      "paid_model_calls": 0,
+      "external_model_calls": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/evidence/browser/final-deterministic-service/report.json",
+      "bytes": 4290,
+      "sha256": "5d7ba46e5ede3c5f45196ddcd7a197bb2c0afe248533d2e07aedc0c46b1bc6bd"
+    },
+    {
+      "path": "artifacts/evidence/browser/final-fixture-flow-v2/report.json",
+      "bytes": 2236,
+      "sha256": "678c623561809b247eaf14346bb9c1856be4d95e49b2468400a144208d218753"
+    },
+    {
+      "path": "artifacts/evidence/browser/final-official-b8184-model/report.json",
+      "bytes": 6010,
+      "sha256": "5776b3509d98bcf6bff9bc52f53c62ded799776393b1fb792759554f5d6848ab"
+    },
+    {
+      "path": "artifacts/evidence/browser/final-passive-v2/report.json",
+      "bytes": 662121,
+      "sha256": "22e07a9d50aa5fa3c77e3feac24e754fc7f059f32d83457b64041bc0e766d739"
+    },
+    {
+      "path": "artifacts/evidence/evaluations/feed-passport-evaluation.json",
+      "bytes": 16970,
+      "sha256": "1ca756ac861088c94b8acec46b99920ac23712a089ba41d92c66a05cd6c8d827"
+    },
+    {
+      "path": "artifacts/evidence/evaluations/local-feature-planner-proof-repeat.json",
+      "bytes": 12887,
+      "sha256": "4aef493cd4f224abf4176917789364057e54a44fddbacc1a39766da51f6fbb80"
+    },
+    {
+      "path": "artifacts/evidence/evaluations/local-feature-planner-proof.json",
+      "bytes": 12885,
+      "sha256": "9a4df419f0de4d38f0a1602c6850ed474a3894367cf614881459c051866b8a3f"
+    },
+    {
+      "path": "artifacts/evidence/evaluations/local-model-agent-proof.json",
+      "bytes": 4664,
+      "sha256": "f8e3475645e215a3ad564c57caf47ac0a769cc461a4a7d19b239ec3ecd2e1136"
+    },
+    {
+      "path": "artifacts/evidence/screenshots/agent-390x844.png",
+      "bytes": 305957,
+      "sha256": "fa3d3d34e226c38100e3a7e9fe4f8af8b378baaf11b86a9d768dab39143ab051"
+    },
+    {
+      "path": "artifacts/evidence/screenshots/feature-clerk-proposal.png",
+      "bytes": 996408,
+      "sha256": "afef6aa878e9b37b3fb2c65acc30df1b55957147c77a1f76643d4fa7aa125b5f"
+    },
+    {
+      "path": "artifacts/evidence/screenshots/model-consent.png",
+      "bytes": 1147434,
+      "sha256": "a013f3d9385d8ca5420bef1d46a2c0b12282d9dcf52aa346fea01f1cef64c6ac"
+    },
+    {
+      "path": "artifacts/evidence/screenshots/model-rolled-back.png",
+      "bytes": 961560,
+      "sha256": "46fdbc30a87bd9794611e916307355e414131012c75fe31c271be1c6332f7b5b"
+    },
+    {
+      "path": "artifacts/evidence/screenshots/overview-1440x1024.png",
+      "bytes": 1043543,
+      "sha256": "2ccbbf13677b016362d068a9ee3c024bab30484f4e32c57aa0d6fbfffca357ce"
+    }
+  ]
+}

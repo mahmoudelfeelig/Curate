@@ -1,0 +1,180 @@
+{
+  "schema": "feed-passport/browser-service-qa/v2",
+  "generatedAt": "2026-08-31T23:49:05.322Z",
+  "baseUrl": "http://127.0.0.1:15176",
+  "apiUrl": "http://127.0.0.1:18003",
+  "externalNetworkAllowed": false,
+  "isolatedDatabase": true,
+  "expectedPlanner": "local_model",
+  "events": {
+    "console": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "blockedRequests": []
+  },
+  "assertions": [
+    "Isolated Curator API healthy with autonomous scheduler active",
+    "Loopback-only local model planner reported ready with no external provider fallback",
+    "Browser remained in service-backed mode; no fixture fallback occurred",
+    "Feature Clerk used genuine typed inference, deterministic display text, and proposal-only prefill with unchanged service state",
+    "Two isolated browser contexts recorded independent continuous consent slices before activation",
+    "A partner Passport revision advanced sync revision and refreshed only the effective projection",
+    "Revoking the first consent invalidated the companion and removed the effective partner field",
+    "Strands local model inspected bounded context, proposed a narrowed mission, and stopped awaiting consent",
+    "Execution stayed disabled until one-time mission-bound consent",
+    "Persisted agent observed, planned, acted, re-observed, adapted or stopped, and recorded receipts",
+    "Separately approved reverse-order rollback restored and verified the pre-run local control state",
+    "Zero console errors, page errors, failed requests, or external network attempts"
+  ],
+  "screenshots": [
+    "artifacts/browser-qa/final-model-source-freeze-v1/service-feature-clerk-proposal.png",
+    "artifacts/browser-qa/final-model-source-freeze-v1/service-feature-clerk-prefill-only.png",
+    "artifacts/browser-qa/final-model-source-freeze-v1/service-companion-first-consent.png",
+    "artifacts/browser-qa/final-model-source-freeze-v1/service-companion-second-context-active.png",
+    "artifacts/browser-qa/final-model-source-freeze-v1/service-companion-refreshed-first-context.png",
+    "artifacts/browser-qa/final-model-source-freeze-v1/service-mission-consent.png",
+    "artifacts/browser-qa/final-model-source-freeze-v1/service-mission-terminal.png",
+    "artifacts/browser-qa/final-model-source-freeze-v1/service-mission-rolled-back.png"
+  ],
+  "featureClerk": {
+    "kind": "temporary_visa",
+    "durationMinutes": 2880,
+    "mode": "isolated",
+    "toolNames": [
+      "inspect_selected_passport",
+      "inspect_safe_feature_catalog",
+      "submit_temporary_visa_proposal"
+    ],
+    "totalTokens": 5491,
+    "authority": "proposal_only",
+    "proposalTextSource": "deterministic_server_templates",
+    "applyApiRequests": [],
+    "stateUnchanged": true
+  },
+  "companion": {
+    "id": "companion-eb8d7e5151824d818a6dec2860789763",
+    "statusAfterRevocation": "consent_invalidated",
+    "scope": "continuous",
+    "refreshOnRevision": true,
+    "initialSyncRevision": 1,
+    "refreshedSyncRevision": 2,
+    "distinctPrincipals": 2,
+    "distinctConsents": 2,
+    "firstSelectedSerendipity": true,
+    "secondSelectedSerendipity": false,
+    "secondSelectedFormats": true,
+    "twoBrowserContexts": true,
+    "externalAccounts": 0
+  },
+  "mission": {
+    "id": "mission-85dd1cdcbcf742cfaaf7f709322af49a",
+    "status": "rolled_back",
+    "terminalStatusBeforeRollback": "needs_human",
+    "terminalReasonBeforeRollback": "no_actionable_plan",
+    "iterations": 1,
+    "receipts": 1,
+    "rollbackStatus": "completed",
+    "rollbackFailureCount": 0,
+    "stateRestored": true,
+    "verificationMethod": "local_twin_control_state_sha256",
+    "planner": {
+      "provider": "llamacpp",
+      "modelId": "feed-passport-local-qwen3-1.7b",
+      "endpointScope": "loopback_only",
+      "externalModelCalls": false,
+      "paidModelCalls": false,
+      "durationMs": 2821,
+      "tokenUsage": {
+        "input_tokens": 3257,
+        "output_tokens": 264,
+        "total_tokens": 3521
+      },
+      "tools": [
+        "inspect_selected_passport",
+        "inspect_selected_control_surface",
+        "submit_mission_proposal"
+      ],
+      "requestedActionTypes": [
+        "hide_topic",
+        "mute_creator",
+        "show_topic",
+        "subscribe_creator",
+        "unmute_creator",
+        "unsubscribe_creator"
+      ],
+      "admittedActionTypes": [
+        "mute_creator",
+        "subscribe_creator"
+      ],
+      "rejectedActionTypes": [
+        "hide_topic",
+        "show_topic",
+        "unmute_creator",
+        "unsubscribe_creator"
+      ],
+      "deterministicValidation": "passed"
+    }
+  },
+  "networkEvidence": [
+    {
+      "method": "POST",
+      "path": "/api/agent/features/plan",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/shares",
+      "status": 201,
+      "principal": "first"
+    },
+    {
+      "method": "POST",
+      "path": "/api/passports",
+      "status": 201,
+      "principal": "second"
+    },
+    {
+      "method": "POST",
+      "path": "/api/shares",
+      "status": 201,
+      "principal": "second"
+    },
+    {
+      "method": "POST",
+      "path": "/api/companions",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/shares/slice-4676df8bc87746ff9a067bbf03c2a778/revoke",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/plan",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/mission-85dd1cdcbcf742cfaaf7f709322af49a/approval",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/mission-85dd1cdcbcf742cfaaf7f709322af49a/execute",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/mission-85dd1cdcbcf742cfaaf7f709322af49a/rollback/approval",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/missions/mission-85dd1cdcbcf742cfaaf7f709322af49a/rollback",
+      "status": 200
+    }
+  ],
+  "passed": true,
+  "error": null
+}

@@ -1,0 +1,157 @@
+# Feed Passport architecture
+
+## Structure
+
+```text
+React client and WebMCP surface
+        |
+        | JSON over HTTP
+        v
+FastAPI application boundary
+        |
+        +--> application services --> pure domain policy
+        |           |                       |
+        |           |                       +--> Passport, overlay, blend, envelope,
+        |           |                            receipt, evaluation, checkpoint
+        |           |
+        |           +--> persisted mission runner --> observe / evaluate / plan /
+        |           |                              act / re-observe / adapt / stop
+        |           +--> request-bound Strands planner --> exactly three proposal-only tools
+        |           +--> independent evaluator
+        |
+        +--> platform port --> deterministic Lab / 10 twin:<platform> simulators /
+        |                    10 credential-free guided platform planners
+        |
+        +--> SQLite event, projection, and scheduled-job store
+        +--> FastAPI lifespan --> autonomous DueJobRunner --> application due jobs
+        +--> HMAC one-time consent broker
+        +--> deterministic-command-only AgentCore Runtime seam
+```
+
+## Module boundaries
+
+`domain`
+: Pure models and deterministic functions. It owns validation, composition normalization, overlays, consent state, blending, action policy, budgets, expiry, evaluation thresholds, idempotency, and rollback invariants.
+
+`application`
+: Use cases and transactions. It coordinates repositories, adapters, clocks, the persisted mission runner, the planner, and the evaluator without importing concrete infrastructure.
+
+`agent`
+: Two request-bound Strands protocols with separate typed outputs. The feature clerk proposes one migration, temporary-visa, or companion configuration from a server-derived safe catalogue. The local-twin mission planner proposes a subset of reversible private controls. Each request creates a fresh agent and enforces its own exact three-tool sequence; neither protocol can authorize, create partner consent, execute, approve, or roll back.
+
+`ports`
+: The stable platform adapter protocol used by the Lab and every capability-aware destination compiler.
+
+`adapters`
+: Concrete platform implementations. Each publishes a capability manifest and passes the same conformance suite. Feed Passport Lab is the reference closed loop. Ten `twin:<platform>` adapters also close the control loop over isolated deterministic state while limiting actions to each profile's declared control semantics and explicitly denying ranking fidelity. Every unprefixed external adapter remains a credential-free guided planner with no live transport. Runtime construction injects one declared deterministic dummy snapshot per external platform for capture tests; arbitrary account identifiers remain unobserved.
+
+`infrastructure`
+: SQLite event/projection/scheduled-job store and strict serialization helpers. It contains no social-platform credentials or HTTP clients.
+
+`api`
+: FastAPI routes with strict Pydantic request models. API models are mapped from domain objects rather than becoming the domain. The local demo accepts `actor_id` as a validated test principal; it does not authenticate that identity. Any network-exposed deployment must derive actor identity from authenticated middleware and ignore caller-supplied identity fields before using the owner and consent checks as an authorization boundary.
+
+`runtime`
+: Service bootstrap, the optional AgentCore entrypoint, and `DueJobRunner`. The app-owned FastAPI lifespan starts and stops the runner; it does not create an external-platform session.
+
+## Stable core contract
+
+Every platform implements:
+
+```text
+capabilities(account) -> PlatformCapabilityManifest
+observe(account, scope) -> AccountObservation
+compile(passport, observation) -> TranslationPlan
+execute(account, approved_action) -> ActionOutcome
+sample(account, sample_spec) -> FeedSample
+rollback(account, receipt) -> RollbackOutcome
+health() -> AdapterHealth
+```
+
+Every unsupported action produces a typed capability failure. Guided external adapters never report executed success. A `twin:<platform>` adapter may report success only for an explicitly labeled deterministic local mutation, never as external-platform success.
+
+Destination cards marked “Selected” or “Included” are local demo state. They are not part of this adapter contract and do not mean OAuth, an authenticated social account, or live conformance exists. The WebMCP property `connectedDestinations` is a legacy field name for those itinerary selections, not connectivity evidence.
+
+## Closed-loop Lab migration
+
+The following sequence is implemented against deterministic Feed Passport Lab. An external adapter currently stops after capability-aware compilation with a guided handoff or translation loss; it does not execute, sample, or verify a social account.
+
+```text
+observe source
+  -> infer or edit Passport
+  -> observe destination
+  -> compile translation plan
+  -> deterministic policy validation
+  -> human approval envelope
+  -> idempotent execution
+  -> sample destination
+  -> independent evaluation
+  -> adapt within remaining budget or stop
+  -> issue receipt and checkpoint
+```
+
+The general feed evaluator records `target_reached`, `budget_exhausted`, `capability_unavailable`, `low_confidence`, `permission_required`, `adapter_failure`, `cancelled`, `human_judgment`, or `continue`. The persisted local-twin mission runner has its own terminal reasons: `acceptance_reached`, `budget_exhausted`, `max_iterations_reached`, `minimum_improvement_not_met`, `no_actionable_plan`, `policy_blocked`, `capability_unavailable`, `adapter_failure`, or `cancelled`. These are separate from a model-runtime stop reason.
+
+## Persisted account-free agent mission
+
+The primary autonomy proof runs only against a registered `twin:<platform>` adapter. Preview observes a seeded local scenario, evaluates it against the active Passport and acceptance thresholds, compiles an exact initial reversible plan, records the approved action families plus hard total/per-pass/iteration budgets, and stops for consent without mutating state. A one-time token bound to the local demo principal and complete preview scope allows the runner to execute a pass. Immediately before mutation, it persists only a namespaced SHA-256 fingerprint of the deterministic local control state. It then re-observes, measures, and may recompile targets only inside the same Passport version, approved action families, and remaining budgets before stopping with a reason and receipts. Rollback requires a different one-time token, applies receipts in reverse order, recomputes the local control-state fingerprint with a constant-time digest comparison, and records re-observation as separate behavioral evidence. A mismatch returns `rollback_partial`. No raw twin state is stored in the fingerprint proof. These owner and token checks are deterministic local boundaries, not production authentication.
+
+The canonical model-assisted planning route creates a fresh Strands agent for that request. Its entire tool surface is `inspect_selected_passport`, `inspect_selected_control_surface`, and `submit_mission_proposal`, and the server requires that exact sequence exactly once. The first inspection returns preference intent without owner identity, credentials, or raw history. The second returns the server-selected twin, available reversible control families, and locked budgets and thresholds. The third can submit only a refined goal, a concise rationale, a subset of those control families, focus order, capability notes, and stop conditions. There are no approval, execution, cancellation, credential, account-selection, or rollback tools in model context.
+
+After the proposal is accepted, the deterministic mission runner recompiles and intersects the proposal with the selected Passport, twin capabilities, any caller allowlist, fixed budgets, and acceptance thresholds. The runner owns identity, destination, scenario, consent, execution, evaluation, receipts, and rollback. Planner evidence is display-only and does not enter the approval scope. A model error, timeout, extra tool, reordered tool, duplicate submission, unexpected field, unsupported action family, non-twin destination, or non-loopback provider fails closed before mutation.
+
+## Top-level feature proposal clerk
+
+`POST /api/agent/features/plan` accepts only a local test principal, an already selected Passport ID, and untrusted request prose. The server resolves ownership before model invocation and derives a non-identifying catalogue from registered non-twin destination manifests plus the product's bounded temporary and companion choices. The model must call `inspect_selected_passport`, `inspect_safe_feature_catalog`, and exactly one matching typed submission tool: `submit_migration_proposal`, `submit_temporary_visa_proposal`, or `submit_companion_sync_proposal`.
+
+The model-authored tool payload contains categorical and numeric choices only. Migration may select one catalogued destination. Temporary Visa may select a bounded duration and isolated or reversible-Lab mode. Companion may select field categories, strategy, 10–50 percent companion input, and a bounded expiry. Model-authored prose never crosses the API boundary: deterministic server templates create the displayed goal, purpose, and rationale, and migration embeds the exact server-selected `{destination_id, evidence_level, execute_mode, limitations}` capability record. The agent therefore cannot name a partner, invent capability or ranking-fidelity claims, create a slice or overlay, approve, execute, or roll back. The endpoint creates no event or projection; accepting a proposal in the browser only pre-fills the corresponding deterministic desk.
+
+## Continuous companion projection
+
+A continuous Companion requires exactly two active consent slices from distinct owners and distinct source Passports. Each local test principal selects fields, opts into revision refresh, and may target only a Passport they own. The blend stores source versions, selected-field metadata, consent references, and a monotonic sync revision. Revising either source refreshes its slice and recomputes the effective projection; the base Passports are never rewritten. Either consent's revocation or expiry invalidates the Companion immediately. Migration preview fingerprints the effective policy, so a stale plan cannot execute even if integer versions happen to collide after a blend expires. These local owner checks demonstrate protocol structure; caller-supplied principals are not production authentication.
+
+The only supported model provider is an explicitly enabled llama.cpp server over plain HTTP on the loopback interface; otherwise the provider is disabled. It inherits no proxy configuration and has no paid or external fallback. The proof harness hash-verifies and launches the pinned Apache-2.0 `Qwen/Qwen3-1.7B-GGUF` model with the pinned llama.cpp `b8184` runtime on a reserved loopback port, probes that owned process, records process and log evidence, and terminates only that child. Both proposal protocols complete genuine Strands cycles and exact three-tool sequences while deterministic code retains authority. The Strands stop reason `limit_turns` is the expected end of a three-turn proposal protocol, not an execution outcome and not evidence that a mission stopped on a budget.
+
+## Persistence model
+
+The local SQLite store contains an append-only event table plus rebuildable projections. Each event records aggregate ID, version, event type, public payload, trace ID, actor, and timestamp. Secrets and raw private feed bodies are never event payloads.
+
+`feed-passport/v1` is a separate strict public codec rather than a dump of the internal dataclass. Export pseudonymizes local Passport and owner identifiers and omits internal event/history IDs. Import validates the published JSON schema, creates a new local Passport identity owned by the importing actor, and preserves every supported policy field. Provenance carries an issuer-specific key ID and is restored only when an HMAC over the complete exported document verifies through the deployment trust store. Unsigned provenance or provenance from an unknown issuer is stripped and reported while the non-provenance policy still imports; an invalid hash or signature from a trusted issuer rejects the document.
+
+Platform conformance is fail-closed. Runtime listings remain `not_run` unless a structured receipt and its canonical run evidence are supplied together. The serializer validates result/check consistency, hashes the evidence itself, verifies an HMAC binding platform, suite, environment, result, timestamp, evidence hash, and key, then confirms that record matches the manifest. No current external adapter has such an authorized live receipt.
+
+Mutable projections provide current Passports, platform manifests, migrations, visas, companion sessions, alerts, receipts, templates, and evaluation summaries. Optimistic versions prevent concurrent rollback or expiry from applying twice.
+
+## Autonomous due-job runtime
+
+An app-owned FastAPI instance starts `DueJobRunner` in its lifespan and cancels and awaits that task during shutdown. The runner calls `process_due_jobs` in a worker thread, logs an individual pass failure, and continues polling. `FEED_PASSPORT_SCHEDULER_ENABLED` defaults to `1` for this standalone app-owned service; dependency-injected app instances default to disabled unless the environment explicitly sets `1`.
+
+`FEED_PASSPORT_SCHEDULER_INTERVAL_SECONDS` defaults to `5` and must be positive. This is only the persisted-job polling interval. Each drift monitor retains its own 15–1440 minute cadence, action allowlist, per-run budget, confidence threshold, mode, and expiry.
+
+The SQLite store atomically claims due jobs before the application handles overlay activation and expiry, share and companion expiry, or a drift-monitor check. The manual `/api/visas/process-due` route remains available for diagnostics, but normal local operation does not depend on calling it.
+
+## Creator-continuity fixtures
+
+The local browser catalogue maps deterministically into the backend canonical directory. Its client lookups currently route Studio A (`studio-a`) to YouTube `@studio-a`, Paper Lab (`paper-lab`) to YouTube `@paper-lab`, City Zine (`city.zine`) to Bluesky `city-zine.example`, and Studio A (`studio-a`) to X `studio_a`. The destination identities match the directory. The Studio A and Paper Lab cards display Bluesky as their source while the client uses each creator's Lab alias, so the source labels and lookup identities are not textually identical. Service hydration marks a creator preserved only when the destination platform and identity match a catalogue entry. This proves deterministic fixture routing; the backend field name `verified_links` is not verification of a real external profile.
+
+## AgentCore deployment seam
+
+The same application services can be packaged behind FastAPI or the included `BedrockAgentCoreApp` entrypoint, but the AgentCore seam accepts only a validated deterministic `AgentCommand`. A payload without that structured command is rejected; broad free-text chat and default or external model-provider fallback are disabled by design. Model-assisted mission planning remains the separate request-bound local route described above.
+
+AgentCore is a packaging seam, not a dependency of the local product or its model proof. No AWS account, AWS credential, managed model, competition credit, or deployment is required to run or verify this checkout. Any future AgentCore Memory, Identity, Gateway, or Observability integration must keep the repository authoritative and keep AWS and OAuth credentials outside prompts and traces; those managed-service integrations are future, separately authorized deployment work and are not claimed here.
+
+## Testing layers
+
+- Pure unit and property checks for percentages, overlays, blends, policy, expiry, distance metrics, and idempotency.
+- Contract tests for JSON schemas and every platform adapter.
+- SQLite integration tests including restart, optimistic conflict, expiry-once, and rollback.
+- FastAPI lifespan wiring for the due-job runner, unit/application/SQLite coverage for the loop and atomic claims, and a live-service smoke that observes a short-lived visa expire without calling the manual processing route.
+- API tests for complete workflows and failure responses.
+- Deterministic agent-protocol tests with a scripted Strands model, including exact tool order, duplicate and missing calls, unexpected fields, action-scope narrowing, loopback enforcement, and disabled parallel tool calls.
+- A reproducible real-model proof with pinned Qwen GGUF and llama.cpp artifacts, loopback-only inference, hash verification, genuine token use, the exact three-tool proposal sequence, and consent still required. It has no AWS or paid-service gate.
+- Optional authorized live-platform tests, serialized and never part of ordinary CI.
+- Browser workflow, accessibility heuristics, responsive behavior, history, console/network state, and rendered-interface visual QA are tracked in `design-qa.md`; final user-authorized Playwright reports cover the passive viewport matrix, fixture interactions, and an isolated service-backed Agent mission.
+
+## Delivery slices
+
+The dependency order is contracts, deterministic Lab, policy and receipts, application services, Strands loop, API, interface, future authorized external transports, AgentCore packaging, full evaluation, and submission evidence. A later slice may depend on an earlier stable interface; it may not change domain authority to accommodate an external platform shortcut.

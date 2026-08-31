@@ -1,0 +1,138 @@
+{
+  "assertions": {
+    "deterministic_validation_passed": true,
+    "genuine_strands_model_cycles": true,
+    "human_consent_still_required": true,
+    "loopback_only": true,
+    "model_cannot_widen_action_scope": true,
+    "model_hash_matches_pinned_artifact": true,
+    "no_approval_token_in_evidence": true,
+    "required_tool_sequence": true,
+    "runtime_hash_matches_pinned_artifact": true,
+    "zero_paid_or_external_model_calls": true
+  },
+  "external_accounts": 0,
+  "external_services_during_inference": 0,
+  "generated_at": "2026-08-31T23:41:55.189837+00:00",
+  "mission": {
+    "action_count": 3,
+    "allowed_action_types": [
+      "mute_creator",
+      "subscribe_creator"
+    ],
+    "consent_required": true,
+    "goal_interpretation": "Make this fresh account feel like my useful internet, prioritize research and the creators I deliberately chose, reduce ragebait, and stop at the locked target.",
+    "id": "mission-5b205a770abd4190a6bac53861bacb92",
+    "status": "awaiting_approval"
+  },
+  "mode": "genuine_local_model_inference",
+  "model": {
+    "expected_sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+    "file": "Qwen3-1.7B-Q8_0.gguf",
+    "license": "Apache-2.0",
+    "publisher": "Qwen",
+    "repository": "Qwen/Qwen3-1.7B-GGUF",
+    "revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
+    "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a"
+  },
+  "network_scope": "loopback_only",
+  "planner_evidence": {
+    "admitted_action_types": [
+      "mute_creator",
+      "subscribe_creator"
+    ],
+    "authority": "proposal_only",
+    "cycles": 3,
+    "deterministic_validation": "passed",
+    "duration_ms": 2932,
+    "endpoint_scope": "loopback_only",
+    "external_model_calls": false,
+    "locked_by_server": [
+      "actor",
+      "passport_id_and_version",
+      "destination_twin",
+      "destination_account_scenario",
+      "action_and_iteration_budgets",
+      "acceptance_thresholds",
+      "minimum_improvement",
+      "consent",
+      "execution",
+      "rollback"
+    ],
+    "model_id": "feed-passport-local-qwen3-1.7b",
+    "paid_model_calls": false,
+    "proposal": {
+      "capability_notes": [
+        "The control surface limits actions to hide topics, mute creators, show topics, subscribe, and unsubscribe creators.",
+        "The locked budget restricts actions to 3 per iteration, with a maximum of 3 iterations."
+      ],
+      "focus_order": [
+        "topic_alignment",
+        "creator_continuity",
+        "source_diversity",
+        "serendipity"
+      ],
+      "rationale": "The selected mission context emphasizes research, independent work, and thoughtful design, with a focus on local culture and avoiding ragebait. The control surface provides the necessary tools to adjust topics, creators, and formats while adhering to the locked budget and acceptance thresholds.",
+      "refined_goal": "Make this fresh account feel like my useful internet, prioritize research and the creators I deliberately chose, reduce ragebait, and stop at the locked target.",
+      "requested_action_types": [
+        "hide_topic",
+        "mute_creator",
+        "show_topic",
+        "subscribe_creator",
+        "unmute_creator",
+        "unsubscribe_creator"
+      ],
+      "stop_conditions": [
+        "The mission is locked at the target outcome.",
+        "The acceptance thresholds are met."
+      ]
+    },
+    "provider": "llamacpp",
+    "rejected_action_types": [
+      "hide_topic",
+      "show_topic",
+      "unmute_creator",
+      "unsubscribe_creator"
+    ],
+    "requested_action_types": [
+      "hide_topic",
+      "mute_creator",
+      "show_topic",
+      "subscribe_creator",
+      "unmute_creator",
+      "unsubscribe_creator"
+    ],
+    "runtime": "strands",
+    "stop_reason": "limit_turns",
+    "tools": [
+      {
+        "name": "inspect_selected_passport",
+        "status": "completed"
+      },
+      {
+        "name": "inspect_selected_control_surface",
+        "status": "completed"
+      },
+      {
+        "name": "submit_mission_proposal",
+        "status": "accepted"
+      }
+    ],
+    "usage": {
+      "input_tokens": 3253,
+      "output_tokens": 274,
+      "total_tokens": 3527
+    }
+  },
+  "runtime": {
+    "archive_sha256": "2d60828f4b90bdd1e93698837c163b54f40e7d682e8018dc40f52eb444c3cceb",
+    "commit": "319146247e643695f94a558e8ae686277dd4f8da",
+    "file": "llama-server.exe",
+    "listen_host": "127.0.0.1",
+    "name": "llama.cpp",
+    "offline_flag": true,
+    "release": "b8184",
+    "sha256": "94254e58f4f73cdf978dcfaa04007eabc38337c839bc674b54161b5ba3cffd3b"
+  },
+  "schema": "feed-passport/local-model-agent-proof/v1"
+}

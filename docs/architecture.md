@@ -20,12 +20,13 @@ FastAPI application boundary
         |           +--> independent evaluator
         |
         +--> platform port --> deterministic Lab / 10 twin:<platform> simulators /
-        |                    10 credential-free guided platform planners
+        |                    10 guided planners / 4 certification-gated transports
         |
-        +--> SQLite event, projection, and scheduled-job store
+        +--> OIDC owner boundary --> encrypted connection metadata / credential broker
+        +--> SQLite event, projection, action-journal, and scheduled-job store
         +--> FastAPI lifespan --> autonomous DueJobRunner --> application due jobs
         +--> HMAC one-time consent broker
-        +--> deterministic-command-only AgentCore Runtime seam
+        +--> proposal-only Strands AgentCore Runtime seam
 ```
 
 ## Module boundaries
@@ -40,19 +41,19 @@ FastAPI application boundary
 : Two request-bound Strands protocols with separate typed outputs. The feature clerk proposes one migration, temporary-visa, or companion configuration from a server-derived safe catalogue. The local-twin mission planner proposes a subset of reversible private controls. Each request creates a fresh agent and enforces its own exact three-tool sequence; neither protocol can authorize, create partner consent, execute, approve, or roll back.
 
 `ports`
-: The stable platform adapter protocol used by the Lab and every capability-aware destination compiler.
+: Stable platform, identity, connection, credential, OAuth, live-transport, and durable action-journal boundaries. Credentials are non-serializable leases and never enter model context.
 
 `adapters`
-: Concrete platform implementations. Each publishes a capability manifest and passes the same conformance suite. Feed Passport Lab is the reference closed loop. Ten `twin:<platform>` adapters also close the control loop over isolated deterministic state while limiting actions to each profile's declared control semantics and explicitly denying ranking fidelity. Every unprefixed external adapter remains a credential-free guided planner with no live transport. Runtime construction injects one declared deterministic dummy snapshot per external platform for capture tests; arbitrary account identifiers remain unobserved.
+: Concrete platform implementations. Each publishes a capability manifest and passes the same conformance suite. Feed Passport Lab is the reference closed loop. Ten `twin:<platform>` adapters also close the control loop over isolated deterministic state while limiting actions to each profile's declared control semantics and explicitly denying ranking fidelity. Every unprefixed external adapter remains Guided by default. Bounded live candidates for YouTube, X, Reddit, and Bluesky activate only with an owner-bound connection and a fresh signed exact-revision authorized-dummy-account receipt. Runtime construction injects one declared deterministic dummy snapshot per external platform for capture tests; arbitrary account identifiers remain unobserved.
 
 `infrastructure`
-: SQLite event/projection/scheduled-job store and strict serialization helpers. It contains no social-platform credentials or HTTP clients.
+: SQLite event/projection/scheduled-job/action-journal storage, encrypted connection metadata with blind indexes, a local AES-GCM OAuth credential vault, strict serialization helpers, and no-ambient-network HTTP boundaries. AT Protocol OAuth tokens and DPoP keys remain in the separate Node sidecar.
 
 `api`
-: FastAPI routes with strict Pydantic request models. API models are mapped from domain objects rather than becoming the domain. The local demo accepts `actor_id` as a validated test principal; it does not authenticate that identity. Any network-exposed deployment must derive actor identity from authenticated middleware and ignore caller-supplied identity fields before using the owner and consent checks as an authorization boundary.
+: FastAPI routes with strict Pydantic request models. API models are mapped from domain objects rather than becoming the domain. Local `demo` mode accepts `actor_id` as a deterministic test principal. Credentialed/live surfaces normally require `oidc`, which verifies an exact issuer, audience/client ID, JWKS signature, scope, and expiry, derives the owner from `sub`, and rejects conflicting caller-supplied identity fields. An explicit insecure one-person dummy-account override exists only on a loopback bind with loopback-only origins and client IPs; it is never a proxy, deployment, LAN, team, or production authentication boundary.
 
 `runtime`
-: Service bootstrap, the optional AgentCore entrypoint, and `DueJobRunner`. The app-owned FastAPI lifespan starts and stops the runner; it does not create an external-platform session.
+: Service bootstrap, certification-gated adapter restoration, the optional proposal-only AgentCore entrypoint, live conformance runner, and `DueJobRunner`. The app-owned FastAPI lifespan starts and stops the runner; it does not authorize a social account without a user-completed OAuth transaction.
 
 ## Stable core contract
 
@@ -70,11 +71,11 @@ health() -> AdapterHealth
 
 Every unsupported action produces a typed capability failure. Guided external adapters never report executed success. A `twin:<platform>` adapter may report success only for an explicitly labeled deterministic local mutation, never as external-platform success.
 
-Destination cards marked “Selected” or “Included” are local demo state. They are not part of this adapter contract and do not mean OAuth, an authenticated social account, or live conformance exists. The WebMCP property `connectedDestinations` is a legacy field name for those itinerary selections, not connectivity evidence.
+Destination cards marked “Selected” or “Included” are local demo state. They are not part of this adapter contract and do not mean OAuth, an authenticated social account, or live conformance exists. The Authorization Desk reports connection state separately, and a connection still does not promote an adapter without a signed conformance receipt.
 
 ## Closed-loop Lab migration
 
-The following sequence is implemented against deterministic Feed Passport Lab. An external adapter currently stops after capability-aware compilation with a guided handoff or translation loss; it does not execute, sample, or verify a social account.
+The following sequence is implemented against deterministic Feed Passport Lab. An unconfigured external adapter stops after capability-aware compilation with a Guided handoff or translation loss. A certified transport may execute only the action subset proven by its receipt; this checkout currently contains no live account receipt.
 
 ```text
 observe source
@@ -136,9 +137,9 @@ The local browser catalogue maps deterministically into the backend canonical di
 
 ## AgentCore deployment seam
 
-The same application services can be packaged behind FastAPI or the included `BedrockAgentCoreApp` entrypoint, but the AgentCore seam accepts only a validated deterministic `AgentCommand`. A payload without that structured command is rejected; broad free-text chat and default or external model-provider fallback are disabled by design. Model-assisted mission planning remains the separate request-bound local route described above.
+The AgentCore direct-code package exposes only strict `health` and `plan_feature` commands. `plan_feature` accepts one bounded request inside a typed Passport payload, creates the same proposal-only Strands feature clerk with one explicitly configured Bedrock model, derives the owner only from the Runtime-validated JWT `sub`, and rejects a mismatched Passport owner. Arbitrary chat/unstructured commands and every execute, approval, rollback, credential, browser-control, and live-platform mutation operation are unavailable. There is no provider fallback.
 
-AgentCore is a packaging seam, not a dependency of the local product or its model proof. No AWS account, AWS credential, managed model, competition credit, or deployment is required to run or verify this checkout. Any future AgentCore Memory, Identity, Gateway, or Observability integration must keep the repository authoritative and keep AWS and OAuth credentials outside prompts and traces; those managed-service integrations are future, separately authorized deployment work and are not claimed here.
+The CDK stack declares only the custom-JWT AgentCore Runtime/Gateway path, its Cognito verifier, and the narrowly scoped roles needed to invoke that Runtime and one explicitly selected Bedrock model. It deliberately omits unused DynamoDB, Secrets Manager, token-vault, and workload-identity resources and permissions. Local tests use a scripted no-network Strands model and synthesize/validate the stack. No AWS account, credential, managed model, competition credit, or deployment is required for that proof. Managed JWT validation, Gateway routing, Bedrock entitlement, AgentCore service behavior, credit coverage, and billing remain unverified. See [the plan-first AgentCore runbook](../infra/agentcore/README.md).
 
 ## Testing layers
 
@@ -154,4 +155,4 @@ AgentCore is a packaging seam, not a dependency of the local product or its mode
 
 ## Delivery slices
 
-The dependency order is contracts, deterministic Lab, policy and receipts, application services, Strands loop, API, interface, future authorized external transports, AgentCore packaging, full evaluation, and submission evidence. A later slice may depend on an earlier stable interface; it may not change domain authority to accommodate an external platform shortcut.
+The dependency order is contracts, deterministic Lab, policy and receipts, application services, Strands loop, API, interface, certification-gated external transports, AgentCore packaging, full evaluation, and submission evidence. A later slice may depend on an earlier stable interface; it may not change domain authority to accommodate an external platform shortcut.

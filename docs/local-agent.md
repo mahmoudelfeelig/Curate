@@ -195,7 +195,7 @@ The supported routes are:
 
 When no local provider is configured, model planning returns `503` rather than selecting another provider. A proposal-protocol failure returns `502` with `local_model_protocol_failed`. The deterministic preview remains available in both cases.
 
-The AgentCore Runtime entrypoint follows the same fail-closed position. It accepts validated deterministic command payloads only and rejects free-text messages. No AgentCore deployment is claimed by this checkout.
+The AgentCore Runtime entrypoint follows the same fail-closed authority boundary through two strict discriminated commands. `health` performs no model construction. `plan_feature` accepts one bounded natural-language request inside a typed Passport payload and returns only a validated proposal; it derives the actor from the Runtime-validated JWT `sub` and exposes no execution, approval, rollback, credential, browser-control, or live-platform mutation operation. Arbitrary chat payloads and unknown commands are rejected. No AgentCore deployment is claimed by this checkout.
 
 ## Record the genuine model proofs
 

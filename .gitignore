@@ -48,5 +48,9 @@ Thumbs.db
 
 *.pem
 *.key
-credentials*.json
+*credential*.json
+client_secret*.json
 oauth*.json
+*.jwk
+*.jwk.json
+*.jwks

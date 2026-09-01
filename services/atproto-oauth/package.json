@@ -1,0 +1,22 @@
+{
+  "name": "@feed-passport/atproto-oauth-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Credential-isolated AT Protocol OAuth and DPoP session sidecar",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "exports": "./src/index.mjs",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test",
+    "check": "node --check src/index.mjs && node --check src/config.mjs && node --check src/durable-store.mjs && node --check src/official-client.mjs && node --check src/official-executor.mjs && node --check src/server.mjs"
+  },
+  "dependencies": {
+    "@atproto/api": "0.20.42",
+    "@atproto/jwk-jose": "0.2.4",
+    "@atproto/oauth-client-node": "0.5.4"
+  },
+  "license": "MIT"
+}

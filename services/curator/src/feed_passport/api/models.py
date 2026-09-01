@@ -108,6 +108,40 @@ class ActorRequest(StrictModel):
     actor_id: str = Field(min_length=1)
 
 
+class OAuthStart(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    redirect_uri: str | None = Field(default=None, min_length=10, max_length=2048)
+    handle: str | None = Field(default=None, min_length=3, max_length=254)
+
+    @model_validator(mode="after")
+    def validate_authorization_input(self) -> OAuthStart:
+        if (self.redirect_uri is None) == (self.handle is None):
+            raise ValueError("provide exactly one of redirect_uri or handle")
+        return self
+
+
+class OAuthCallback(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    state: str | None = Field(default=None, min_length=32, max_length=512)
+    code: str | None = Field(default=None, min_length=1, max_length=4096)
+    query: str | None = Field(default=None, min_length=1, max_length=16_384)
+
+    @model_validator(mode="after")
+    def validate_callback_input(self) -> OAuthCallback:
+        if self.query is not None:
+            if self.state is not None or self.code is not None:
+                raise ValueError("AT Protocol callback query cannot be combined with state or code")
+            return self
+        if self.state is None or self.code is None:
+            raise ValueError("OAuth callback requires state and code")
+        return self
+
+
+class ConnectionRevoke(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    expected_version: int = Field(ge=1)
+
+
 class CompanionCreate(StrictModel):
     actor_id: str = Field(min_length=1)
     name: str = Field(min_length=1)

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { feedPassportApi, missionRollbackIsVerified } from "./apiClient";
 import { webMcpTemporaryVisaForm } from "./api/clientProjections.js";
+import { browserOidcSession } from "./auth/browserOidc.js";
+import { waitForSocialOAuthPopup } from "./auth/socialOauthPopup.js";
 import {
   CREATOR_FIXTURES,
   DESTINATIONS,
@@ -35,6 +37,24 @@ const pushSectionHistory = (section) => {
   }
 };
 
+function AuthenticationDesk({ state, onSignIn }) {
+  return (
+    <section className="identity-gate" aria-labelledby="identity-gate-title">
+      <div className="identity-gate-stub"><span>IDENTITY</span><b>CONTROL</b><small>OIDC + PKCE</small></div>
+      <div className="identity-gate-copy">
+        <p className="eyebrow">OWNER BINDING REQUIRED</p>
+        <h2 id="identity-gate-title">Present your private access passport</h2>
+        <p>Sign in through the configured identity provider. Feed Passport keeps the short-lived access token in browser memory only and binds every account connection, proposal, approval, receipt, and rollback to the verified token subject.</p>
+        {state.error ? <p className="passport-warning" role="alert">{state.error}</p> : null}
+      </div>
+      <div className="identity-gate-action">
+        <button type="button" className="action-button action-ink" onClick={onSignIn} disabled={!state.configured}>SIGN IN WITH PKCE</button>
+        <small>{state.configured ? "No client secret is stored in the browser." : "The OIDC browser configuration is incomplete."}</small>
+      </div>
+    </section>
+  );
+}
+
 export function App() {
   const [activeSection, setActiveSection] = useState(sectionFromLocation);
   const [passportId, setPassportId] = useState("FP-74128");
@@ -49,6 +69,11 @@ export function App() {
   const [actionError, setActionError] = useState("");
   const [apiMode, setApiMode] = useState("checking");
   const [schedulerStatus, setSchedulerStatus] = useState("checking");
+  const [platformProfiles, setPlatformProfiles] = useState([]);
+  const [accountConnections, setAccountConnections] = useState([]);
+  const [oauthProviders, setOauthProviders] = useState([]);
+  const [connectionConfiguration, setConnectionConfiguration] = useState("checking");
+  const [connectionNotice, setConnectionNotice] = useState("");
   const [modelStatus, setModelStatus] = useState({
     configured: false,
     online: false,
@@ -96,7 +121,13 @@ export function App() {
   const appRef = useRef({});
   const busyRef = useRef(false);
   const identityRevisionRef = useRef(0);
-  appRef.current = { passportId, constitution, connectedIds, migrationSource, activePassportSource, migrationDestination, agentMission };
+  const oauthCallbackHandledRef = useRef(false);
+  const [authState, setAuthState] = useState(() => browserOidcSession.snapshot());
+  appRef.current = authState.required && !authState.authenticated
+    ? { authenticated: false, passportId: null, constitution: null, connectedIds: [], accountConnections: [], migrationSource: null, activePassportSource: null, migrationDestination: null, agentMission: null }
+    : { authenticated: true, passportId, constitution, connectedIds, accountConnections, migrationSource, activePassportSource, migrationDestination, agentMission };
+
+  useEffect(() => browserOidcSession.subscribe(setAuthState), []);
 
   const addReceipt = useCallback((receipt) => { setReceipts((current) => [receipt, ...current]); setSelectedReceipt(receipt); }, []);
   const addActivity = useCallback((detail, state = "Recorded", actor = "Passport agent") => { setActivity((current) => [{ id: `ACT-LOCAL-${current.length + 1}`, actor, detail, time: "NOW", state }, ...current]); }, []);
@@ -155,6 +186,7 @@ export function App() {
     setAgentMissionApproved(false);
     setFeatureClerkResult(null);
     setFeatureDeskPrefills({ migration: null, temporary: null, companion: null });
+    setConnectionNotice("");
   }, []);
   const hydratePassportState = useCallback((data) => {
     const hydratedPassportId = data.activePassportId || data.activePassport?.id || "FP-74128";
@@ -163,6 +195,7 @@ export function App() {
     const activeMonitor = (data.drift_monitors || [])
       .find((item) => item.passport_id === hydratedPassportId && item.status === "active");
     setDriftMonitor(activeMonitor || null);
+    setPlatformProfiles(data.platforms || []);
     setTemporaryVisas((data.activeVisas || []).map((visa) => ({
       ...visa,
       mode: visa.mode === "Reversible Live" ? "Reversible Lab" : visa.mode,
@@ -209,6 +242,12 @@ export function App() {
   useEffect(() => {
     let active = true;
     const load = async () => {
+      if (authState.required && !authState.authenticated) {
+        setApiMode("sign_in_required");
+        setSchedulerStatus("protected");
+        setConnectionConfiguration("sign_in_required");
+        return;
+      }
       const hydrationRevision = identityRevisionRef.current;
       const loaded = await feedPassportApi.loadPassport();
       if (!active || hydrationRevision !== identityRevisionRef.current) return;
@@ -233,6 +272,50 @@ export function App() {
       const serviceReceipts = loaded.data?.receipts || [];
       setReceipts(serviceReceipts);
       setSelectedReceipt(serviceReceipts[0] || null);
+      if (
+        !oauthCallbackHandledRef.current
+        && globalThis.location?.pathname?.replace(/\/$/, "").endsWith("/oauth/callback")
+      ) {
+        oauthCallbackHandledRef.current = true;
+        const query = new URLSearchParams(globalThis.location.search);
+        const callbackError = query.get("error");
+        const code = query.get("code");
+        const state = query.get("state");
+        const platform = globalThis.sessionStorage?.getItem("feed-passport-oauth-platform") || "";
+        if (callbackError) {
+          setConnectionNotice("Authorization was declined or rejected by the platform. No connection was stored.");
+        } else if (code && state && platform) {
+          try {
+            const connected = await feedPassportApi.completeOAuthConnection({
+              platform,
+              code,
+              state,
+              callbackQuery: globalThis.location.search.replace(/^\?/, ""),
+            });
+            setConnectionNotice(`${connected.data.platform} account authorization completed and bound to this Passport owner.`);
+          } catch (error) {
+            setConnectionNotice(`Account authorization could not be completed: ${error.message}`);
+          }
+        } else {
+          setConnectionNotice("The OAuth callback was incomplete. Start account authorization again.");
+        }
+        const basePath = globalThis.location.pathname.replace(/oauth\/callback\/?$/, "");
+        globalThis.history?.replaceState({ feedPassportSection: "visas" }, "", `${basePath}#visas`);
+        setActiveSection("visas");
+      }
+      try {
+        const connectionState = await feedPassportApi.loadConnections();
+        if (active && hydrationRevision === identityRevisionRef.current) {
+          setAccountConnections(connectionState.data.connections || []);
+          setOauthProviders(connectionState.data.providers || []);
+          setConnectionConfiguration(connectionState.data.configuration || "unavailable");
+        }
+      } catch (error) {
+        if (active && hydrationRevision === identityRevisionRef.current) {
+          setConnectionConfiguration("unavailable");
+          setConnectionNotice(`Connection status is unavailable: ${error.message}`);
+        }
+      }
       try {
         const localModel = await feedPassportApi.getAgentModelStatus();
         if (active && hydrationRevision === identityRevisionRef.current) {
@@ -263,11 +346,14 @@ export function App() {
       }
     });
     return () => { active = false; };
-  }, [addActivity, hydratePassportState]);
+  }, [addActivity, authState.authenticated, authState.required, hydratePassportState]);
   useEffect(() => {
     const registration = registerFeedPassportTools({
-      inspect: async () => ({ passport: appRef.current.constitution, connectedDestinations: appRef.current.connectedIds, trustBoundary: { credentialsInModelContext: false, publicEngagementAutomation: false, rawHistoryTransfer: false } }),
+      inspect: async () => appRef.current.authenticated
+        ? ({ passport: appRef.current.constitution, selectedDestinations: appRef.current.connectedIds, authorizedAccounts: (appRef.current.accountConnections || []).filter((item) => item.status === "active").map((item) => ({ platform: item.platform, status: item.status })), trustBoundary: { credentialsInModelContext: false, publicEngagementAutomation: false, rawHistoryTransfer: false } })
+        : ({ authenticated: false, signInRequired: true, passport: null, selectedDestinations: [], authorizedAccounts: [], trustBoundary: { credentialsInModelContext: false, publicEngagementAutomation: false, rawHistoryTransfer: false } }),
       previewMigration: async (input) => {
+        if (!appRef.current.authenticated) return { opened: null, approvalRequired: true, consentGranted: false, executionPerformed: false, mutationPerformed: false, reason: "Owner sign-in is required." };
         if (busyRef.current) return { opened: null, approvalRequired: true, consentGranted: false, executionPerformed: false, mutationPerformed: false, reason: "Another Passport operation is working." };
         busyRef.current = true;
         setBusyAction("migration-preview");
@@ -364,6 +450,65 @@ export function App() {
     if (rejectWhileBusy()) return;
     setConnectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   };
+  const handleSignIn = async () => {
+    setActionError("");
+    try {
+      await browserOidcSession.signIn({ returnTo: `#${activeSection}` });
+    } catch (error) {
+      setActionError(`Sign-in could not start: ${error.message}`);
+    }
+  };
+  const handleSignOut = () => {
+    if (rejectWhileBusy()) return;
+    browserOidcSession.signOut();
+  };
+  const handleAuthorizeConnection = (platform, handle = "") => {
+    const popup = globalThis.open?.(
+      "about:blank",
+      "_blank",
+      "popup=yes,width=560,height=760,resizable=yes,scrollbars=yes",
+    );
+    if (!popup) {
+      setActionError("Account authorization could not start: allow a one-time popup for this site.");
+      return null;
+    }
+    return runBusy("oauth-connect", async () => {
+      try {
+        const started = await feedPassportApi.beginOAuthConnection(platform, { handle });
+        const authorization = new URL(started.data.authorization_url);
+        if (authorization.protocol !== "https:") {
+          throw new Error("The platform returned an unsafe authorization URL");
+        }
+        setConnectionNotice(`Complete ${platform} authorization in the separate window. The signed-in Passport stays open here.`);
+        popup.location.replace(authorization.toString());
+        const callbackQuery = await waitForSocialOAuthPopup(popup);
+        const callback = new URLSearchParams(callbackQuery);
+        if (callback.get("error")) {
+          throw new Error("Authorization was declined or rejected by the platform");
+        }
+        const connected = await feedPassportApi.completeOAuthConnection({
+          platform,
+          state: callback.get("state") || "",
+          code: callback.get("code") || "",
+          callbackQuery,
+        });
+        setAccountConnections((current) => [
+          connected.data,
+          ...current.filter((item) => item.id !== connected.data.id),
+        ]);
+        setConnectionNotice(`${connected.data.platform} account authorization completed and remained bound to this signed-in Passport owner.`);
+        setActiveSection("visas");
+        return connected;
+      } finally {
+        if (!popup.closed) popup.close();
+      }
+    }, "Account authorization could not be completed");
+  };
+  const handleRevokeConnection = (connection) => runBusy("oauth-revoke", async () => {
+    const revoked = await feedPassportApi.revokeOAuthConnection(connection);
+    setAccountConnections((current) => current.map((item) => item.id === revoked.data.id ? revoked.data : item));
+    setConnectionNotice(`${revoked.data.platform} authorization was revoked and its local credential was destroyed.`);
+  }, "Account authorization could not be revoked");
   const handleIssue = () => runBusy("issue", async () => {
     const result = await feedPassportApi.issuePassport({ destinations: connectedIds, expiry });
     syncSource(result.source);
@@ -962,7 +1107,7 @@ export function App() {
   let content;
   switch (activeSection) {
     case "constitution": content = <ConstitutionSpread constitution={constitution} setConstitution={setConstitution} onSave={handleSaveConstitution} busy={busyAction === "constitution"} savedNotice={savedNotice} />; break;
-    case "visas": content = <VisaSpread connectedIds={connectedIds} onToggle={toggleDestination} selectedVisa={selectedVisa} setSelectedVisa={setSelectedVisa} />; break;
+    case "visas": content = <VisaSpread connectedIds={connectedIds} onToggle={toggleDestination} selectedVisa={selectedVisa} setSelectedVisa={setSelectedVisa} connections={accountConnections} oauthProviders={oauthProviders} connectionConfiguration={connectionConfiguration} connectionNotice={connectionNotice} onAuthorize={handleAuthorizeConnection} onRevoke={handleRevokeConnection} busyAction={busyAction} platformProfiles={platformProfiles} />; break;
     case "migration": content = <MigrationSpread source={migrationSource} setSource={handleMigrationSourceChange} destination={migrationDestination} setDestination={handleMigrationDestinationChange} preview={migrationPreview} onCapture={handleMigrationCapture} onPreview={handleMigrationPreview} onApply={handleMigrationApply} busyAction={busyAction} outcome={migrationOutcome} captureNotice={migrationCaptureNotice} constitutionVersion={constitution.version} proposalPrefill={featureDeskPrefills.migration} />; break;
     case "temporary": content = <TemporarySpread form={temporaryForm} setForm={setTemporaryForm} visas={temporaryVisas} onIssue={handleTemporaryIssue} onRevoke={handleTemporaryRevoke} busy={busyAction.startsWith("temporary")} proposalPrefill={featureDeskPrefills.temporary} />; break;
     case "companion": content = <CompanionSpread share={share} setShare={setShare} partnerShare={partnerShare} setPartnerShare={setPartnerShare} partnerCode={partnerCode} setPartnerCode={setPartnerCode} blend={blend} setBlend={setBlend} invitation={companionInvitation} partnerConfirmed={partnerConsentConfirmed} setPartnerConfirmed={setPartnerConsentConfirmed} companion={companion} onCreateInvitation={handleCompanionInvitationCreate} onAcceptInvitation={handleCompanionInvitationAccept} onRevokeInvitation={handleCompanionInvitationRevoke} onRevokeCompanion={handleCompanionRevoke} busy={busyAction.startsWith("companion")} passportId={passportId} proposalPrefill={featureDeskPrefills.companion} />; break;
@@ -974,6 +1119,9 @@ export function App() {
     case "agent": content = <AgentSpread form={agentMissionForm} setForm={setAgentMissionForm} mission={agentMission} approvalChecked={agentMissionApproved} setApprovalChecked={setAgentMissionApproved} onPreview={handleMissionPreview} onModelPreview={handleModelMissionPreview} onRun={handleMissionRun} onCancel={handleMissionCancel} onRollback={handleMissionRollback} busyAction={busyAction} webmcp={webmcp} apiMode={apiMode} schedulerStatus={schedulerStatus} modelStatus={modelStatus} activity={activity} />; break;
     default: content = <OverviewSpread constitution={constitution} connectedIds={connectedIds} onNavigate={navigate} onToggleDestination={toggleDestination} consent={consent} setConsent={setConsent} expiry={expiry} setExpiry={setExpiry} onIssue={handleIssue} busy={busyAction === "issue"} issued={issued} latestReceipt={latestReceipt} passportId={passportId} />;
   }
+  if (authState.required && !authState.authenticated) {
+    content = <AuthenticationDesk state={authState} onSignIn={handleSignIn} />;
+  }
 
   return (
     <main className="passport-workbench">
@@ -983,13 +1131,13 @@ export function App() {
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{activity[0]?.detail || "Passport ready."}</p>
       <header className="site-masthead">
         <button type="button" className="brand-lockup" onClick={() => navigate("overview")} aria-label="Open passport overview" disabled={Boolean(busyAction)}><span className="brand-monogram">FP</span><span><b>FEED PASSPORT</b><small>YOUR FEED. YOUR RULES. ANYWHERE.</small></span></button>
-        <div className="credential-tag"><span>YOUR INTENT TRAVELS.</span><b>YOUR CREDENTIALS DO NOT.</b></div>
+        {authState.required && authState.authenticated ? <div className="credential-tag identity-tag"><span>OWNER SESSION VERIFIED</span><button type="button" onClick={handleSignOut}>SIGN OUT</button></div> : <div className="credential-tag"><span>YOUR INTENT TRAVELS.</span><b>YOUR CREDENTIALS DO NOT.</b></div>}
       </header>
-      <nav className="desk-tabs" aria-label="Feed Passport desks">{NAV_ITEMS.map(([id, label], index) => <button type="button" key={id} data-section={id} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigate(id)} disabled={Boolean(busyAction)}><span>{String(index + 1).padStart(2, "0")}</span>{label}</button>)}</nav>
-      <div className="section-placard"><span>NOW OPEN</span><b>{sectionTitle.toUpperCase()}</b><small>{apiMode === "service" ? "LOCAL SERVICE" : apiMode === "checking" ? "CHECKING SERVICE" : "DETERMINISTIC DEMO"}</small></div>
+      <nav className="desk-tabs" aria-label="Feed Passport desks">{NAV_ITEMS.map(([id, label], index) => <button type="button" key={id} data-section={id} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigate(id)} disabled={Boolean(busyAction) || (authState.required && !authState.authenticated)}><span>{String(index + 1).padStart(2, "0")}</span>{label}</button>)}</nav>
+      <div className="section-placard"><span>NOW OPEN</span><b>{sectionTitle.toUpperCase()}</b><small>{apiMode === "service" ? "LOCAL SERVICE" : apiMode === "checking" ? "CHECKING SERVICE" : apiMode === "sign_in_required" ? "SIGN IN REQUIRED" : "DETERMINISTIC DEMO"}</small></div>
       {actionError ? <aside className="passport-warning" role="alert"><strong>Operation stopped</strong><p>{actionError}</p><button type="button" className="text-link" onClick={() => setActionError("")}>Dismiss</button></aside> : null}
       <div id="workspace" className="workspace-stage" tabIndex="-1" aria-label={`${sectionTitle} workspace`} inert={Boolean(busyAction)} aria-busy={Boolean(busyAction)}>{content}{activeSection !== "history" ? <button className="rollback-tab" type="button" onClick={() => navigate("history")} disabled={Boolean(busyAction)}><span>ROLLBACK & HISTORY</span><b>{receipts.length}</b></button> : null}</div>
-      <footer className="site-footer"><p>Feed Passport demo · capability claims follow the attached evidence level · no credentials or raw private history enter model context.</p><div><button type="button" onClick={() => navigate("agent")} disabled={Boolean(busyAction)}>Open agent desk</button><button type="button" onClick={() => navigate("history")} disabled={Boolean(busyAction)}>Inspect receipts</button></div></footer>
+      <footer className="site-footer"><p>Feed Passport demo · capability claims follow the attached evidence level · no credentials or raw private history enter model context.</p><div><button type="button" onClick={() => navigate("agent")} disabled={Boolean(busyAction) || (authState.required && !authState.authenticated)}>Open agent desk</button><button type="button" onClick={() => navigate("history")} disabled={Boolean(busyAction) || (authState.required && !authState.authenticated)}>Inspect receipts</button>{authState.required && authState.authenticated ? <button type="button" onClick={handleSignOut} disabled={Boolean(busyAction)}>Sign out</button> : null}</div></footer>
     </main>
   );
 }

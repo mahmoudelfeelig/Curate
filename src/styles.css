@@ -250,6 +250,25 @@ dd {
   font-size: 15px;
 }
 
+.credential-tag.identity-tag {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.credential-tag.identity-tag button {
+  padding: 6px 9px;
+  border: 1px solid #293b4f;
+  background: transparent;
+  color: #1a2d47;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.credential-tag.identity-tag button:hover {
+  background: rgba(24, 46, 77, 0.09);
+}
+
 .desk-tabs {
   width: min(1380px, calc(100% - 70px));
   margin: 0 auto -1px;
@@ -332,6 +351,91 @@ dd {
   width: min(1380px, 100%);
   margin: 0 auto;
   position: relative;
+}
+
+.identity-gate {
+  min-height: 520px;
+  border: 1px solid #927d59;
+  border-radius: 20px;
+  background-color: var(--paper);
+  background-image: url("/assets/licensed/paper006-color-1k.jpg");
+  background-repeat: repeat;
+  background-size: 640px 640px;
+  background-blend-mode: soft-light;
+  box-shadow: 0 18px 18px rgba(0, 0, 0, 0.45), inset 0 0 40px rgba(77, 53, 26, 0.11);
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr) minmax(220px, 0.42fr);
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.identity-gate-stub {
+  padding: 34px 24px;
+  border-right: 3px dotted #675b45;
+  background: rgba(199, 178, 127, 0.42);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.identity-gate-stub span,
+.identity-gate-stub small {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.identity-gate-stub b {
+  color: var(--coral-dark);
+  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  letter-spacing: 0.08em;
+}
+
+.identity-gate-copy,
+.identity-gate-action {
+  padding: clamp(36px, 5vw, 74px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.identity-gate-copy {
+  border-right: 1px dotted #7f735c;
+}
+
+.identity-gate-copy h2 {
+  max-width: 600px;
+  margin: 0 0 18px;
+  color: var(--navy);
+  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-size: clamp(27px, 4vw, 49px);
+  line-height: 1.1;
+}
+
+.identity-gate-copy > p:not(.eyebrow, .passport-warning) {
+  max-width: 640px;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.identity-gate-copy .passport-warning {
+  margin-bottom: 0;
+}
+
+.identity-gate-action {
+  gap: 11px;
+  text-align: center;
+}
+
+.identity-gate-action small {
+  color: #5d584e;
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .passport-book {
@@ -1153,6 +1257,120 @@ dd {
 .manifest-sheet span {
   color: var(--coral-dark);
   text-transform: uppercase;
+}
+
+.connection-office {
+  margin: 0 0 18px;
+  padding: 14px 16px 16px;
+  border: 1px solid #777062;
+  outline: 3px double rgba(119, 112, 98, 0.55);
+  outline-offset: -5px;
+  background:
+    linear-gradient(90deg, transparent 0 31px, rgba(175, 79, 61, 0.12) 31px 32px, transparent 32px),
+    rgba(244, 236, 211, 0.68);
+  position: relative;
+  z-index: 1;
+}
+
+.connection-office::after {
+  content: "ACCOUNT CONTROL";
+  position: absolute;
+  right: 13px;
+  bottom: 7px;
+  color: rgba(91, 80, 62, 0.28);
+  font-size: 7px;
+  letter-spacing: 0.18em;
+  pointer-events: none;
+}
+
+.connection-office-heading {
+  margin-bottom: 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px dotted #716b5f;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.connection-office-heading h3 {
+  margin: 2px 0 0;
+  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-size: 18px;
+}
+
+.connection-office > p,
+.connection-office > small {
+  display: block;
+  max-width: 540px;
+  margin: 0 0 11px;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.connection-office dl {
+  margin: 0 0 13px;
+  border-top: 1px solid #8c826d;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.connection-office dl > div {
+  min-width: 0;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px dotted #8c826d;
+}
+
+.connection-office dt {
+  color: var(--coral-dark);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connection-office dd {
+  margin: 4px 0 0;
+  font-size: 9px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.connection-handle {
+  max-width: 360px;
+  margin: 0 0 12px;
+  display: grid;
+  gap: 5px;
+}
+
+.connection-handle span {
+  color: var(--coral-dark);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connection-handle input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #756d5d;
+  border-radius: 0;
+  padding: 8px 10px;
+  background: rgba(255, 252, 236, 0.75);
+  color: var(--navy);
+  font: inherit;
+  font-size: 10px;
+}
+
+.connection-office .action-button {
+  position: relative;
+  z-index: 1;
+}
+
+.connection-office .success-note {
+  margin-top: 12px;
+  margin-bottom: 0;
+  padding-right: 110px;
 }
 
 .evidence-note {
@@ -2400,6 +2618,19 @@ dd {
 }
 
 @media (max-width: 860px) {
+  .identity-gate {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .identity-gate-action {
+    grid-column: 2;
+    padding-top: 0;
+  }
+
+  .identity-gate-copy {
+    border-right: 0;
+  }
+
   .passport-workbench {
     padding: 15px 14px 25px;
   }
@@ -2507,6 +2738,35 @@ dd {
 }
 
 @media (max-width: 560px) {
+  .identity-gate {
+    min-height: 480px;
+    grid-template-columns: 1fr;
+  }
+
+  .identity-gate-stub {
+    min-height: 72px;
+    padding: 14px 18px;
+    border-right: 0;
+    border-bottom: 3px dotted #675b45;
+    flex-direction: row;
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .identity-gate-stub b {
+    font-size: 18px;
+  }
+
+  .identity-gate-copy,
+  .identity-gate-action {
+    padding: 28px 22px;
+  }
+
+  .identity-gate-action {
+    grid-column: 1;
+    padding-top: 0;
+  }
+
   .site-masthead {
     min-height: 78px;
   }
@@ -2559,6 +2819,23 @@ dd {
   .runtime-strip,
   .before-after {
     grid-template-columns: 1fr;
+  }
+
+  .connection-office-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .connection-office dl {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-office .action-button {
+    width: 100%;
+  }
+
+  .connection-office .success-note {
+    padding-right: 0;
   }
 
   .local-twin-banner {

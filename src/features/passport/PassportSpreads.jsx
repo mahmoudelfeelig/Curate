@@ -1,4 +1,5 @@
 import { DESTINATIONS } from "../../data.js";
+import { useState } from "react";
 import { ActionButton, CompositionBar, Field, PageHeading, PlatformVisa, StatusStamp } from "../../components/passportUi.jsx";
 
 export function OverviewSpread({
@@ -16,6 +17,7 @@ export function OverviewSpread({
   latestReceipt,
   passportId,
 }) {
+  const [blueskyHandle, setBlueskyHandle] = useState("");
   const featured = DESTINATIONS.filter((destination) =>
     ["lab", "bluesky", "youtube", "instagram"].includes(destination.id),
   );
@@ -132,8 +134,42 @@ export function ConstitutionSpread({ constitution, setConstitution, onSave, busy
   );
 }
 
-export function VisaSpread({ connectedIds, onToggle, selectedVisa, setSelectedVisa }) {
+export function VisaSpread({
+  connectedIds,
+  onToggle,
+  selectedVisa,
+  setSelectedVisa,
+  connections = [],
+  oauthProviders = [],
+  connectionConfiguration = "checking",
+  connectionNotice = "",
+  onAuthorize,
+  onRevoke,
+  busyAction = "",
+  platformProfiles = [],
+}) {
   const destination = DESTINATIONS.find((item) => item.id === selectedVisa) || DESTINATIONS[0];
+  const platformKey = destination.id === "lab" ? "feed_passport_lab" : destination.id;
+  const profile = platformProfiles.find((item) => item.platform === platformKey) || null;
+  const manifest = profile?.manifest || null;
+  const connection = connections.find((item) => item.platform === destination.id && item.status === "active")
+    || connections.find((item) => item.platform === destination.id)
+    || null;
+  const provider = oauthProviders.find((item) => item.platform === destination.id) || null;
+  const liveAuthorizeAvailable = Boolean(provider?.configured && connectionConfiguration === "configured");
+  const operationLabel = (name, fallback) => {
+    const value = manifest?.operations?.[name];
+    if (!value) return fallback;
+    return String(value).replaceAll("_", " ").replace(/^./, (character) => character.toUpperCase());
+  };
+  const evidenceStatus = manifest?.evidence_level
+    ? String(manifest.evidence_level).replaceAll("_", " ").toUpperCase()
+    : destination.status.toUpperCase();
+  let unavailableReason = "This destination currently has a Guided manifest only; no supported account OAuth transport is claimed.";
+  if (connectionConfiguration === "local_keys_required") unavailableReason = "Local encrypted connection keys are not configured. The demo remains account-free and no authorization can be stored.";
+  if (destination.id === "x") unavailableReason = "The X transport is implemented, but X API requests are pay-per-use. Zero-spend mode leaves it disconnected until credits and explicit approval exist.";
+  if (destination.id === "reddit") unavailableReason = "Reddit remains approval-gated. A registered and approved external Data API app is required before dummy-account authorization.";
+  if (destination.id === "bluesky") unavailableReason = "Bluesky authorization uses the official AT Protocol OAuth sidecar so tokens and DPoP keys never enter the agent or browser app.";
   return (
     <section className="passport-book section-book">
       <div className="book-spine" aria-hidden="true" />
@@ -150,7 +186,12 @@ export function VisaSpread({ connectedIds, onToggle, selectedVisa, setSelectedVi
       <article className="passport-page right-page visa-detail-page">
         <PageHeading eyebrow={destination.certification} title={`${destination.name} Visa`} note="Inspect the exact boundary before including a destination in an itinerary." page="6" />
         <PlatformVisa destination={destination} connected={connectedIds.includes(destination.id)} onToggle={onToggle} featured />
-        <section className="manifest-sheet"><div><span>Observe</span><b>{destination.id === "lab" ? "Local evidence" : "User supplied"}</b></div><div><span>Execute</span><b>{destination.id === "lab" ? "Lab only" : "Guided handoff"}</b></div><div><span>Sample</span><b>{destination.id === "lab" ? "Local evidence" : "Not certified"}</b></div><div><span>Rollback</span><b>{destination.id === "lab" ? "Local evidence" : "Not certified"}</b></div></section>
+        <section className="manifest-sheet"><div><span>Observe</span><b>{operationLabel("observe", destination.id === "lab" ? "Local evidence" : "Guided")}</b></div><div><span>Execute</span><b>{operationLabel("execute", destination.id === "lab" ? "Lab" : "Guided")}</b></div><div><span>Verify</span><b>{operationLabel("verify", destination.id === "lab" ? "Local evidence" : "Guided")}</b></div><div><span>Rollback</span><b>{operationLabel("rollback", destination.id === "lab" ? "Lab" : "Not certified")}</b></div></section>
+        <section className="connection-office" aria-live="polite">
+          <div className="connection-office-heading"><div><p className="eyebrow">OWNER-BOUND ACCOUNT ACCESS</p><h3>Authorization desk</h3></div><StatusStamp tone={connection?.status === "active" ? "green" : "orange"} compact>{connection?.status === "active" ? "AUTHORIZED" : destination.id === "lab" ? "NOT REQUIRED" : "NOT AUTHORIZED"}</StatusStamp></div>
+          {destination.id === "lab" ? <p>The Proof Lab uses deterministic fixtures. It never asks for a social account.</p> : connection?.status === "active" ? <><dl><div><dt>Account subject</dt><dd>{connection.external_subject}</dd></div><div><dt>Granted scopes</dt><dd>{connection.granted_scopes.join(", ") || "None recorded"}</dd></div><div><dt>Capability evidence</dt><dd>{evidenceStatus}</dd></div><div><dt>Credential location</dt><dd>Broker only; never model context</dd></div></dl><ActionButton variant="danger" onClick={() => onRevoke?.(connection)} busy={busyAction === "oauth-revoke"} disabled={Boolean(busyAction) && busyAction !== "oauth-revoke"}>REVOKE AUTHORIZATION</ActionButton></> : <><p>{unavailableReason}</p>{destination.id === "bluesky" && liveAuthorizeAvailable ? <label className="connection-handle"><span>Dummy account handle</span><input value={blueskyHandle} onChange={(event) => setBlueskyHandle(event.target.value)} placeholder="name.bsky.social" autoComplete="off" spellCheck="false" /></label> : null}{liveAuthorizeAvailable ? <ActionButton variant="ink" onClick={() => onAuthorize?.(destination.id, blueskyHandle)} busy={busyAction === "oauth-connect"} disabled={(Boolean(busyAction) && busyAction !== "oauth-connect") || (destination.id === "bluesky" && !blueskyHandle.trim())}>AUTHORIZE A DUMMY ACCOUNT</ActionButton> : <small>{connectionConfiguration === "checking" ? "Checking the local credential boundary." : "No authorization action is available in this configuration."}</small>}</>}
+          {connectionNotice ? <p className="success-note">{connectionNotice}</p> : null}
+        </section>
         <div className="evidence-note"><p className="eyebrow">LIMITATION ON THE RECORD</p><p>{destination.limitation}</p></div>
         <aside className="passport-warning">Test accounts do not waive platform rules. A visa never exposes account credentials to the model.</aside>
         <footer className="passport-footer"><span>{destination.id.toUpperCase()}</span><span>CAPABILITY MANIFEST</span><span>PAGE 6</span></footer>
@@ -158,4 +199,3 @@ export function VisaSpread({ connectedIds, onToggle, selectedVisa, setSelectedVi
     </section>
   );
 }
-

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from threading import Event
 from types import MappingProxyType
 from urllib.parse import parse_qs, urlparse
 
@@ -53,6 +56,7 @@ class FakeHttpClient:
         self.revocations = 0
         self.identity_status = 200
         self.revoke_error: Exception | None = None
+        self.revoke_status = 200
 
     def request(
         self,
@@ -104,8 +108,24 @@ class FakeHttpClient:
             if self.revoke_error is not None:
                 raise self.revoke_error
             self.revocations += 1
-            return Response(200, {})
+            return Response(self.revoke_status, {})
         raise AssertionError(f"unexpected fake HTTP request: {method} {url}")
+
+
+class BlockingRefreshHttp(FakeHttpClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.refresh_started = Event()
+        self.release_refresh = Event()
+
+    def request(self, method: str, url: str, **kwargs: object) -> Response:
+        data = kwargs.get("data")
+        if url == "https://provider.test/token" and isinstance(data, dict):
+            if data.get("grant_type") == "refresh_token":
+                self.refresh_started.set()
+                if not self.release_refresh.wait(timeout=5):
+                    raise TimeoutError("test did not release the refresh request")
+        return super().request(method, url, **kwargs)
 
 
 def provider() -> OAuthProviderConfig:
@@ -308,6 +328,83 @@ def test_generic_callback_rotates_active_connection_and_destroys_old_credential(
     assert http.revocations == 0
 
 
+def test_rotation_retirement_survives_cleanup_failure_and_is_retryable(
+    oauth_stack,
+    monkeypatch,
+) -> None:
+    store, catalog, http, connections, vault, service = oauth_stack
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW,
+    )
+    original = service.callback(
+        owner_id="owner-a",
+        platform="youtube",
+        state="s" * 48,
+        code="first-code",
+        now=NOW + timedelta(seconds=5),
+    )
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW + timedelta(minutes=1),
+    )
+
+    monkeypatch.setattr(
+        vault,
+        "retry_pending_retirements",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("simulated cleanup interruption")),
+    )
+    rotated = service.callback(
+        owner_id="owner-a",
+        platform="youtube",
+        state="t" * 48,
+        code="second-code",
+        now=NOW + timedelta(minutes=1, seconds=5),
+    )
+
+    assert rotated.credential_ref != original.credential_ref
+    with store.transaction() as database:
+        refs = {
+            row["credential_ref"]
+            for row in database.execute("SELECT credential_ref FROM oauth_credentials").fetchall()
+        }
+        pending = database.execute(
+            "SELECT * FROM oauth_credential_retirements"
+        ).fetchone()
+    assert refs == {original.credential_ref, rotated.credential_ref}
+    assert pending["credential_ref"] == original.credential_ref
+    assert pending["replacement_credential_ref"] == rotated.credential_ref
+
+    recovery_store = SQLiteStore(store.path)
+    recovery_vault = LocalEncryptedOAuthVault(
+        recovery_store,
+        encryption_key=b"v" * 32,
+        key_id="vault-v1",
+        providers=catalog,
+        http_client=http,
+    )
+    try:
+        assert recovery_vault.retry_pending_retirements(
+            now=NOW + timedelta(minutes=2)
+        ) == 1
+        with recovery_store.transaction() as database:
+            remaining_refs = tuple(
+                row["credential_ref"]
+                for row in database.execute("SELECT credential_ref FROM oauth_credentials")
+            )
+            pending_count = database.execute(
+                "SELECT COUNT(*) FROM oauth_credential_retirements"
+            ).fetchone()[0]
+        assert remaining_refs == (rotated.credential_ref,)
+        assert pending_count == 0
+    finally:
+        recovery_store.close()
+
+
 def test_generic_callback_reactivates_reauth_required_connection(oauth_stack) -> None:
     _store, _catalog, _http, connections, _vault, service = oauth_stack
     service.start(
@@ -396,7 +493,143 @@ def test_generic_rotation_failure_discards_new_credential_and_preserves_old_bind
             for row in database.execute("SELECT credential_ref FROM oauth_credentials").fetchall()
         )
     assert refs == (original.credential_ref,)
+    assert http.revocations == 1
+
+
+def test_rotation_commit_recovery_keeps_the_committed_provider_grant(
+    oauth_stack,
+    monkeypatch,
+) -> None:
+    store, _catalog, http, connections, _vault, service = oauth_stack
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW,
+    )
+    original = service.callback(
+        owner_id="owner-a",
+        platform="youtube",
+        state="s" * 48,
+        code="first-code",
+        now=NOW + timedelta(seconds=5),
+    )
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW + timedelta(minutes=1),
+    )
+    update_connection = connections.update_connection
+
+    def commit_then_fail(*args, **kwargs):
+        update_connection(*args, **kwargs)
+        raise RuntimeError("simulated failure after committed rotation")
+
+    monkeypatch.setattr(connections, "update_connection", commit_then_fail)
+    rotated = service.callback(
+        owner_id="owner-a",
+        platform="youtube",
+        state="t" * 48,
+        code="second-code",
+        now=NOW + timedelta(minutes=1, seconds=5),
+    )
+
+    assert rotated.id == original.id
+    assert rotated.credential_ref != original.credential_ref
     assert http.revocations == 0
+    with store.transaction() as database:
+        refs = tuple(
+            row["credential_ref"]
+            for row in database.execute("SELECT credential_ref FROM oauth_credentials")
+        )
+    assert refs == (rotated.credential_ref,)
+
+
+def test_registration_commit_recovery_keeps_the_committed_provider_grant(
+    oauth_stack,
+    monkeypatch,
+) -> None:
+    store, _catalog, http, connections, _vault, service = oauth_stack
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW,
+    )
+    register_connection = connections.register_connection
+
+    def commit_then_fail(*args, **kwargs):
+        register_connection(*args, **kwargs)
+        raise RuntimeError("simulated failure after committed registration")
+
+    monkeypatch.setattr(connections, "register_connection", commit_then_fail)
+    connected = service.callback(
+        owner_id="owner-a",
+        platform="youtube",
+        state="s" * 48,
+        code="first-code",
+        now=NOW + timedelta(seconds=5),
+    )
+
+    assert connected.status is ConnectionStatus.ACTIVE
+    assert http.revocations == 0
+    with store.transaction() as database:
+        refs = tuple(
+            row["credential_ref"]
+            for row in database.execute("SELECT credential_ref FROM oauth_credentials")
+        )
+    assert refs == (connected.credential_ref,)
+
+
+def test_revoking_connection_conflict_retires_the_uncommitted_provider_grant(
+    oauth_stack,
+) -> None:
+    store, _catalog, http, connections, _vault, service = oauth_stack
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW,
+    )
+    original = service.callback(
+        owner_id="owner-a",
+        platform="youtube",
+        state="s" * 48,
+        code="first-code",
+        now=NOW + timedelta(seconds=5),
+    )
+    pending = connections.update_connection(
+        original.id,
+        owner_id="owner-a",
+        expected_version=original.version,
+        now=NOW + timedelta(seconds=10),
+        status=ConnectionStatus.REVOKING,
+    )
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW + timedelta(minutes=1),
+    )
+
+    with pytest.raises(OAuthFlowError, match="still completing revocation"):
+        service.callback(
+            owner_id="owner-a",
+            platform="youtube",
+            state="t" * 48,
+            code="second-code",
+            now=NOW + timedelta(minutes=1, seconds=5),
+        )
+
+    assert connections.get_connection(original.id, owner_id="owner-a") == pending
+    assert http.revocations == 1
+    with store.transaction() as database:
+        refs = tuple(
+            row["credential_ref"]
+            for row in database.execute("SELECT credential_ref FROM oauth_credentials")
+        )
+    assert refs == (original.credential_ref,)
 
 
 def test_callback_failure_revokes_the_unregistered_provider_grant(oauth_stack) -> None:
@@ -526,6 +759,88 @@ def test_revoke_failure_leaves_a_non_executable_recovery_state(oauth_stack) -> N
     assert pending.status is ConnectionStatus.REVOKING
     with store.transaction() as connection:
         assert connection.execute("SELECT COUNT(*) FROM oauth_credentials").fetchone()[0] == 1
+
+
+def test_revoke_redirect_is_not_terminal_confirmation(oauth_stack) -> None:
+    store, _catalog, http, connections, _vault, service = oauth_stack
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW,
+    )
+    connected = service.callback(
+        owner_id="owner-a",
+        platform="youtube",
+        state="s" * 48,
+        code="one-time-code",
+        now=NOW + timedelta(seconds=5),
+    )
+    http.revoke_status = 302
+
+    with pytest.raises(Exception, match="could not be confirmed"):
+        service.revoke(
+            connected.id,
+            owner_id="owner-a",
+            expected_version=connected.version,
+            now=NOW + timedelta(minutes=1),
+        )
+
+    pending = connections.get_connection(connected.id, owner_id="owner-a")
+    assert pending.status is ConnectionStatus.REVOKING
+    with store.transaction() as database:
+        assert database.execute("SELECT COUNT(*) FROM oauth_credentials").fetchone()[0] == 1
+        assert database.execute("SELECT COUNT(*) FROM oauth_revocation_receipts").fetchone()[0] == 0
+
+
+def test_refresh_is_single_flight_across_independent_sqlite_connections(oauth_stack) -> None:
+    store, catalog, _http, _connections, vault, service = oauth_stack
+    service.start(
+        owner_id="owner-a",
+        platform="youtube",
+        redirect_uri="http://127.0.0.1:5173/oauth/callback",
+        now=NOW,
+    )
+    connected = service.callback(
+        owner_id="owner-a",
+        platform="youtube",
+        state="s" * 48,
+        code="one-time-code",
+        now=NOW + timedelta(seconds=5),
+    )
+    blocking_http = BlockingRefreshHttp()
+    vault._http = blocking_http
+    second_store = SQLiteStore(store.path)
+    second_vault = LocalEncryptedOAuthVault(
+        second_store,
+        encryption_key=b"v" * 32,
+        key_id="vault-v1",
+        providers=catalog,
+        http_client=blocking_http,
+    )
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first = executor.submit(
+                vault.lease,
+                connected,
+                required_scopes=frozenset({"scope.write"}),
+                now=NOW + timedelta(seconds=70),
+            )
+            assert blocking_http.refresh_started.wait(timeout=2)
+            second = executor.submit(
+                second_vault.lease,
+                connected,
+                required_scopes=frozenset({"scope.write"}),
+                now=NOW + timedelta(seconds=70),
+            )
+            time.sleep(0.05)
+            blocking_http.release_refresh.set()
+            leases = (first.result(timeout=5), second.result(timeout=5))
+        assert blocking_http.refreshes == 1
+        assert {lease.credential_ref for lease in leases} == {connected.credential_ref}
+    finally:
+        blocking_http.release_refresh.set()
+        second_store.close()
 
 
 def test_revoke_recovers_after_receipt_commits_before_registry_finalization(

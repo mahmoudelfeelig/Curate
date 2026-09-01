@@ -250,6 +250,38 @@ class EncryptedConnectionTests(unittest.TestCase):
         )
         self.assertEqual(revoked.status, ConnectionStatus.REVOKED)
 
+    def test_reauth_marker_is_credential_bound_and_persistent(self) -> None:
+        value = self.registry.register_connection(
+            owner_id="person-a",
+            platform="youtube",
+            external_subject="channel-private-123",
+            credential_ref="identity-ref",
+            metadata={},
+            now=NOW,
+        )
+        unchanged = self.registry.mark_reauth_required(
+            value.id,
+            owner_id="person-a",
+            expected_credential_ref="stale-identity-ref",
+            now=NOW + timedelta(minutes=1),
+        )
+        self.assertEqual(unchanged.status, ConnectionStatus.ACTIVE)
+
+        marked = self.registry.mark_reauth_required(
+            value.id,
+            owner_id="person-a",
+            expected_credential_ref=value.credential_ref,
+            now=NOW + timedelta(minutes=2),
+        )
+
+        self.assertEqual(marked.status, ConnectionStatus.REAUTH_REQUIRED)
+        self.store.close()
+        self.store = SQLiteStore(self.path)
+        self.registry = EncryptedConnectionRegistry(self.store, keyring())
+        restored = self.registry.get_connection(value.id, owner_id="person-a")
+        self.assertEqual(restored.status, ConnectionStatus.REAUTH_REQUIRED)
+        self.assertEqual(self.registry.list_runtime_connections(platform="youtube"), ())
+
     def test_legacy_connection_status_schema_is_migrated_without_data_loss(self) -> None:
         legacy_path = Path(self.temp.name) / "legacy-connections.db"
         connection = sqlite3.connect(legacy_path)

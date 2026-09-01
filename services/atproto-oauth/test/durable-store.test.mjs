@@ -14,6 +14,8 @@ import { AtprotoOAuthService } from '../src/service.mjs'
 
 const temporaries = []
 const BASE_NOW = Date.now()
+const TEST_APP_STATE = 'a'.repeat(43)
+const TEST_PROTOCOL_STATE = 'p'.repeat(43)
 
 afterEach(async () => {
   await Promise.all(temporaries.splice(0).map((directory) => rm(directory, { recursive: true })))
@@ -32,9 +34,13 @@ test('encrypted stores survive restart without plaintext credentials', async () 
     refreshToken: 'secret-refresh-token',
     dpopJwk: { d: 'secret-private-coordinate' },
   })
-  await stores.ownerStates.create('browser-state-value', {
+  await stores.ownerStates.create(TEST_APP_STATE, {
     ownerId: 'user:owner-a',
     expiresAt: BASE_NOW + 50_000,
+  })
+  await stores.ownerStates.bindOfficialState(TEST_APP_STATE, TEST_PROTOCOL_STATE, {
+    appState: TEST_APP_STATE,
+    verifier: 'secret-owner-state-verifier',
   })
   const connection = await stores.connections.bind({
     ownerId: 'user:owner-a',
@@ -56,6 +62,9 @@ test('encrypted stores survive restart without plaintext credentials', async () 
     'secret-private-coordinate',
     'secret-pkce-verifier',
     'browser-state-value',
+    TEST_APP_STATE,
+    TEST_PROTOCOL_STATE,
+    'secret-owner-state-verifier',
     'user:owner-a',
     'did:plc:alice123',
     'must-not-be-duplicated',
@@ -78,18 +87,23 @@ test('encrypted stores survive restart without plaintext credentials', async () 
     'secret-refresh-token',
   )
   await assert.rejects(
-    stores.ownerStates.consume('browser-state-value', {
+    stores.ownerStates.consume(TEST_PROTOCOL_STATE, {
       ownerId: 'user:owner-b',
       now: BASE_NOW + 2_000,
     }),
     (error) => error.code === 'oauth_owner_mismatch',
   )
   assert.deepEqual(
-    await stores.ownerStates.consume('browser-state-value', {
+    await stores.ownerStates.consume(TEST_PROTOCOL_STATE, {
       ownerId: 'user:owner-a',
       now: BASE_NOW + 2_000,
     }),
-    { ownerId: 'user:owner-a', expiresAt: BASE_NOW + 50_000 },
+    {
+      ownerId: 'user:owner-a',
+      appState: TEST_APP_STATE,
+      protocolState: TEST_PROTOCOL_STATE,
+      expiresAt: BASE_NOW + 50_000,
+    },
   )
   assert.equal(
     (await stores.connections.get(connection.connectionRef, { ownerId: 'user:owner-a' })).did,
@@ -114,12 +128,13 @@ test('owner state expiry is durably consumed and cannot replay after restart', a
   const filePath = join(directory, 'expiry.enc')
   const encryptionKey = randomBytes(32)
   let stores = await createDurableSidecarStores({ filePath, encryptionKey })
-  await stores.ownerStates.create('expiring-state', {
+  const expiringState = 'e'.repeat(43)
+  await stores.ownerStates.create(expiringState, {
     ownerId: 'user:owner-a',
     expiresAt: BASE_NOW + 2_000,
   })
   await assert.rejects(
-    stores.ownerStates.consume('expiring-state', {
+    stores.ownerStates.consume(expiringState, {
       ownerId: 'user:owner-a',
       now: BASE_NOW + 2_000,
     }),
@@ -129,7 +144,7 @@ test('owner state expiry is durably consumed and cannot replay after restart', a
 
   stores = await createDurableSidecarStores({ filePath, encryptionKey })
   await assert.rejects(
-    stores.ownerStates.consume('expiring-state', {
+    stores.ownerStates.consume(expiringState, {
       ownerId: 'user:owner-a',
       now: BASE_NOW + 2_001,
     }),
@@ -178,9 +193,14 @@ test('processing callback without a receipt fails closed after restart', async (
   const state = 'p'.repeat(43)
   let callbackCount = 0
   let stores = await createDurableSidecarStores({ filePath, encryptionKey })
-  await stores.ownerStates.create(state, {
+  const appState = 'a'.repeat(43)
+  await stores.ownerStates.create(appState, {
     ownerId: 'user:owner-a',
     expiresAt: Date.now() + 60_000,
+  })
+  await stores.ownerStates.bindOfficialState(appState, state, {
+    appState,
+    verifier: 'processing-test-verifier',
   })
   await stores.ownerStates.claim(state, { ownerId: 'user:owner-a', now: Date.now() })
   await stores.close()
@@ -235,13 +255,124 @@ test('terminal revocation proof survives restart and is not replayed remotely', 
   await stores.close()
 })
 
+test('durable revocation proof recovers local cleanup without a second provider claim', async () => {
+  const directory = await temporaryDirectory()
+  const filePath = join(directory, 'confirmed-revoke-recovery.enc')
+  const encryptionKey = randomBytes(32)
+  const state = 'c'.repeat(43)
+  let providerCalls = 0
+  const oauthClient = callbackClient({ state, onCallback: () => {} })
+  let stores = await createDurableSidecarStores({ filePath, encryptionKey })
+  let service = durableService(stores, oauthClient, state)
+  const started = await service.start({ ownerId: 'user:owner-a', handle: 'alice.bsky.social' })
+  const connected = await service.callback({
+    ownerId: 'user:owner-a',
+    query: `code=approved&state=${new URL(started.authorization_url).searchParams.get('state')}`,
+  })
+  oauthClient.revokeWithProof = async (_did, onProviderConfirmed) => {
+    providerCalls += 1
+    await onProviderConfirmed()
+    throw new Error('local session deletion interrupted')
+  }
+  await assert.rejects(
+    service.revoke({ ownerId: 'user:owner-a', connectionRef: connected.connection_ref }),
+    (error) => error.code === 'session_revoke_failed',
+  )
+  assert.equal(
+    (await stores.connections.get(connected.connection_ref, { ownerId: 'user:owner-a' })).status,
+    'revoking',
+  )
+  await stores.close()
+
+  stores = await createDurableSidecarStores({ filePath, encryptionKey })
+  service = durableService(stores, oauthClient, state)
+  const recovered = await service.revoke({
+    ownerId: 'user:owner-a',
+    connectionRef: connected.connection_ref,
+  })
+  assert.equal(recovered.revocation_proof, 'provider_confirmed')
+  assert.equal(providerCalls, 1)
+  await stores.close()
+})
+
+test('unknown revocation outcome stays durable and cannot be upgraded by a missing session', async () => {
+  const directory = await temporaryDirectory()
+  const filePath = join(directory, 'unknown-revoke-recovery.enc')
+  const encryptionKey = randomBytes(32)
+  const state = 'u'.repeat(43)
+  let providerCalls = 0
+  const oauthClient = callbackClient({ state, onCallback: () => {} })
+  let stores = await createDurableSidecarStores({ filePath, encryptionKey })
+  let service = durableService(stores, oauthClient, state)
+  const started = await service.start({ ownerId: 'user:owner-a', handle: 'alice.bsky.social' })
+  const connected = await service.callback({
+    ownerId: 'user:owner-a',
+    query: `code=approved&state=${new URL(started.authorization_url).searchParams.get('state')}`,
+  })
+  oauthClient.revokeWithProof = async () => {
+    providerCalls += 1
+    throw new Error(providerCalls === 1 ? 'provider outcome unknown' : 'official session missing')
+  }
+  await assert.rejects(
+    service.revoke({ ownerId: 'user:owner-a', connectionRef: connected.connection_ref }),
+    (error) => error.code === 'session_revoke_failed',
+  )
+  await stores.close()
+
+  stores = await createDurableSidecarStores({ filePath, encryptionKey })
+  service = durableService(stores, oauthClient, state)
+  await assert.rejects(
+    service.revoke({ ownerId: 'user:owner-a', connectionRef: connected.connection_ref }),
+    (error) => error.code === 'session_revoke_failed',
+  )
+  const record = await stores.connections.get(connected.connection_ref, {
+    ownerId: 'user:owner-a',
+  })
+  assert.equal(record.status, 'revoking')
+  assert.equal(record.providerConfirmedAt, undefined)
+  await stores.close()
+})
+
+test('owner and official OAuth state share the injected durable clock', async () => {
+  const directory = await temporaryDirectory()
+  const filePath = join(directory, 'shared-oauth-clock.enc')
+  const encryptionKey = randomBytes(32)
+  let now = 2_000_000_000_000
+  const stores = await createDurableSidecarStores({
+    filePath,
+    encryptionKey,
+    clock: () => now,
+  })
+  const appState = 'k'.repeat(43)
+  const protocolState = 'l'.repeat(43)
+  await stores.ownerStates.create(appState, {
+    ownerId: 'user:owner-a',
+    expiresAt: now + 60_000,
+  })
+  await stores.ownerStates.bindOfficialState(appState, protocolState, {
+    appState,
+    verifier: 'clock-test',
+  })
+  assert.equal(
+    (await stores.ownerStates.bound(appState, {
+      ownerId: 'user:owner-a',
+      now,
+    })).protocolState,
+    protocolState,
+  )
+  assert.equal((await stores.oauthStateStore.get(protocolState)).appState, appState)
+  now += 60_001
+  assert.equal(await stores.oauthStateStore.get(protocolState), undefined)
+  await stores.close()
+})
+
 test('startup prunes expired transient records and individual records are bounded', async () => {
   const directory = await temporaryDirectory()
   const filePath = join(directory, 'bounded-store.enc')
   const encryptionKey = randomBytes(32)
   let stores = await createDurableSidecarStores({ filePath, encryptionKey })
   const now = Date.now()
-  await stores.ownerStates.create('expired-owner-state', {
+  await stores.ownerStates.create('x'.repeat(43), {
     ownerId: 'user:owner-a',
     expiresAt: now - 1,
   })
@@ -294,19 +425,19 @@ test('abandoned official states expire and each owner has a pending-start quota'
   assert.deepEqual(await officialStates.get('official-three'), { verifier: 'three' })
 
   for (let index = 0; index < 8; index += 1) {
-    await stores.ownerStates.create(`owner-state-${index}`, {
+    await stores.ownerStates.create(`${String(index).repeat(43)}`, {
       ownerId: 'user:owner-a',
       expiresAt: Date.now() + 60_000,
     })
   }
   await assert.rejects(
-    stores.ownerStates.create('owner-state-over-quota', {
+    stores.ownerStates.create('q'.repeat(43), {
       ownerId: 'user:owner-a',
       expiresAt: Date.now() + 60_000,
     }),
     (error) => error.code === 'oauth_start_limit_reached' && error.status === 429,
   )
-  await stores.ownerStates.create('different-owner-state', {
+  await stores.ownerStates.create('d'.repeat(43), {
     ownerId: 'user:owner-b',
     expiresAt: Date.now() + 60_000,
   })
@@ -643,18 +774,31 @@ async function writeAuthenticatedSnapshot(filePath, encryptionKey, overrides) {
 }
 
 function callbackClient({ state, onCallback, onRevoke = () => {} }) {
+  const appStates = new Map()
+  const sessions = new Set()
   return {
     clientMetadata: { client_id: 'https://feed.example/metadata' },
     jwks: { keys: [{ kty: 'EC', crv: 'P-256', x: 'x', y: 'y' }] },
     async authorize(handle, options) {
+      await this.ownerStates.bindOfficialState(options.state, state, {
+        appState: options.state,
+        verifier: 'mock-official-verifier',
+      })
+      appStates.set(state, options.state)
       const url = new URL('https://pds.example/oauth/authorize')
       url.searchParams.set('login_hint', handle)
-      url.searchParams.set('state', options.state)
+      url.searchParams.set('state', state)
       return url
     },
     async callback(params) {
       onCallback()
-      return { state: params.get('state'), session: { did: 'did:plc:alice123' } }
+      const protocolState = params.get('state')
+      await this.stateStore.del(protocolState)
+      sessions.add('did:plc:alice123')
+      return {
+        state: appStates.get(protocolState),
+        session: { did: 'did:plc:alice123' },
+      }
     },
     async restore(did) {
       return { did }
@@ -662,16 +806,28 @@ function callbackClient({ state, onCallback, onRevoke = () => {} }) {
     async revoke() {
       onRevoke()
     },
+    async revokeWithProof(did, onProviderConfirmed) {
+      if (!sessions.has(did)) throw new Error('official session missing')
+      onRevoke()
+      await onProviderConfirmed()
+      sessions.delete(did)
+    },
+    async discardSession(did) {
+      sessions.delete(did)
+    },
   }
 }
 
 function durableService(stores, oauthClient, state) {
+  oauthClient.ownerStates = stores.ownerStates
+  oauthClient.stateStore = stores.oauthStateStore
+  const appState = state.startsWith('a') ? `b${state.slice(1)}` : `a${state.slice(1)}`
   return new AtprotoOAuthService({
     oauthClient,
     ownerStates: stores.ownerStates,
     connections: stores.connections,
     sessionLeases: stores.sessionLeases,
     operationExecutor: { async execute() { return {} } },
-    randomState: () => state,
+    randomState: () => appState,
   })
 }

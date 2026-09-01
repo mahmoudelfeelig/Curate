@@ -112,8 +112,8 @@ export class AtprotoOAuthService {
   async start({ ownerId, handle, signal }) {
     const owner = requireOwnerId(ownerId)
     const identifier = requireHandle(handle)
-    const state = this.randomState()
-    if (typeof state !== 'string' || state.length < 43 || state.length > 256) {
+    const appState = this.randomState()
+    if (typeof appState !== 'string' || appState.length < 43 || appState.length > 256) {
       throw new SidecarError(
         'oauth_state_generation_failed',
         'The OAuth transaction could not be created.',
@@ -122,10 +122,10 @@ export class AtprotoOAuthService {
     }
     const startedAt = this.now()
     const expiresAt = startedAt + this.stateTtlMs
-    await this.ownerStates.create(state, { ownerId: owner, expiresAt })
+    await this.ownerStates.create(appState, { ownerId: owner, expiresAt })
     try {
       const authorization = await this.oauthClient.authorize(identifier, {
-        state,
+        state: appState,
         signal,
       })
       const authorizationUrl = new URL(String(authorization))
@@ -136,20 +136,18 @@ export class AtprotoOAuthService {
           { status: 502 },
         )
       }
-      if (!equalOpaque(authorizationUrl.searchParams.get('state'), state)) {
-        throw new SidecarError(
-          'oauth_state_not_preserved',
-          'The AT Protocol authorization request did not preserve its state.',
-          { status: 502 },
-        )
-      }
+      // The official client generates the OAuth protocol state itself and
+      // stores our value as appState. With PAR, the protocol state is not in
+      // this URL at all, so the injected state-store seam must have durably
+      // bound it to the owner before authorize returns.
+      await this.ownerStates.bound(appState, { ownerId: owner, now: this.now() })
       return {
         platform: 'bluesky',
         authorization_url: authorizationUrl.toString(),
         expires_at: new Date(expiresAt).toISOString(),
       }
     } catch (error) {
-      await this.ownerStates.delete(state)
+      await this.ownerStates.deleteByAppState(appState)
       if (error instanceof SidecarError) throw error
       throw new SidecarError(
         'oauth_start_failed',
@@ -162,29 +160,32 @@ export class AtprotoOAuthService {
   async callback({ ownerId, query }) {
     const owner = requireOwnerId(ownerId)
     const params = callbackParams(query)
-    const state = requireSingleParam(params, 'state')
+    const protocolState = requireSingleParam(params, 'state')
     return this.lifecycle.run(async () => {
       const now = this.now()
-      const receipt = await this.connections.callbackResult(state, {
+      const receipt = await this.connections.callbackResult(protocolState, {
         ownerId: owner,
         now,
       })
       if (receipt) return publicConnection(receipt)
-      await this.ownerStates.claim(state, { ownerId: owner, now })
+      const transaction = await this.ownerStates.claim(protocolState, {
+        ownerId: owner,
+        now,
+      })
 
       let callbackResult
       try {
         callbackResult = await this.oauthClient.callback(params)
       } catch (error) {
-        await this.ownerStates.delete(state)
+        await this.ownerStates.delete(protocolState)
         throw new SidecarError(
           'oauth_callback_rejected',
           'The AT Protocol OAuth callback was rejected; start authorization again.',
           { status: 409, cause: error },
         )
       }
-      if (!callbackResult || !equalOpaque(callbackResult.state, state)) {
-        await this.ownerStates.delete(state)
+      if (!callbackResult || !equalOpaque(callbackResult.state, transaction.appState)) {
+        await this.ownerStates.delete(protocolState)
         await bestEffortRevoke(this.oauthClient, callbackResult?.session)
         throw new SidecarError(
           'oauth_callback_state_mismatch',
@@ -198,13 +199,13 @@ export class AtprotoOAuthService {
         const connection = await this.connections.bindCallback({
           ownerId: owner,
           did,
-          state,
+          state: protocolState,
           now: this.now(),
           receiptTtlMs: this.callbackReceiptTtlMs,
         })
         return publicConnection(connection)
       } catch (error) {
-        await this.ownerStates.delete(state)
+        await this.ownerStates.delete(protocolState)
         await bestEffortRevoke(this.oauthClient, session)
         throw error
       }
@@ -301,14 +302,45 @@ export class AtprotoOAuthService {
         return revokedConnection(reference, 'sidecar_terminal')
       }
       await this.sessionLeases.deleteForConnection(reference)
-      try {
-        await this.oauthClient.revoke(connection.did)
-      } catch (error) {
-        throw new SidecarError(
-          'session_revoke_failed',
-          'The AT Protocol authorization could not be revoked.',
-          { status: 502, cause: error },
-        )
+      if (Number.isFinite(connection.providerConfirmedAt)) {
+        if (typeof this.oauthClient.discardSession !== 'function') {
+          throw new SidecarError(
+            'sidecar_unconfigured',
+            'The official AT Protocol session cleanup boundary is unavailable.',
+            { status: 503 },
+          )
+        }
+        try {
+          await this.oauthClient.discardSession(connection.did)
+        } catch (error) {
+          throw new SidecarError(
+            'session_cleanup_failed',
+            'Provider revocation is confirmed but local session cleanup must be retried.',
+            { status: 503, cause: error },
+          )
+        }
+      } else {
+        if (typeof this.oauthClient.revokeWithProof !== 'function') {
+          throw new SidecarError(
+            'sidecar_unconfigured',
+            'The official AT Protocol confirmed-revocation boundary is unavailable.',
+            { status: 503 },
+          )
+        }
+        try {
+          await this.oauthClient.revokeWithProof(connection.did, async () => {
+            await this.connections.confirmRevoke(reference, {
+              ownerId: owner,
+              now: this.now(),
+            })
+          })
+        } catch (error) {
+          throw new SidecarError(
+            'session_revoke_failed',
+            'The AT Protocol authorization could not be confirmed revoked.',
+            { status: 502, cause: error },
+          )
+        }
       }
       await this.connections.completeRevoke(reference, {
         ownerId: owner,

@@ -8,6 +8,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Durable Feed Passport decisions
 
+- The public visual source of truth is the live DOM/CSS implementation and curated browser captures; retain no unprovenanced visual references.
 - Ship no AI-generated or unprovenanced images. Every raster, font, and icon must have a compatible license and an entry in `THIRD_PARTY_NOTICES.md`; the UI should use live DOM and CSS for tickets, stamps, status, charts, and stateful controls.
 - Preserve the 2009-2013 travel-document desktop utility: navy cloth work surface, open paper passport, destination stamps, customs declaration, perforated tickets, coral action accents, muted green, customs yellow, and typewriter details.
 - Avoid contemporary AI-dashboard conventions, glass cards, purple gradients, chat-first interaction, oversized rounded corners, emoji, and decorative sci-fi agent imagery.

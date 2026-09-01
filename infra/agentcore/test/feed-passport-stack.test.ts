@@ -16,7 +16,7 @@ import { validateTemplate } from "../scripts/validate-template";
 let fixtureDirectory: string;
 let template: Template;
 const modelArn =
-  "arn:aws:bedrock:eu-central-1::foundation-model/amazon.nova-lite-v1:0";
+  "arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0";
 
 before(() => {
   fixtureDirectory = mkdtempSync(path.join(tmpdir(), "feed-passport-agentcore-cdk-"));
@@ -24,7 +24,7 @@ before(() => {
   writeFileSync(artifactPath, "deterministic synth fixture", "utf8");
   const app = new App();
   const stack = new FeedPassportAgentCoreStack(app, "TestStack", {
-    env: { account: "111122223333", region: "eu-central-1" },
+    env: { account: "111122223333", region: "eu-north-1" },
     artifactPath,
     bedrockModelId: "amazon.nova-lite-v1:0",
     bedrockModelArn: modelArn,
@@ -45,11 +45,11 @@ describe("Feed Passport AgentCore stack", () => {
       validateBedrockModelBinding(
         "amazon.nova-lite-v1:0",
         modelArn,
-        "eu-central-1",
+        "eu-north-1",
       ),
     );
     assert.throws(
-      () => validateBedrockModelBinding("other-model", modelArn, "eu-central-1"),
+      () => validateBedrockModelBinding("other-model", modelArn, "eu-north-1"),
       /exactly match/,
     );
     assert.throws(
@@ -65,8 +65,8 @@ describe("Feed Passport AgentCore stack", () => {
       () =>
         validateBedrockModelBinding(
           "amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:eu-central-1:111122223333:custom-model/amazon.nova-lite-v1:0",
-          "eu-central-1",
+          "arn:aws:bedrock:eu-north-1:111122223333:custom-model/amazon.nova-lite-v1:0",
+          "eu-north-1",
         ),
       /direct foundation model/,
     );
@@ -74,8 +74,8 @@ describe("Feed Passport AgentCore stack", () => {
       () =>
         validateBedrockModelBinding(
           "eu.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:eu-central-1:111122223333:inference-profile/eu.amazon.nova-lite-v1:0",
-          "eu-central-1",
+          "arn:aws:bedrock:eu-north-1:111122223333:inference-profile/eu.amazon.nova-lite-v1:0",
+          "eu-north-1",
         ),
       /direct foundation model/,
     );

@@ -103,6 +103,7 @@ class BuiltInLiveConformanceFactory:
                 adapter = self._standard_adapter(
                     request,
                     connection,
+                    registry=registry,
                     store=store,
                     http_client=http_client,
                 )
@@ -131,6 +132,7 @@ class BuiltInLiveConformanceFactory:
         request: LiveConformanceRequest,
         connection: ExternalConnection,
         *,
+        registry: EncryptedConnectionRegistry,
         store: SQLiteStore,
         http_client: HttpClient,
     ) -> Any:
@@ -179,11 +181,24 @@ class BuiltInLiveConformanceFactory:
             "x": _XConformanceAdapter,
             "reddit": _RedditConformanceAdapter,
         }
+
+        def mark_reauth_required(
+            current: ExternalConnection,
+            now: datetime,
+        ) -> ExternalConnection:
+            return registry.mark_reauth_required(
+                current.id,
+                owner_id=current.owner_id,
+                expected_credential_ref=current.credential_ref,
+                now=now,
+            )
+
         arguments: dict[str, Any] = {
             "conformance_actions": action_types,
             "connections": {connection.id: connection},
             "credential_provider": vault,
             "http_client": http_client,
+            "mark_reauth_required": mark_reauth_required,
         }
         if request.platform == "reddit":
             arguments["approval_verified"] = True

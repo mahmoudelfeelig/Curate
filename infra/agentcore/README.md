@@ -54,6 +54,8 @@ The model execution evidence always labels Bedrock as external and potentially b
 
 The current stack accepts only a direct foundation-model ARN. It deliberately rejects inference profiles because invoking a profile can require additional permissions for underlying destination models; the narrow one-ARN IAM interface cannot represent that safely.
 
+The examples use `eu-north-1` because both AgentCore and direct in-Region Nova Lite are currently available there. Frankfurt currently offers Nova Lite through the EU inference profile rather than direct in-Region invocation, so `eu-central-1` is incompatible with this stack's exact direct-model boundary. Recheck the official [AgentCore Region table](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-regions.html) and [Nova Lite regional availability](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-lite.html) immediately before any deployment.
+
 The direct-code artifact requires Python 3.13 for Linux ARM64. Its entrypoint is `agentcore_main.py`. Packaging includes the curator project plus `bedrock-agentcore`, `strands-agents`, Pydantic, boto3, and their resolved dependencies. Application dependency declarations should keep boto3 explicit even though AgentCore/Strands currently pull it transitively.
 
 ## What is proven locally
@@ -85,9 +87,9 @@ Create a full local CDK plan with explicit placeholders matching the intended ac
 ```powershell
 ./scripts/plan.ps1 `
   -AwsAccountId 111122223333 `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -BedrockModelId amazon.nova-lite-v1:0 `
-  -BedrockModelArn arn:aws:bedrock:eu-central-1::foundation-model/amazon.nova-lite-v1:0 `
+  -BedrockModelArn arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0 `
   -CognitoDomainPrefix feed-passport-choose-a-unique-prefix
 ```
 
@@ -105,10 +107,10 @@ Before any write, the read-only preflight confirms the exact caller account, Age
 ./scripts/preflight.ps1 `
   -Mode AwsReadOnly `
   -AwsAccountId 111122223333 `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -AwsProfile feed-passport-demo `
   -BedrockModelId amazon.nova-lite-v1:0 `
-  -BedrockModelArn arn:aws:bedrock:eu-central-1::foundation-model/amazon.nova-lite-v1:0
+  -BedrockModelArn arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0
 ```
 
 If `CDKToolkit` is absent, inspect the bootstrap command first:
@@ -116,7 +118,7 @@ If `CDKToolkit` is absent, inspect the bootstrap command first:
 ```powershell
 ./scripts/bootstrap.ps1 `
   -AwsAccountId 111122223333 `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -AwsProfile feed-passport-demo
 ```
 
@@ -126,7 +128,7 @@ Applying bootstrap creates shared AWS resources and is therefore separately gate
 ./scripts/bootstrap.ps1 `
   -Mode Apply `
   -AwsAccountId 111122223333 `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -AwsProfile feed-passport-demo `
   -ApplyAcknowledgement "BOOTSTRAP FEED PASSPORT AWS" `
   -BillingAcknowledgement "AWS CREDITS ARE NOT A HARD SPEND CAP"
@@ -138,10 +140,10 @@ Deployment also defaults to a purely local plan. Its apply form uses the same pl
 ./scripts/deploy.ps1 `
   -Mode Apply `
   -AwsAccountId 111122223333 `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -AwsProfile feed-passport-demo `
   -BedrockModelId amazon.nova-lite-v1:0 `
-  -BedrockModelArn arn:aws:bedrock:eu-central-1::foundation-model/amazon.nova-lite-v1:0 `
+  -BedrockModelArn arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0 `
   -CognitoDomainPrefix feed-passport-choose-a-unique-prefix `
   -ApplyAcknowledgement "DEPLOY FEED PASSPORT AGENTCORE" `
   -BillingAcknowledgement "AWS CREDITS ARE NOT A HARD SPEND CAP"
@@ -157,7 +159,7 @@ The stack disables self-sign-up and creates a public Authorization Code + PKCE a
 ./scripts/create-demo-user.ps1 `
   -Mode Apply `
   -AwsAccountId 111122223333 `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -AwsProfile feed-passport-demo `
   -Username demo-curator `
   -ApplyAcknowledgement "CREATE FEED PASSPORT DUMMY USER"
@@ -171,7 +173,7 @@ Use the stack's hosted-UI base URL, public client ID, and callback URL with Auth
 ./scripts/smoke.ps1 `
   -Mode Invoke `
   -Operation Health `
-  -GatewayUrl https://replace.gateway.bedrock-agentcore.eu-central-1.amazonaws.com `
+  -GatewayUrl https://replace.gateway.bedrock-agentcore.eu-north-1.amazonaws.com `
   -InvokeAcknowledgement "INVOKE AGENTCORE MAY INCUR AWS CHARGES"
 ```
 
@@ -179,7 +181,7 @@ Use the stack's hosted-UI base URL, public client ID, and callback URL with Auth
 ./scripts/smoke.ps1 `
   -Mode Invoke `
   -Operation PlanFeature `
-  -GatewayUrl https://replace.gateway.bedrock-agentcore.eu-central-1.amazonaws.com `
+  -GatewayUrl https://replace.gateway.bedrock-agentcore.eu-north-1.amazonaws.com `
   -PayloadPath ./examples/plan-feature.json `
   -InvokeAcknowledgement "INVOKE AGENTCORE MAY INCUR AWS CHARGES" `
   -BedrockAcknowledgement "INVOKE BEDROCK MAY INCUR AWS CHARGES"
@@ -193,7 +195,7 @@ After the first explicitly approved invocation creates the Runtime log group, se
 ./scripts/set-retention.ps1 `
   -Mode Apply `
   -RuntimeId replace-with-stack-output `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -AwsProfile feed-passport-demo `
   -ApplyAcknowledgement "SET AGENTCORE LOG RETENTION"
 ```
@@ -212,7 +214,7 @@ The AWS read-only mode verifies the caller account and lists only the CloudForma
 ./scripts/inventory.ps1 `
   -Mode AwsReadOnly `
   -AwsAccountId 111122223333 `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -AwsProfile feed-passport-demo
 ```
 
@@ -222,7 +224,7 @@ Teardown defaults to a no-op plan and targets only `FeedPassportAgentCore`. Appl
 ./scripts/destroy.ps1 `
   -Mode Apply `
   -AwsAccountId 111122223333 `
-  -AwsRegion eu-central-1 `
+  -AwsRegion eu-north-1 `
   -AwsProfile feed-passport-demo `
   -DeleteRuntimeLogGroup `
   -DeleteRuntimeAsset `

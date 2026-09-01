@@ -1,7 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto'
 
 import { SidecarError } from './errors.mjs'
-import { requireDid, requireOpaqueReference, requireOwnerId } from './validation.mjs'
+import {
+  equalOpaque,
+  requireDid,
+  requireOpaqueReference,
+  requireOwnerId,
+} from './validation.mjs'
 
 const MAX_OWNER_OAUTH_STATES = 8
 
@@ -42,7 +47,8 @@ export class InMemoryOwnerStateStore {
   #records = new Map()
 
   async create(state, record) {
-    const digest = stateDigest(state)
+    const appState = requireOpaqueReference(state, 'oauth_app_state')
+    const digest = stateDigest(appState)
     if (this.#records.has(digest)) {
       throw new SidecarError('oauth_state_collision', 'Start authorization again.', {
         status: 409,
@@ -61,9 +67,64 @@ export class InMemoryOwnerStateStore {
     }
     this.#records.set(digest, {
       ownerId,
+      appState,
       expiresAt: Number(record.expiresAt),
+      status: 'authorizing',
+    })
+  }
+
+  async bindProtocolState(appState, protocolState) {
+    const app = requireOpaqueReference(appState, 'oauth_app_state')
+    const protocol = requireOpaqueReference(protocolState, 'oauth_protocol_state')
+    const appDigest = stateDigest(app)
+    const protocolDigest = stateDigest(protocol)
+    const record = this.#records.get(appDigest)
+    if (!record || record.status !== 'authorizing' || !equalOpaque(record.appState, app)) {
+      throw new SidecarError('oauth_state_unknown', 'The OAuth transaction is unavailable.', {
+        status: 409,
+      })
+    }
+    if (this.#records.has(protocolDigest)) {
+      throw new SidecarError('oauth_state_collision', 'Start authorization again.', {
+        status: 409,
+      })
+    }
+    this.#records.delete(appDigest)
+    this.#records.set(protocolDigest, {
+      ...record,
+      protocolState: protocol,
       status: 'pending',
     })
+  }
+
+  async bound(appState, { ownerId, now }) {
+    const app = requireOpaqueReference(appState, 'oauth_app_state')
+    const owner = requireOwnerId(ownerId)
+    const currentTime = Number(now)
+    const record = [...this.#records.values()].find(
+      (value) => value.ownerId === owner && equalOpaque(value.appState, app),
+    )
+    if (!record || record.status === 'authorizing' || !record.protocolState) {
+      throw new SidecarError(
+        'oauth_protocol_state_unbound',
+        'The official OAuth client did not bind its protocol state.',
+        { status: 502 },
+      )
+    }
+    if (record.expiresAt <= currentTime) {
+      await this.deleteByAppState(app)
+      throw new SidecarError('oauth_state_expired', 'The OAuth transaction expired.', {
+        status: 409,
+      })
+    }
+    return { ...record }
+  }
+
+  async deleteByAppState(appState) {
+    const app = requireOpaqueReference(appState, 'oauth_app_state')
+    for (const [digest, record] of this.#records) {
+      if (equalOpaque(record.appState, app)) this.#records.delete(digest)
+    }
   }
 
   async consume(state, { ownerId, now }) {
@@ -89,8 +150,20 @@ export class InMemoryOwnerStateStore {
         status: 409,
       })
     }
+    if (!record.protocolState || record.status === 'authorizing') {
+      throw new SidecarError(
+        'oauth_protocol_state_unbound',
+        'The official OAuth client did not bind its protocol state.',
+        { status: 409 },
+      )
+    }
     this.#records.delete(digest)
-    return { ownerId: record.ownerId, expiresAt: record.expiresAt }
+    return {
+      ownerId: record.ownerId,
+      appState: record.appState,
+      protocolState: record.protocolState,
+      expiresAt: record.expiresAt,
+    }
   }
 
   async claim(state, { ownerId, now }) {
@@ -117,6 +190,13 @@ export class InMemoryOwnerStateStore {
         status: 409,
       })
     }
+    if (!record.protocolState || record.status === 'authorizing') {
+      throw new SidecarError(
+        'oauth_protocol_state_unbound',
+        'The official OAuth client did not bind its protocol state.',
+        { status: 409 },
+      )
+    }
     if (record.status === 'processing') {
       throw new SidecarError(
         'oauth_callback_in_progress',
@@ -125,7 +205,12 @@ export class InMemoryOwnerStateStore {
       )
     }
     record.status = 'processing'
-    return { ownerId: record.ownerId, expiresAt: record.expiresAt }
+    return {
+      ownerId: record.ownerId,
+      appState: record.appState,
+      protocolState: record.protocolState,
+      expiresAt: record.expiresAt,
+    }
   }
 
   async finish(state, { ownerId }) {
@@ -276,9 +361,31 @@ export class InMemoryOwnerConnectionStore {
 
   async completeRevoke(connectionRef, { ownerId, now }) {
     const record = await this.get(connectionRef, { ownerId })
+    if (!Number.isFinite(record.providerConfirmedAt)) {
+      throw new SidecarError(
+        'session_revoke_unconfirmed',
+        'Provider revocation has not been durably confirmed.',
+        { status: 409 },
+      )
+    }
     record.status = 'revoked'
     record.revokedAt = Number(now)
     delete record.revokingAt
+    this.#byReference.set(record.connectionRef, record)
+    return { ...record }
+  }
+
+  async confirmRevoke(connectionRef, { ownerId, now }) {
+    const record = await this.get(connectionRef, { ownerId })
+    if (record.status === 'revoked') return record
+    if (record.status !== 'revoking') {
+      throw new SidecarError(
+        'session_revoke_unconfirmed',
+        'Provider revocation cannot be confirmed before it begins.',
+        { status: 409 },
+      )
+    }
+    record.providerConfirmedAt = Number(now)
     this.#byReference.set(record.connectionRef, record)
     return { ...record }
   }

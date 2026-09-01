@@ -79,11 +79,19 @@ class EncryptedConnectionRegistry:
         *,
         id_factory: Callable[[], str] | None = None,
         state_factory: Callable[[], str] | None = None,
+        max_oauth_transactions_per_owner_provider: int = 8,
+        oauth_transaction_retention: timedelta = timedelta(hours=1),
     ) -> None:
+        if not 1 <= max_oauth_transactions_per_owner_provider <= 50:
+            raise ValueError("OAuth transaction bound must be between one and fifty")
+        if not timedelta(minutes=15) <= oauth_transaction_retention <= timedelta(days=7):
+            raise ValueError("OAuth transaction retention must be between fifteen minutes and seven days")
         self.store = store
         self.keyring = keyring
         self._id_factory = id_factory or (lambda: f"connection_{secrets.token_urlsafe(18)}")
         self._state_factory = state_factory or (lambda: secrets.token_urlsafe(32))
+        self._max_oauth_transactions = max_oauth_transactions_per_owner_provider
+        self._oauth_transaction_retention = oauth_transaction_retention
 
     def register_connection(
         self,
@@ -247,6 +255,7 @@ class EncryptedConnectionRegistry:
         credential_ref: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         expected_external_subject: str | None = None,
+        retire_superseded_credential: bool = False,
     ) -> ExternalConnection:
         _require_aware(now, "now")
         current = self.get_connection(connection_id, owner_id=owner_id)
@@ -269,6 +278,10 @@ class EncryptedConnectionRegistry:
             raise ValueError("a revoking connection can only complete revocation")
         next_status = status or current.status
         next_credential_ref = credential_ref or current.credential_ref
+        retires_credential = retire_superseded_credential and not secrets.compare_digest(
+            current.credential_ref,
+            next_credential_ref,
+        )
         next_metadata = dict(current.metadata if metadata is None else metadata)
         if not next_credential_ref.strip():
             raise ValueError("credential reference is required")
@@ -314,7 +327,54 @@ class EncryptedConnectionRegistry:
             )
             if cursor.rowcount != 1:
                 raise ConcurrencyConflict("external connection changed concurrently")
+            if retires_credential:
+                connection.execute(
+                    """
+                    INSERT INTO oauth_credential_retirements (
+                        credential_ref, owner_id, platform, connection_id,
+                        replacement_credential_ref, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        current.credential_ref,
+                        owner_id,
+                        current.platform,
+                        connection_id,
+                        next_credential_ref,
+                        _canonical_time(now),
+                    ),
+                )
         return self.get_connection(connection_id, owner_id=owner_id)
+
+    def mark_reauth_required(
+        self,
+        connection_id: str,
+        *,
+        owner_id: str,
+        expected_credential_ref: str,
+        now: datetime,
+    ) -> ExternalConnection:
+        _require_aware(now, "now")
+        if not connection_id.strip() or not owner_id.strip() or not expected_credential_ref.strip():
+            raise ValueError("connection, owner, and expected credential reference are required")
+        for _attempt in range(3):
+            current = self.get_connection(connection_id, owner_id=owner_id)
+            if not secrets.compare_digest(current.credential_ref, expected_credential_ref):
+                return current
+            if current.status is not ConnectionStatus.ACTIVE:
+                return current
+            try:
+                return self.update_connection(
+                    connection_id,
+                    owner_id=owner_id,
+                    expected_version=current.version,
+                    now=now,
+                    status=ConnectionStatus.REAUTH_REQUIRED,
+                    expected_external_subject=current.external_subject,
+                )
+            except ConcurrencyConflict:
+                continue
+        raise ConcurrencyConflict("external connection kept changing while marking reauthorization")
 
     def _revoked_subject_fingerprint(self, connection: ExternalConnection) -> str:
         digest = self.keyring.blind_index(
@@ -369,6 +429,7 @@ class EncryptedConnectionRegistry:
         expires_at = now + ttl
         try:
             with self.store.transaction() as connection:
+                self._prune_oauth_transactions(connection, now=now)
                 connection.execute(
                     """
                     INSERT INTO oauth_transactions (
@@ -389,6 +450,20 @@ class EncryptedConnectionRegistry:
                         _canonical_time(expires_at),
                     ),
                 )
+                overflow = connection.execute(
+                    """
+                    SELECT state_hash FROM oauth_transactions
+                    WHERE owner_id = ? AND platform = ?
+                    ORDER BY rowid DESC
+                    LIMIT -1 OFFSET ?
+                    """,
+                    (owner_id, platform, self._max_oauth_transactions),
+                ).fetchall()
+                if overflow:
+                    connection.executemany(
+                        "DELETE FROM oauth_transactions WHERE state_hash = ?",
+                        ((row["state_hash"],) for row in overflow),
+                    )
         except sqlite3.IntegrityError as exc:
             raise ConcurrencyConflict("OAuth state was generated more than once") from exc
         return OAuthTransactionStart(
@@ -455,6 +530,23 @@ class EncryptedConnectionRegistry:
             created_at=datetime.fromisoformat(row["created_at"]),
             expires_at=expires_at,
             consumed_at=now,
+        )
+
+    def _prune_oauth_transactions(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        now: datetime,
+    ) -> None:
+        retention_cutoff = _canonical_time(now - self._oauth_transaction_retention)
+        connection.execute(
+            """
+            DELETE FROM oauth_transactions
+            WHERE
+                (consumed_at IS NOT NULL AND consumed_at <= ?)
+                OR expires_at <= ?
+            """,
+            (retention_cutoff, retention_cutoff),
         )
 
     def _connection_from_row(self, row: sqlite3.Row) -> ExternalConnection:

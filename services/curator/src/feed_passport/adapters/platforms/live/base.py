@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any, ClassVar
 
@@ -27,6 +27,7 @@ from feed_passport.ports.credentials import (
     ConnectedAccount,
     CredentialProvider,
     CredentialScopeDenied,
+    CredentialUnavailable,
     OAuthCredentialLease,
 )
 from feed_passport.ports.live_platform import (
@@ -53,6 +54,22 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
     OBSERVE_SCOPES: ClassVar[frozenset[str]] = frozenset()
     CANDIDATE_ACTIONS: ClassVar[frozenset[ActionType] | None] = None
     MAX_PAGES: ClassVar[int] = 50
+    REAUTH_REQUIRED_CREDENTIAL_CODES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "credential_unavailable",
+            "credential_key_unavailable",
+            "credential_authentication_failed",
+            "credential_invalid",
+            "credential_expired",
+            "refresh_unavailable",
+            "refresh_rejected",
+            "refresh_invalid",
+            "token_scope_invalid",
+        }
+    )
+    RETRYABLE_CREDENTIAL_CODES: ClassVar[frozenset[str]] = frozenset(
+        {"refresh_interrupted", "refresh_in_progress"}
+    )
 
     def __init__(
         self,
@@ -63,6 +80,7 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         certification: ValidatedLiveCertification | None = None,
         observations: Mapping[str, AccountObservation] | None = None,
         request_user_agent: str = "feed-passport/0.1",
+        mark_reauth_required: Callable[[ConnectedAccount, datetime], ConnectedAccount] | None = None,
     ) -> None:
         super().__init__(observations=observations)
         normalized_user_agent = request_user_agent.strip()
@@ -76,6 +94,7 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         self._http = http_client
         self._certification = certification
         self._request_user_agent = normalized_user_agent
+        self._mark_reauth_required = mark_reauth_required
         for connection_id, connection in self._connections.items():
             if connection.id != connection_id:
                 raise ValueError("connected account key must match its id")
@@ -381,29 +400,69 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         now: datetime,
         force_refresh: bool = False,
     ) -> OAuthCredentialLease:
-        if not scopes <= frozenset(connection.granted_scopes):
-            raise CredentialScopeDenied(
-                "credential_scope_denied",
-                "The connected account did not grant every required platform scope.",
+        try:
+            if not scopes <= frozenset(connection.granted_scopes):
+                raise CredentialScopeDenied(
+                    "credential_scope_denied",
+                    "The connected account did not grant every required platform scope.",
+                )
+            lease = self._credential_provider.lease(
+                connection,
+                required_scopes=scopes,
+                now=now,
+                force_refresh=force_refresh,
             )
-        lease = self._credential_provider.lease(
-            connection,
-            required_scopes=scopes,
-            now=now,
-            force_refresh=force_refresh,
-        )
-        if not scopes <= lease.scopes:
-            raise CredentialScopeDenied(
-                "credential_scope_denied",
-                "The credential broker returned an insufficient scope set.",
-            )
+            if not scopes <= lease.scopes:
+                raise CredentialScopeDenied(
+                    "credential_scope_denied",
+                    "The credential broker returned an insufficient scope set.",
+                )
+        except CredentialScopeDenied as exc:
+            self._record_reauth_required(connection, now=now)
+            raise LivePermissionError(
+                platform=self.platform,
+                code=exc.code,
+                detail="The connected account credential does not grant this operation.",
+            ) from exc
+        except CredentialUnavailable as exc:
+            if exc.code in self.REAUTH_REQUIRED_CREDENTIAL_CODES:
+                self._record_reauth_required(connection, now=now)
+            raise LiveAuthenticationError(
+                platform=self.platform,
+                code=exc.code,
+                detail="The connected account credential is unavailable.",
+                retryable=exc.code in self.RETRYABLE_CREDENTIAL_CODES,
+            ) from exc
         if lease.expires_at <= now:
+            self._record_reauth_required(connection, now=now)
             raise LiveAuthenticationError(
                 platform=self.platform,
                 code="credential_expired",
                 detail="The connected account credential has expired.",
             )
         return lease
+
+    def _record_reauth_required(
+        self,
+        connection: ConnectedAccount,
+        *,
+        now: datetime,
+    ) -> None:
+        if self._mark_reauth_required is None:
+            self._connections.pop(connection.id, None)
+            return
+        try:
+            updated = self._mark_reauth_required(connection, now)
+            if (
+                updated.id != connection.id
+                or updated.owner_id != connection.owner_id
+                or updated.platform != connection.platform
+            ):
+                raise ValueError("reauthorization marker returned a different connected account")
+        except Exception:
+            self._connections.pop(connection.id, None)
+            return
+        self._connections[connection.id] = updated
 
     def _request_json(
         self,

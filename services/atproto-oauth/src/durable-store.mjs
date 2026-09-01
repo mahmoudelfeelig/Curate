@@ -13,7 +13,12 @@ import { dirname, isAbsolute, resolve } from 'node:path'
 
 import { SidecarError } from './errors.mjs'
 import { opaqueReference, stateDigest } from './stores.mjs'
-import { requireDid, requireOpaqueReference, requireOwnerId } from './validation.mjs'
+import {
+  equalOpaque,
+  requireDid,
+  requireOpaqueReference,
+  requireOwnerId,
+} from './validation.mjs'
 
 const FORMAT_VERSION = 1
 const ALGORITHM = 'A256GCM'
@@ -39,6 +44,7 @@ const LEGACY_NAMESPACES = Object.freeze(NAMESPACES.filter((value) => value !== '
 
 export class EncryptedAtomicStore {
   #closed = false
+  #clock
   #encryptionKey
   #filePath
   #keyId
@@ -51,12 +57,12 @@ export class EncryptedAtomicStore {
   #snapshot = emptySnapshot()
   #tail = Promise.resolve()
 
-  static async open({ filePath, encryptionKey, keyId = 'local-v1' }) {
-    const store = new EncryptedAtomicStore({ filePath, encryptionKey, keyId })
+  static async open({ filePath, encryptionKey, keyId = 'local-v1', clock = () => Date.now() }) {
+    const store = new EncryptedAtomicStore({ filePath, encryptionKey, keyId, clock })
     try {
       await store.#acquireLock()
       const snapshot = await store.#load()
-      const now = Date.now()
+      const now = requireFiniteNumber(clock(), 'current time')
       const migration = migrateLegacyOAuthStates(snapshot, now)
       const preliminaryChanges =
         (snapshot[RECOVERED_RECORDS] ?? 0) +
@@ -78,7 +84,7 @@ export class EncryptedAtomicStore {
     }
   }
 
-  constructor({ filePath, encryptionKey, keyId }) {
+  constructor({ filePath, encryptionKey, keyId, clock }) {
     if (typeof filePath !== 'string' || !isAbsolute(filePath) || filePath.length > 4096) {
       throw new SidecarError(
         'sidecar_store_path_invalid',
@@ -100,11 +106,13 @@ export class EncryptedAtomicStore {
         { status: 503 },
       )
     }
+    if (typeof clock !== 'function') throw new TypeError('encrypted store clock is required')
     this.#filePath = resolve(filePath)
     this.#lockPath = `${this.#filePath}.lock`
     this.#recoveryPath = `${this.#lockPath}.recovery`
     this.#encryptionKey = Buffer.from(encryptionKey)
     this.#keyId = keyId
+    this.#clock = clock
   }
 
   async get(namespace, key) {
@@ -142,7 +150,7 @@ export class EncryptedAtomicStore {
       if (record === undefined || !predicate(cloneValue(record))) return record
 
       const next = cloneSnapshot(this.#snapshot)
-      pruneExpired(next, Date.now())
+      pruneExpired(next, requireFiniteNumber(this.#clock(), 'current time'))
       next.namespaces.get(namespace).delete(key)
       next.revision += 1
       await this.#persist(next)
@@ -162,7 +170,7 @@ export class EncryptedAtomicStore {
     return this.#enqueue(async () => {
       this.#requireOpen()
       const next = cloneSnapshot(this.#snapshot)
-      pruneExpired(next, Date.now())
+      pruneExpired(next, requireFiniteNumber(this.#clock(), 'current time'))
       const result = await callback(next.namespaces)
       if (recordCount(next) > MAX_RECORDS) {
         throw new SidecarError(
@@ -518,13 +526,16 @@ export class DurableSecretStore {
 }
 
 export class DurableOwnerStateStore {
-  constructor(database) {
+  constructor(database, { clock = () => Date.now() } = {}) {
     requireDatabase(database)
+    if (typeof clock !== 'function') throw new TypeError('owner state clock is required')
     this.database = database
+    this.clock = clock
   }
 
   async create(state, record) {
-    const digest = stateDigest(state)
+    const appState = requireOpaqueReference(state, 'oauth_app_state')
+    const digest = stateDigest(appState)
     const ownerId = requireOwnerId(record.ownerId)
     const expiresAt = requireFiniteNumber(record.expiresAt, 'OAuth state expiry')
     return this.database.mutateNamespaces((namespaces) => {
@@ -544,7 +555,127 @@ export class DurableOwnerStateStore {
           { status: 429 },
         )
       }
-      records.set(digest, { ownerId, expiresAt, status: 'pending' })
+      records.set(digest, { ownerId, appState, expiresAt, status: 'authorizing' })
+    })
+  }
+
+  async bindOfficialState(appState, protocolState, officialState) {
+    const app = requireOpaqueReference(appState, 'oauth_app_state')
+    const protocol = requireOpaqueReference(protocolState, 'oauth_protocol_state')
+    const safeOfficialState = clonePersistable(officialState)
+    if (!equalOpaque(safeOfficialState?.appState, app)) {
+      throw new SidecarError(
+        'oauth_app_state_mismatch',
+        'The official OAuth state did not match the owner-bound transaction.',
+        { status: 409 },
+      )
+    }
+    const appDigest = stateDigest(app)
+    const protocolDigest = stateDigest(protocol)
+    const storedAt = requireFiniteNumber(this.clock(), 'current time')
+    return this.database.mutateNamespaces((namespaces) => {
+      const ownerRecords = namespaces.get('owner_state')
+      const record = ownerRecords.get(appDigest)
+      if (
+        !record ||
+        record.status !== 'authorizing' ||
+        record.ownerId === undefined ||
+        !equalOpaque(record.appState, app)
+      ) {
+        throw new SidecarError('oauth_state_unknown', 'The OAuth transaction is unavailable.', {
+          status: 409,
+        })
+      }
+      if (record.expiresAt <= storedAt) {
+        ownerRecords.delete(appDigest)
+        throw new SidecarError('oauth_state_expired', 'The OAuth transaction expired.', {
+          status: 409,
+        })
+      }
+      if (
+        ownerRecords.has(protocolDigest) ||
+        namespaces.get('oauth_receipt').has(protocolDigest)
+      ) {
+        throw new SidecarError('oauth_state_collision', 'Start authorization again.', {
+          status: 409,
+        })
+      }
+      const officialRecords = namespaces.get('oauth_state')
+      for (const [key, candidate] of officialRecords) {
+        const expiresAt = oauthStateExpiresAt(candidate, OAUTH_STATE_TTL_MS)
+        if (expiresAt !== undefined && expiresAt <= storedAt) officialRecords.delete(key)
+      }
+      if (!officialRecords.has(protocol) && officialRecords.size >= MAX_OFFICIAL_OAUTH_STATES) {
+        throw new SidecarError(
+          'oauth_state_capacity_exceeded',
+          'The sidecar has too many pending official OAuth transactions.',
+          { status: 429 },
+        )
+      }
+      if (officialRecords.has(protocol)) {
+        throw new SidecarError('oauth_state_collision', 'Start authorization again.', {
+          status: 409,
+        })
+      }
+      officialRecords.set(
+        protocol,
+        clonePersistable({
+          format: 'timed-v1',
+          storedAt,
+          expiresAt: Math.min(record.expiresAt, storedAt + OAUTH_STATE_TTL_MS),
+          value: safeOfficialState,
+        }),
+      )
+      ownerRecords.delete(appDigest)
+      ownerRecords.set(protocolDigest, {
+        ...record,
+        protocolState: protocol,
+        status: 'pending',
+      })
+    })
+  }
+
+  async bound(appState, { ownerId, now }) {
+    const app = requireOpaqueReference(appState, 'oauth_app_state')
+    const owner = requireOwnerId(ownerId)
+    const currentTime = requireFiniteNumber(now, 'current time')
+    const result = await this.database.mutateNamespaces((namespaces) => {
+      const records = namespaces.get('owner_state')
+      const entry = [...records.entries()].find(
+        ([, value]) => value.ownerId === owner && equalOpaque(value.appState, app),
+      )
+      if (!entry || entry[1].status === 'authorizing' || !entry[1].protocolState) {
+        throw new SidecarError(
+          'oauth_protocol_state_unbound',
+          'The official OAuth client did not bind its protocol state.',
+          { status: 502 },
+        )
+      }
+      const [digest, record] = entry
+      if (record.expiresAt <= currentTime) {
+        records.delete(digest)
+        namespaces.get('oauth_state').delete(record.protocolState)
+        return { expired: true }
+      }
+      return { expired: false, record: { ...record } }
+    })
+    if (result.expired) {
+      throw new SidecarError('oauth_state_expired', 'The OAuth transaction expired.', {
+        status: 409,
+      })
+    }
+    return result.record
+  }
+
+  async deleteByAppState(appState) {
+    const app = requireOpaqueReference(appState, 'oauth_app_state')
+    return this.database.mutateNamespaces((namespaces) => {
+      const records = namespaces.get('owner_state')
+      for (const [digest, record] of records) {
+        if (!equalOpaque(record.appState, app)) continue
+        records.delete(digest)
+        if (record.protocolState) namespaces.get('oauth_state').delete(record.protocolState)
+      }
     })
   }
 
@@ -572,10 +703,22 @@ export class DurableOwnerStateStore {
         records.delete(digest)
         return { expired: true }
       }
+      if (!record.protocolState || record.status === 'authorizing') {
+        throw new SidecarError(
+          'oauth_protocol_state_unbound',
+          'The official OAuth client did not bind its protocol state.',
+          { status: 409 },
+        )
+      }
       records.delete(digest)
       return {
         expired: false,
-        record: { ownerId: record.ownerId, expiresAt: record.expiresAt },
+        record: {
+          ownerId: record.ownerId,
+          appState: record.appState,
+          protocolState: record.protocolState,
+          expiresAt: record.expiresAt,
+        },
       }
     })
     if (result.expired) {
@@ -610,6 +753,13 @@ export class DurableOwnerStateStore {
         records.delete(digest)
         return { expired: true }
       }
+      if (!record.protocolState || record.status === 'authorizing') {
+        throw new SidecarError(
+          'oauth_protocol_state_unbound',
+          'The official OAuth client did not bind its protocol state.',
+          { status: 409 },
+        )
+      }
       if (record.status === 'processing') {
         throw new SidecarError(
           'oauth_callback_in_progress',
@@ -620,7 +770,12 @@ export class DurableOwnerStateStore {
       records.set(digest, { ...record, status: 'processing' })
       return {
         expired: false,
-        record: { ownerId: record.ownerId, expiresAt: record.expiresAt },
+        record: {
+          ownerId: record.ownerId,
+          appState: record.appState,
+          protocolState: record.protocolState,
+          expiresAt: record.expiresAt,
+        },
       }
     })
     if (result.expired) {
@@ -858,6 +1013,13 @@ export class DurableOwnerConnectionStore {
           { status: 404 },
         )
       }
+      if (!Number.isFinite(current.providerConfirmedAt)) {
+        throw new SidecarError(
+          'session_revoke_unconfirmed',
+          'Provider revocation has not been durably confirmed.',
+          { status: 409 },
+        )
+      }
       const record = {
         ...current,
         status: 'revoked',
@@ -869,6 +1031,34 @@ export class DurableOwnerConnectionStore {
         if (lease.connectionRef === reference) namespaces.get('session_lease').delete(leaseRef)
       }
       removeReceipts(namespaces.get('oauth_receipt'), reference)
+      return { ...record }
+    })
+  }
+
+  async confirmRevoke(connectionRef, { ownerId, now }) {
+    const reference = requireOpaqueReference(connectionRef, 'connection_ref')
+    const owner = requireOwnerId(ownerId)
+    const confirmedAt = requireFiniteNumber(now, 'revocation confirmation time')
+    return this.database.mutate('owner_connection', (records) => {
+      const current = records.get(reference)
+      if (!current || current.ownerId !== owner) {
+        throw new SidecarError(
+          'atproto_connection_not_found',
+          'The AT Protocol connection was not found.',
+          { status: 404 },
+        )
+      }
+      const status = connectionStatus(current)
+      if (status === 'revoked') return { ...current, status }
+      if (status !== 'revoking') {
+        throw new SidecarError(
+          'session_revoke_unconfirmed',
+          'Provider revocation cannot be confirmed before it begins.',
+          { status: 409 },
+        )
+      }
+      const record = { ...current, status, providerConfirmedAt: confirmedAt }
+      records.set(reference, record)
       return { ...record }
     })
   }
@@ -1003,9 +1193,9 @@ export async function createDurableSidecarStores(options) {
   const database = await EncryptedAtomicStore.open(options)
   return Object.freeze({
     database,
-    oauthStateStore: new DurableSecretStore(database, 'oauth_state'),
+    oauthStateStore: new DurableSecretStore(database, 'oauth_state', { clock: options.clock }),
     oauthSessionStore: new DurableSecretStore(database, 'oauth_session'),
-    ownerStates: new DurableOwnerStateStore(database),
+    ownerStates: new DurableOwnerStateStore(database, { clock: options.clock }),
     connections: new DurableOwnerConnectionStore(database),
     sessionLeases: new DurableSessionLeaseStore(database),
     close: () => database.close(),
@@ -1402,12 +1592,19 @@ function pruneExpired(snapshot, now, { includeLeases = false } = {}) {
       removed += 1
     }
   }
-  for (const namespace of ['owner_state', 'oauth_receipt']) {
-    for (const [key, record] of snapshot.namespaces.get(namespace)) {
-      if (Number.isFinite(record?.expiresAt) && record.expiresAt <= now) {
-        snapshot.namespaces.get(namespace).delete(key)
-        removed += 1
+  for (const [key, record] of snapshot.namespaces.get('owner_state')) {
+    if (!isOwnerStateRecord(key, record) || record.expiresAt <= now) {
+      snapshot.namespaces.get('owner_state').delete(key)
+      if (isOpaqueReferenceValue(record?.protocolState)) {
+        snapshot.namespaces.get('oauth_state').delete(record.protocolState)
       }
+      removed += 1
+    }
+  }
+  for (const [key, record] of snapshot.namespaces.get('oauth_receipt')) {
+    if (Number.isFinite(record?.expiresAt) && record.expiresAt <= now) {
+      snapshot.namespaces.get('oauth_receipt').delete(key)
+      removed += 1
     }
   }
   for (const [key, record] of snapshot.namespaces.get('owner_connection')) {
@@ -1429,6 +1626,36 @@ function pruneExpired(snapshot, now, { includeLeases = false } = {}) {
     }
   }
   return removed
+}
+
+function isOwnerStateRecord(key, record) {
+  if (
+    typeof key !== 'string' ||
+    !record ||
+    typeof record !== 'object' ||
+    typeof record.ownerId !== 'string' ||
+    !Number.isFinite(record.expiresAt) ||
+    !isOpaqueReferenceValue(record.appState)
+  ) {
+    return false
+  }
+  if (record.status === 'authorizing') {
+    return record.protocolState === undefined && key === stateDigest(record.appState)
+  }
+  if (!['pending', 'processing'].includes(record.status)) return false
+  return (
+    isOpaqueReferenceValue(record.protocolState) &&
+    key === stateDigest(record.protocolState)
+  )
+}
+
+function isOpaqueReferenceValue(value) {
+  return (
+    typeof value === 'string' &&
+    value.length >= 32 &&
+    value.length <= 256 &&
+    /^[A-Za-z0-9_-]+$/.test(value)
+  )
 }
 
 function recordCount(snapshot) {

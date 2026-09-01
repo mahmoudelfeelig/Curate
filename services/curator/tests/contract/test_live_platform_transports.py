@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -28,10 +28,16 @@ from feed_passport.domain import (
     ActionReceipt,
     ActionStatus,
     ActionType,
+    CapabilityLevel,
     ProposedAction,
 )
-from feed_passport.ports.credentials import OAuthCredentialLease
+from feed_passport.ports.credentials import (
+    CredentialScopeDenied,
+    CredentialUnavailable,
+    OAuthCredentialLease,
+)
 from feed_passport.ports.live_platform import (
+    LiveAuthenticationError,
     LivePermissionError,
     LiveProtocolError,
     LiveRateLimited,
@@ -112,6 +118,14 @@ class FakeCredentials:
             scheme="DPoP" if self.dpop else "Bearer",
             proof_factory=(lambda method, url, token: "proof-for-request") if self.dpop else None,
         )
+
+
+class FailingCredentials:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def lease(self, *_args: object, **_kwargs: object) -> OAuthCredentialLease:
+        raise self.error
 
 
 def certification(platform: str, actions: frozenset[ActionType]) -> ValidatedLiveCertification:
@@ -633,6 +647,81 @@ def test_authentication_refreshes_once_and_errors_are_sanitized() -> None:
     assert credentials.refreshes == [False, True]
     assert "top-secret" not in str(caught.value)
     assert "echoed-secret" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("broker_error", "expected_error", "expected_retryable", "marks_reauth"),
+    (
+        (
+            CredentialUnavailable(
+                "refresh_rejected",
+                "The connected account requires authorization again.",
+            ),
+            LiveAuthenticationError,
+            False,
+            True,
+        ),
+        (
+            CredentialUnavailable(
+                "refresh_interrupted",
+                "The connected account credential could not be refreshed.",
+            ),
+            LiveAuthenticationError,
+            True,
+            False,
+        ),
+        (
+            CredentialScopeDenied(
+                "credential_scope_denied",
+                "The connected account did not grant every required scope.",
+            ),
+            LivePermissionError,
+            False,
+            True,
+        ),
+    ),
+)
+def test_credential_broker_errors_map_deterministically_and_mark_reauth(
+    broker_error: Exception,
+    expected_error: type[Exception],
+    expected_retryable: bool,
+    marks_reauth: bool,
+) -> None:
+    bound = FakeConnection(
+        id="connection:youtube:credential-error",
+        owner_id="owner-one",
+        platform="youtube",
+        external_subject_id="youtube-owner",
+        granted_scopes=frozenset({YOUTUBE_SCOPE}),
+    )
+    marked: list[str] = []
+
+    def mark_reauth(connection: FakeConnection, _now: datetime) -> FakeConnection:
+        marked.append(connection.credential_ref)
+        return replace(connection, status="reauth_required")
+
+    adapter = YouTubeLiveAdapter(
+        connections={bound.id: bound},
+        credential_provider=FailingCredentials(broker_error),
+        http_client=QueueHttpClient([]),
+        certification=certification("youtube", frozenset({ActionType.SUBSCRIBE_CREATOR})),
+        mark_reauth_required=mark_reauth,
+    )
+
+    with pytest.raises(expected_error) as caught:
+        adapter._request_json(
+            bound,
+            frozenset({YOUTUBE_SCOPE}),
+            "GET",
+            "https://www.googleapis.com/youtube/v3/subscriptions",
+            now=NOW,
+        )
+
+    assert caught.value.code == getattr(broker_error, "code")
+    assert caught.value.retryable is expected_retryable
+    assert marked == ([bound.credential_ref] if marks_reauth else [])
+    expected_level = CapabilityLevel.GUIDED if marks_reauth else CapabilityLevel.EXECUTABLE
+    assert adapter.capabilities(bound.id).level is expected_level
 
 
 @pytest.mark.parametrize(

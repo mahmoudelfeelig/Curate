@@ -56,5 +56,14 @@ test("the shipping tree contains only the declared licensed asset families", asy
       return "";
     }
   }))).join("\n");
-  assert.doesNotMatch(shippingText, /design-reference|ai-generated|unprovenanced/i);
+  assert.doesNotMatch(shippingText, /ai-generated|unprovenanced/i);
+});
+
+test("the documentation tree contains no raster design source", async () => {
+  const documentationFiles = (await walk(path.join(projectRoot, "docs")))
+    .map((file) => path.relative(projectRoot, file).replaceAll("\\", "/"));
+  assert.deepEqual(
+    documentationFiles.filter((file) => /\.(?:avif|gif|jpe?g|png|webp)$/i.test(file)),
+    [],
+  );
 });

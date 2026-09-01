@@ -122,3 +122,13 @@ class OAuthCredentialVault(CredentialProvider, Protocol):
     ) -> None: ...
 
     def discard(self, credential_ref: str, *, owner_id: str) -> None: ...
+
+    def retry_pending_retirements(
+        self,
+        *,
+        now: datetime,
+        owner_id: str | None = None,
+        platform: str | None = None,
+        connection_id: str | None = None,
+        limit: int = 100,
+    ) -> int: ...

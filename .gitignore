@@ -1,56 +1,148 @@
+# JavaScript dependencies, caches, and generated builds
 node_modules/
 dist/
+build/
 .cache/
 .vite/
+.npm/
+.pnpm-store/
+.yarn/
+.parcel-cache/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local configuration and directory-specific environment loaders
 .env
 .env.*
 !.env.example
+.envrc
+.direnv/
 
+# Python environments, caches, packages, and test output
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.tox/
+.nox/
+.hypothesis/
+.pytype/
+.pyre/
+.pyright/
+pip-wheel-metadata/
+*.whl
 
+# Local state stores and SQLite sidecars
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
+*.sqlite-*
 
+# Generated runtime output; curated, source-bound evidence is retained
 artifacts/*
 !artifacts/evidence/
 !artifacts/evidence/**
 coverage/
 .coverage
+.coverage.*
+coverage.xml
+lcov.info
+.nyc_output/
 
+# Browser automation output
 test-results/
 playwright-report/
 blob-report/
 htmlcov/
+.playwright/
+/playwright/.auth/
+/.browser-profile/
+/.chrome-profile/
+/browser-data/
+/downloads/
+/exports/
+trace.zip
+*.webm
+*.har
+*.pcap
+*.pcapng
+cookies*.json
+storage-state*.json
+auth-state*.json
+
+# AWS CDK and local AgentCore packaging output
+cdk.out/
+.cdk.staging/
+.aws-sam/
+cdk.context.json
+.package-stage/
+.deployment/
+
+# Type-checker, editor, and operating-system state
 .mypy_cache/
 .idea/
 .vscode/
+.fleet/
+.history/
+/.codex/
+/.agents/
+/.cursor/
+/.continue/
+/.claude/settings.local.json
+*.code-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
+# Logs, process state, downloads, and local model weights
 *.log
 *.pid
 *.tmp
 *.partial
+*.bak
+*.orig
 *.gguf
 *.ggml
 *.safetensors
+*.onnx
+*.pt
+*.pth
+*.ckpt
+
+# Credentials, signing material, token stores, and private OAuth state
 *.p12
 *.pfx
-*.sqlite-*
-.DS_Store
-Thumbs.db
-
+*.p8
+*.jks
+*.keystore
 *.pem
 *.key
-*credential*.json
-client_secret*.json
-oauth*.json
+*.jwt
+*.secret
+*.secrets
 *.jwk
 *.jwk.json
 *.jwks
+*.enc
+*.vault
+*.token
+*.session
+tokens.json
+token-store*.json
+*credential*.json
+client_secret*.json
+oauth*.json
+/.secrets/
+/secrets/
+/credentials/

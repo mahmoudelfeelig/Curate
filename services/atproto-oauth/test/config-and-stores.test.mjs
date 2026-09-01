@@ -52,17 +52,20 @@ test('secret stores redact JSON and owner state remains one-time', async () => {
   assert.equal(JSON.stringify(secrets).includes('secret-access'), false)
 
   const states = new InMemoryOwnerStateStore()
-  await states.create('state-value', { ownerId: 'user:one', expiresAt: 2_000 })
+  const appState = 'a'.repeat(43)
+  const protocolState = 'p'.repeat(43)
+  await states.create(appState, { ownerId: 'user:one', expiresAt: 2_000 })
+  await states.bindProtocolState(appState, protocolState)
   await assert.rejects(
-    states.consume('state-value', { ownerId: 'user:two', now: 1_000 }),
+    states.consume(protocolState, { ownerId: 'user:two', now: 1_000 }),
     (error) => error.code === 'oauth_owner_mismatch',
   )
   assert.deepEqual(
-    await states.consume('state-value', { ownerId: 'user:one', now: 1_000 }),
-    { ownerId: 'user:one', expiresAt: 2_000 },
+    await states.consume(protocolState, { ownerId: 'user:one', now: 1_000 }),
+    { ownerId: 'user:one', appState, protocolState, expiresAt: 2_000 },
   )
   await assert.rejects(
-    states.consume('state-value', { ownerId: 'user:one', now: 1_000 }),
+    states.consume(protocolState, { ownerId: 'user:one', now: 1_000 }),
     (error) => error.code === 'oauth_state_unknown',
   )
 })

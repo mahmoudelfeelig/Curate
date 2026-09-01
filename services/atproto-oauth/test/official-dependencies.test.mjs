@@ -3,6 +3,7 @@ import { generateKeyPairSync } from 'node:crypto'
 import test from 'node:test'
 
 import { createOfficialOAuthClient } from '../src/official-client.mjs'
+import { InMemoryOwnerStateStore } from '../src/stores.mjs'
 import { assertPublicJwks } from '../src/validation.mjs'
 
 function memoryStore() {
@@ -31,6 +32,8 @@ test('pinned official packages construct the confidential DPoP client without ne
     lockCalls += 1
     return work()
   }
+  const stateStore = memoryStore()
+  const ownerStates = new InMemoryOwnerStateStore()
   const client = await createOfficialOAuthClient({
     client: {
       clientId: 'https://passport.example/oauth/atproto/client-metadata.json',
@@ -42,9 +45,10 @@ test('pinned official packages construct the confidential DPoP client without ne
       signingAlgorithm: 'ES256',
       scope: 'atproto transition:generic',
     },
-    stateStore: memoryStore(),
+    stateStore,
     sessionStore: memoryStore(),
     requestLock,
+    ownerStates,
     privateKeys: [{ kid: 'ephemeral-test-key', importable: privateKey }],
     fetch: async () => {
       throw new Error('client construction must not make a network request')
@@ -61,5 +65,43 @@ test('pinned official packages construct the confidential DPoP client without ne
   assert.equal(typeof client.authorize, 'function')
   assert.equal(typeof client.callback, 'function')
   assert.equal(typeof client.restore, 'function')
+  assert.equal(typeof client.revokeWithProof, 'function')
+  assert.equal(typeof client.discardSession, 'function')
   assert.equal(lockCalls, 0)
+
+  const appState = 'a'.repeat(43)
+  const protocolState = 'p'.repeat(43)
+  await ownerStates.create(appState, {
+    ownerId: 'user:owner-a',
+    expiresAt: Date.now() + 60_000,
+  })
+  client.oauthResolver.resolve = async () => ({
+    identityInfo: undefined,
+    metadata: {
+      issuer: 'https://auth.example/',
+      authorization_endpoint: 'https://auth.example/oauth/authorize',
+      token_endpoint: 'https://auth.example/oauth/token',
+      revocation_endpoint: 'https://auth.example/oauth/revoke',
+      response_types_supported: ['code'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      code_challenge_methods_supported: ['S256'],
+      token_endpoint_auth_methods_supported: ['private_key_jwt'],
+      token_endpoint_auth_signing_alg_values_supported: ['ES256'],
+      dpop_signing_alg_values_supported: ['ES256'],
+      authorization_response_iss_parameter_supported: false,
+      scopes_supported: ['atproto', 'transition:generic'],
+    },
+  })
+  client.runtime.generateNonce = async () => protocolState
+  const authorization = await client.authorize('alice.bsky.social', { state: appState })
+  assert.equal(authorization.searchParams.get('state'), protocolState)
+  assert.notEqual(authorization.searchParams.get('state'), appState)
+  assert.equal((await stateStore.get(protocolState)).appState, appState)
+  assert.equal(
+    (await ownerStates.bound(appState, {
+      ownerId: 'user:owner-a',
+      now: Date.now(),
+    })).protocolState,
+    protocolState,
+  )
 })

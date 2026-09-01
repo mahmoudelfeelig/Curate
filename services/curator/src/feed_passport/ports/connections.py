@@ -46,6 +46,16 @@ class ExternalConnectionRepository(Protocol):
         credential_ref: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         expected_external_subject: str | None = None,
+        retire_superseded_credential: bool = False,
+    ) -> ExternalConnection: ...
+
+    def mark_reauth_required(
+        self,
+        connection_id: str,
+        *,
+        owner_id: str,
+        expected_credential_ref: str,
+        now: datetime,
     ) -> ExternalConnection: ...
 
     def revoke_connection(

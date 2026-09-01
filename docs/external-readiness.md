@@ -105,6 +105,8 @@ FEED_PASSPORT_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
 
 This still requires the account owner's explicit approval for the exact dummy platform and mutation. Startup rejects a non-loopback bind or any non-loopback allowed origin, and request middleware rejects a non-loopback client IP. It does not authenticate separate users: caller-supplied actor IDs remain trusted test labels. Never use this override through a reverse proxy, tunnel, container ingress, LAN binding, shared browser, team demo, hosted environment, or production deployment. Set it back to `0` before enabling OIDC. Merely enabling the flag makes no provider or account request.
 
+Standard OAuth credential rotation commits the new connection pointer and a pending retirement record for the superseded encrypted credential in the same SQLite transaction. Startup and the next owner/provider authorization retry that local retirement; a cleanup interruption cannot make the newly active credential disappear. Refresh uses a credential/version-bound SQLite lease, so concurrent workers do not send the same rotating refresh token twice. A terminal credential or refresh failure marks that exact connection `reauth_required`; transient in-progress/interrupted refresh outcomes stay retryable and do not become an unknown provider mutation.
+
 ### Interrupted connection revocation
 
 Standard OAuth revocation first persists the owner-bound connection as `revoking`, then asks the provider to revoke the credential. Provider confirmation is committed in the vault as an owner-, platform-, connection-, and credential-bound non-secret receipt in the same transaction that deletes the encrypted credential; the registry then records `revoked`. If the process stops after that vault transaction, retry consumes the receipt and completes the registry transition without calling the provider again. If the provider response cannot be confirmed, `revoking` is the safe durable state: it is not restored into any active live adapter and cannot silently resume account mutation.
@@ -148,6 +150,8 @@ The implemented candidate surface observes subscribed communities and can subscr
 
 Reddit requires a human account and explicit approval for external Data API access. A client ID alone is insufficient. Keep Reddit Guided until the account owner has an approval response/reference covering this exact use case.
 
+Use Reddit's official Data API access request form. The form asks applicants to try Devvit first and explain what Devvit cannot provide. Feed Passport needs the dummy user's subscribed-subreddit list in order to observe and verify reversible subscription changes; Reddit's own Devvit documentation identifies subscribed subreddits as private user data that Devvit does not expose. Include that narrow limitation, the public repository URL, the exact `identity`, `mysubreddits`, and `subscribe` scopes, the one-dummy-account test plan, and the no-post/no-comment/no-vote boundary in the request.
+
 After approval, the account owner must create a dedicated OAuth app with the exact callback URI, authorize only a dummy Reddit account, and configure `FEED_PASSPORT_REDDIT_OAUTH_CLIENT_ID` plus `FEED_PASSPORT_REDDIT_OAUTH_CLIENT_SECRET`. The requested scopes are `identity`, `mysubreddits`, and `subscribe`; the default client authentication mode is `client_secret_basic`. The approval reference is passed to the conformance command and is required in the signed receipt.
 
 Reddit also requires a descriptive User-Agent tied to the registered app and operator. Configure `FEED_PASSPORT_REDDIT_OAUTH_USER_AGENT` using Reddit's `platform:app-id:version (by /u/operator)` shape. This is a format example only and contains no real username:
@@ -158,21 +162,13 @@ web:feed-passport-approved-demo:v0.1.0 (by /u/dummy_operator)
 
 Replace the app ID, version, and dummy operator with the values covered by the approval. Generic values such as `python`, `unknown`, or `feed-passport/0.1` fail closed. The User-Agent is not a secret, but do not falsely name another person or a personal account.
 
-Official references: [Reddit Data API Wiki](https://support.reddithelp.com/hc/en-us/articles/29613840826260-Reddit-Data-API-Wiki) and [Reddit Data API Terms](https://redditinc.com/policies/data-api-terms).
+Official references: [Reddit Data API Wiki](https://support.reddithelp.com/hc/en-us/articles/16160319875092-Reddit-Data-API-Wiki), [Data API access request](https://support.reddithelp.com/hc/en-us/requests/new?ticket_form_id=14868593862164), [Devvit private-user-data limits](https://developers.reddit.com/docs/capabilities/server/reddit-api), and [Reddit Data API Terms](https://redditinc.com/policies/data-api-terms).
 
 ## Bluesky and AT Protocol
 
 Bluesky uses the official AT Protocol OAuth/DPoP Node client in a credential-isolated sidecar. App passwords are not accepted. Python receives only an opaque connection reference and short-lived opaque lease; access tokens, refresh tokens, DPoP keys, and confidential-client keys stay in the sidecar.
 
-The account-free tests need Node.js 22 or newer. A registry-derived `package-lock.json` is mandatory for reproducible installation and the container build. If it is absent, one explicitly authorized networked npm metadata request must create it; do not invent integrity hashes:
-
-```powershell
-Push-Location .\services\atproto-oauth
-npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-Pop-Location
-```
-
-Review and commit the generated lock before using `npm ci`. Package installation may download the pinned packages from npm, but it creates no social account and makes no social-platform request:
+The account-free tests need Node.js 22 or newer. The registry-derived `package-lock.json` is checked in with exact integrity metadata and is used by `npm ci`; do not replace it with invented hashes. Package installation may download the pinned packages from npm, but it creates no social account and makes no social-platform request:
 
 ```powershell
 Push-Location .\services\atproto-oauth
@@ -182,7 +178,9 @@ npm run check
 Pop-Location
 ```
 
-The checked-in server adds an AES-256-GCM encrypted atomic file store for OAuth state, official OAuth sessions/DPoP material, owner bindings, opaque connections, and leases. It survives a clean process restart and uses a lock file to refuse a second process. It is intentionally a **single-replica** runtime; multi-replica deployment is not supported until the store and refresh lock are replaced with distributed implementations.
+The checked-in server adds an AES-256-GCM encrypted atomic file store for OAuth state, official OAuth sessions/DPoP material, owner bindings, opaque connections, and leases. It survives a clean process restart and uses a lock file to refuse a second process. The application state is owner-bound before authorization; the official client's independently generated protocol state and official PKCE/DPoP record are then bound atomically through the injected state-store seam. This also covers PAR redirects, whose browser URL contains only `client_id` and `request_uri`. It is intentionally a **single-replica** runtime; multi-replica deployment is not supported until the store and refresh lock are replaced with distributed implementations.
+
+AT Protocol revocation does not trust the official convenience method's missing-session behavior as provider proof. The sidecar uses the pinned official request primitive inside the credential boundary, persists a successful provider response on the owner-bound connection, then removes the local session and terminalizes. A crash after the receipt recovers without another provider claim; an error before it leaves the connection `revoking`, even if the official session has disappeared.
 
 Prepare its local private state outside the repository without printing a key:
 

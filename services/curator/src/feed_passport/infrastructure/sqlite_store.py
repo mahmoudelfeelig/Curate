@@ -804,6 +804,18 @@ class SQLiteStore:
             );
             CREATE INDEX IF NOT EXISTS ix_oauth_transactions_expiry
                 ON oauth_transactions(expires_at, consumed_at);
+            CREATE INDEX IF NOT EXISTS ix_oauth_transactions_owner_platform
+                ON oauth_transactions(owner_id, platform, created_at);
+            CREATE TABLE IF NOT EXISTS oauth_credential_retirements (
+                credential_ref TEXT PRIMARY KEY,
+                owner_id TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                connection_id TEXT NOT NULL,
+                replacement_credential_ref TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_oauth_credential_retirements_owner
+                ON oauth_credential_retirements(owner_id, platform, connection_id, created_at);
             CREATE TABLE IF NOT EXISTS remote_action_attempts (
                 id TEXT PRIMARY KEY,
                 owner_id TEXT NOT NULL,

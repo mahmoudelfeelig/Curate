@@ -231,6 +231,11 @@ class OAuthConnectionService:
         now: datetime,
     ) -> dict[str, Any]:
         canonical_now = _aware(now)
+        self._retry_superseded_credentials(
+            owner_id=owner_id,
+            platform=platform,
+            now=canonical_now,
+        )
         provider = self.providers.get(platform)
         if redirect_uri not in provider.allowed_redirect_uris:
             raise OAuthFlowError(
@@ -311,8 +316,7 @@ class OAuthConnectionService:
             verifier=transaction.metadata.get("code_verifier"),
         )
         credential_ref: str | None = None
-        existing: ExternalConnection | None = None
-        revoke_orphan_grant = True
+        grant_committed = False
         try:
             granted_scopes = self._granted_scopes(token_response, provider.scopes)
             external_subject = self._external_subject(provider, token_response)
@@ -321,7 +325,6 @@ class OAuthConnectionService:
                 platform=platform,
                 external_subject=external_subject,
             )
-            revoke_orphan_grant = existing is None or existing.status is ConnectionStatus.REVOKED
             credential_ref = self.credentials.put(
                 owner_id=owner_id,
                 platform=platform,
@@ -349,6 +352,7 @@ class OAuthConnectionService:
                         credential_ref=credential_ref,
                         metadata={**dict(existing.metadata), **metadata},
                         expected_external_subject=external_subject,
+                        retire_superseded_credential=True,
                     )
                 except Exception:
                     concurrent = self._matching_connection(
@@ -361,12 +365,24 @@ class OAuthConnectionService:
                         and concurrent.status is ConnectionStatus.ACTIVE
                         and secrets.compare_digest(concurrent.credential_ref, credential_ref)
                     ):
+                        grant_committed = True
+                        self._retry_superseded_credentials(
+                            owner_id=owner_id,
+                            platform=platform,
+                            connection_id=concurrent.id,
+                            now=canonical_now,
+                        )
                         return concurrent
                     self.credentials.discard(credential_ref, owner_id=owner_id)
                     credential_ref = None
                     raise
-                if not secrets.compare_digest(existing.credential_ref, credential_ref):
-                    self.credentials.discard(existing.credential_ref, owner_id=owner_id)
+                grant_committed = True
+                self._retry_superseded_credentials(
+                    owner_id=owner_id,
+                    platform=platform,
+                    connection_id=rotated.id,
+                    now=canonical_now,
+                )
                 return rotated
             if existing is not None and existing.status is ConnectionStatus.REVOKING:
                 self.credentials.discard(credential_ref, owner_id=owner_id)
@@ -375,20 +391,62 @@ class OAuthConnectionService:
                     "oauth_connection_conflict",
                     "This account is still completing revocation; retry after it finishes.",
                 )
-            return self.connections.register_connection(
-                owner_id=owner_id,
-                platform=platform,
-                external_subject=external_subject,
-                credential_ref=credential_ref,
-                metadata=metadata,
-                now=canonical_now,
-            )
+            try:
+                registered = self.connections.register_connection(
+                    owner_id=owner_id,
+                    platform=platform,
+                    external_subject=external_subject,
+                    credential_ref=credential_ref,
+                    metadata=metadata,
+                    now=canonical_now,
+                )
+            except Exception:
+                concurrent = self._matching_connection(
+                    owner_id=owner_id,
+                    platform=platform,
+                    external_subject=external_subject,
+                )
+                if (
+                    concurrent is not None
+                    and concurrent.status is ConnectionStatus.ACTIVE
+                    and secrets.compare_digest(concurrent.credential_ref, credential_ref)
+                ):
+                    grant_committed = True
+                    return concurrent
+                raise
+            grant_committed = True
+            return registered
         except Exception:
-            if credential_ref is not None:
-                self.credentials.discard(credential_ref, owner_id=owner_id)
-            if revoke_orphan_grant:
+            if not grant_committed:
+                if credential_ref is not None:
+                    try:
+                        self.credentials.discard(credential_ref, owner_id=owner_id)
+                    except Exception:
+                        pass
                 self._best_effort_revoke_token(provider, token_response)
             raise
+
+    def _retry_superseded_credentials(
+        self,
+        *,
+        owner_id: str,
+        platform: str,
+        now: datetime,
+        connection_id: str | None = None,
+    ) -> None:
+        try:
+            self.credentials.retry_pending_retirements(
+                now=now,
+                owner_id=owner_id,
+                platform=platform,
+                connection_id=connection_id,
+            )
+        except Exception:
+            # Rotation already committed the new owner-bound credential and its
+            # durable retirement record atomically. Cleanup must not discard
+            # that active replacement; the pending row is retried on startup
+            # and before the next authorization for this owner/provider.
+            return
 
     def _matching_connection(
         self,

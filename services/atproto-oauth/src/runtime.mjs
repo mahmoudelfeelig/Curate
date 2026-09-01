@@ -24,6 +24,7 @@ export async function createAtprotoSidecarRuntime({
     stateStore: oauthStateStore,
     sessionStore: oauthSessionStore,
     requestLock,
+    ownerStates,
     fetch,
   })
   if (typeof sessionLeases.setSessionRestorer === 'function') {

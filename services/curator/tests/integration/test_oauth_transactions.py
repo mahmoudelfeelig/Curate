@@ -104,6 +104,99 @@ class OAuthTransactionTests(unittest.TestCase):
                 now=NOW,
             )
 
+    def test_transactions_are_bounded_per_owner_and_provider(self) -> None:
+        states = iter(f"state-{index}-with-more-than-thirty-two-characters" for index in range(8))
+        registry = EncryptedConnectionRegistry(
+            self.store,
+            self.keyring,
+            state_factory=lambda: next(states),
+            max_oauth_transactions_per_owner_provider=3,
+        )
+        started = [
+            registry.begin_oauth_transaction(
+                owner_id="person-a",
+                platform="youtube",
+                redirect_uri="https://feed-passport.example/oauth/youtube/callback",
+                metadata={"sequence": index},
+                now=NOW + timedelta(seconds=index),
+            )
+            for index in range(5)
+        ]
+
+        with self.store.transaction() as database:
+            rows = database.execute(
+                """
+                SELECT state_hash FROM oauth_transactions
+                WHERE owner_id = ? AND platform = ? ORDER BY rowid
+                """,
+                ("person-a", "youtube"),
+            ).fetchall()
+        self.assertEqual(len(rows), 3)
+        with self.assertRaisesRegex(OAuthTransactionError, "invalid or unavailable"):
+            registry.consume_oauth_transaction(
+                started[0].state,
+                owner_id="person-a",
+                platform="youtube",
+                now=NOW + timedelta(minutes=1),
+            )
+        consumed = registry.consume_oauth_transaction(
+            started[-1].state,
+            owner_id="person-a",
+            platform="youtube",
+            now=NOW + timedelta(minutes=1),
+        )
+        self.assertEqual(consumed.metadata["sequence"], 4)
+
+    def test_old_consumed_and_expired_transactions_are_pruned(self) -> None:
+        states = iter(
+            (
+                "consumed-state-with-more-than-thirty-two-characters",
+                "expired-state-with-more-than-thirty-two-characters",
+                "fresh-state-with-more-than-thirty-two-characters",
+            )
+        )
+        registry = EncryptedConnectionRegistry(
+            self.store,
+            self.keyring,
+            state_factory=lambda: next(states),
+            oauth_transaction_retention=timedelta(minutes=20),
+        )
+        consumed = registry.begin_oauth_transaction(
+            owner_id="person-a",
+            platform="youtube",
+            redirect_uri="https://feed-passport.example/oauth/youtube/callback",
+            metadata={"kind": "consumed"},
+            now=NOW,
+        )
+        registry.consume_oauth_transaction(
+            consumed.state,
+            owner_id="person-a",
+            platform="youtube",
+            now=NOW + timedelta(minutes=1),
+        )
+        registry.begin_oauth_transaction(
+            owner_id="person-b",
+            platform="reddit",
+            redirect_uri="https://feed-passport.example/oauth/reddit/callback",
+            metadata={"kind": "expired"},
+            now=NOW,
+            ttl=timedelta(minutes=1),
+        )
+
+        registry.begin_oauth_transaction(
+            owner_id="person-a",
+            platform="youtube",
+            redirect_uri="https://feed-passport.example/oauth/youtube/callback",
+            metadata={"kind": "fresh"},
+            now=NOW + timedelta(minutes=22),
+        )
+
+        with self.store.transaction() as database:
+            rows = database.execute(
+                "SELECT owner_id, platform FROM oauth_transactions ORDER BY owner_id"
+            ).fetchall()
+        self.assertEqual([(row["owner_id"], row["platform"]) for row in rows], [("person-a", "youtube")])
+
 
 if __name__ == "__main__":
     unittest.main()

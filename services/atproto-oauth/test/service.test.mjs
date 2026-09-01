@@ -16,6 +16,7 @@ test('OAuth callback is owner-bound and response-loss replay returns its durable
   const { service, oauthClient } = fixture()
   const start = await service.start({ ownerId: OWNER_A, handle: '@Alice.Bsky.Social' })
   const state = new URL(start.authorization_url).searchParams.get('state')
+  assert.notEqual(state, oauthClient.lastAppState)
 
   await assert.rejects(
     service.callback({ ownerId: OWNER_B, query: `code=code-1&state=${state}` }),
@@ -38,6 +39,20 @@ test('OAuth callback is owner-bound and response-loss replay returns its durable
   })
   assert.deepEqual(replayed, connected)
   assert.equal(oauthClient.callbackCount, 1)
+})
+
+test('PAR authorization binds protocol state even when the browser URL omits it', async () => {
+  const { service, oauthClient } = fixture({ par: true })
+  const start = await service.start({ ownerId: OWNER_A, handle: 'alice.bsky.social' })
+  const authorization = new URL(start.authorization_url)
+  assert.equal(authorization.searchParams.get('state'), null)
+  assert.equal(authorization.searchParams.get('request_uri'), 'urn:ietf:params:oauth:request_uri:test')
+
+  const connected = await service.callback({
+    ownerId: OWNER_A,
+    query: `code=code-1&state=${oauthClient.lastProtocolState}`,
+  })
+  assert.equal(connected.external_subject, ALICE_DID)
 })
 
 test('invalid callback parameters are rejected before the official client', async () => {
@@ -285,6 +300,27 @@ test('revocation transition blocks queued restore and execute work', async () =>
   assert.equal(repeated.revocation_proof, 'sidecar_terminal')
 })
 
+test('unknown provider revocation never becomes confirmed after the local session disappears', async () => {
+  const { service, oauthClient, connections } = fixture()
+  const connected = await connect(service)
+  let sessionAvailable = true
+  oauthClient.revokeWithProof = async () => {
+    if (!sessionAvailable) throw new Error('official session missing')
+    sessionAvailable = false
+    throw new Error('provider outcome unknown after local session deletion')
+  }
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(
+      service.revoke({ ownerId: OWNER_A, connectionRef: connected.connection_ref }),
+      (error) => error.code === 'session_revoke_failed',
+    )
+  }
+  const record = await connections.get(connected.connection_ref, { ownerId: OWNER_A })
+  assert.equal(record.status, 'revoking')
+  assert.equal(record.providerConfirmedAt, undefined)
+})
+
 test('JWKS endpoint refuses private key material', () => {
   const { service } = fixture({ jwks: { keys: [{ kty: 'EC', crv: 'P-256', d: 'private' }] } })
   assert.throws(
@@ -310,8 +346,12 @@ async function connect(service) {
   return service.callback({ ownerId: OWNER_A, query: `code=code-1&state=${state}` })
 }
 
-function fixture({ callbackSession, callbackState, jwks, operationResult, revokeImpl } = {}) {
+function fixture({ callbackSession, callbackState, jwks, operationResult, revokeImpl, par = false } = {}) {
   let now = Date.parse('2026-09-01T12:00:00.000Z')
+  const ownerStates = new InMemoryOwnerStateStore()
+  const appStates = new Map()
+  const activeSessions = new Set()
+  let authorizationCount = 0
   const oauthClient = {
     clientMetadata: {
       client_id: 'https://feed.example/oauth/atproto/client-metadata.json',
@@ -320,16 +360,28 @@ function fixture({ callbackSession, callbackState, jwks, operationResult, revoke
     jwks: jwks ?? { keys: [{ kty: 'EC', crv: 'P-256', x: 'public-x', y: 'public-y' }] },
     callbackCount: 0,
     revoked: [],
-    async authorize(handle, { state }) {
+    async authorize(handle, { state: appState }) {
+      authorizationCount += 1
+      const protocolState = `${'p'.repeat(42)}${authorizationCount}`
+      await ownerStates.bindProtocolState(appState, protocolState)
+      appStates.set(protocolState, appState)
+      this.lastAppState = appState
+      this.lastProtocolState = protocolState
       const url = new URL('https://pds.example/oauth/authorize')
       url.searchParams.set('login_hint', handle)
-      url.searchParams.set('state', state)
+      if (par) {
+        url.searchParams.set('client_id', 'https://feed.example/oauth/atproto/client-metadata.json')
+        url.searchParams.set('request_uri', 'urn:ietf:params:oauth:request_uri:test')
+      } else {
+        url.searchParams.set('state', protocolState)
+      }
       return url
     },
     async callback(params) {
       this.callbackCount += 1
+      activeSessions.add(ALICE_DID)
       return {
-        state: callbackState ?? params.get('state'),
+        state: callbackState ?? appStates.get(params.get('state')),
         session: callbackSession ?? { did: ALICE_DID, secret: 'held-only-by-sidecar' },
       }
     },
@@ -339,10 +391,19 @@ function fixture({ callbackSession, callbackState, jwks, operationResult, revoke
     },
     async revoke(did) {
       this.revoked.push(did)
+      activeSessions.delete(did)
+    },
+    async revokeWithProof(did, onProviderConfirmed) {
+      if (!activeSessions.has(did)) throw new Error('official session missing')
+      this.revoked.push(did)
       if (revokeImpl) await revokeImpl(did)
+      await onProviderConfirmed()
+      activeSessions.delete(did)
+    },
+    async discardSession(did) {
+      activeSessions.delete(did)
     },
   }
-  const ownerStates = new InMemoryOwnerStateStore()
   const connections = new InMemoryOwnerConnectionStore(ownerStates)
   const sessionLeases = new InMemorySessionLeaseStore()
   const executorCalls = []
@@ -365,7 +426,7 @@ function fixture({ callbackSession, callbackState, jwks, operationResult, revoke
       sessionLeases,
       operationExecutor,
       now: () => now,
-      randomState: () => 's'.repeat(43),
+      randomState: () => 'a'.repeat(43),
     }),
     advance(ms) {
       now += ms

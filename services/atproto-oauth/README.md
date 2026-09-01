@@ -36,15 +36,21 @@ The browser never talks directly to the private sidecar endpoints. Feed Passport
 authenticates the signed-in user, then calls the sidecar over a private interface
 with an internal service credential and the canonical owner ID.
 
-During connection, Feed Passport asks the sidecar to start OAuth. The sidecar
-creates a random state, stores only its SHA-256 digest in the owner-binding store,
-and passes the raw state to `NodeOAuthClient.authorize`. The browser follows the
-returned authorization URL. The public callback page forwards the callback query
-to the authenticated Feed Passport backend, which calls the sidecar callback for
-the same owner. The state is owner-bound, expiring, and claimed before the
-official callback. Connection binding, token-free callback receipt creation, and
-state deletion are one durable commit, so a lost HTTP response can be replayed
-without exchanging the authorization code twice.
+During connection, Feed Passport creates an application state and passes it as
+`appState` to `NodeOAuthClient.authorize`. The official client independently
+generates the OAuth protocol state. Its injected state-store seam atomically
+persists the official PKCE/DPoP state and moves the owner binding from the
+application-state digest to the protocol-state digest. Both raw state values are
+inside the encrypted snapshot. Owner-binding records use digest indexes; the
+official state store uses its required raw protocol-state key, still inside that
+encrypted snapshot. This works for both direct authorization URLs and PAR URLs,
+where the protocol state is not present in the browser URL. The public callback
+page forwards the callback query
+to the authenticated Feed Passport backend, which claims the raw protocol state
+for the same owner before the official callback and then compares the official
+callback's returned `appState`. Connection binding, token-free callback receipt
+creation, and state deletion are one durable commit, so a lost HTTP response can
+be replayed without exchanging the authorization code twice.
 
 After callback, the API receives only an opaque connection reference and the
 account DID. To perform work, Python restores a short-lived opaque lease and asks
@@ -133,6 +139,7 @@ const oauthClient = await createOfficialOAuthClient({
   },
   stateStore,
   sessionStore,
+  ownerStates,
   requestLock,
   privateKeys: [{ kid: 'oauth-2026-09', importable: privateKeyFromSecretManager }],
 })
@@ -228,12 +235,15 @@ public HTTPS metadata/JWKS/callback origin, the externally generated client key,
 an authorized dummy account, and approval to contact that account's PDS. None of
 the local tests make network or account calls.
 
-There are two honest crash boundaries that local mocks cannot certify against the
-pinned official package until dependencies are installed. If the process dies
-after the official callback persists a session but before the atomic
-connection/receipt commit, the transaction remains `processing` and a fresh
-authorization is required. If it dies after provider revocation succeeds but
-before the terminal revoke commit, the connection remains durably `revoking`;
-operations stay blocked, and recovery depends on the official client's
-already-revoked call being idempotent. A missing sidecar record is never treated
-as revocation proof, so uncertain cases fail closed.
+There are two explicit crash boundaries. If the process dies after the official
+callback persists a session but before the atomic connection/receipt commit, the
+transaction remains `processing` and a fresh authorization is required. During
+revocation, the sidecar calls the pinned official server request primitive because
+the official convenience `revoke` method intentionally suppresses provider
+errors. A successful provider response is durably recorded on the owner-bound
+connection before the local session is deleted. A crash after that receipt is
+recovered by local cleanup and terminalization without another provider claim.
+A crash or network failure before the receipt leaves the connection `revoking`
+and operations blocked; a missing official session is never treated as provider
+proof, so an unknown outcome remains conservative and may require dummy-account
+inspection.

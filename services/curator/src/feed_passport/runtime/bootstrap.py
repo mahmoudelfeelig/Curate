@@ -4,6 +4,7 @@ import base64
 import os
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from feed_passport.adapters.lab import LabAdapter
@@ -149,6 +150,7 @@ def build_service_bundle(
             providers=oauth_providers,
             http_client=oauth_http_client,
         )
+        oauth_vault.retry_pending_retirements(now=datetime.now(timezone.utc))
         oauth_service = OAuthConnectionService(
             connections=connection_registry,
             credentials=oauth_vault,
@@ -243,18 +245,29 @@ def build_service_bundle(
             raise ValueError(
                 "YouTube, X, and Reddit live promotion requires connection and OAuth vault keys"
             )
+
+        def mark_reauth_required(connection, now):
+            return connection_registry.mark_reauth_required(
+                connection.id,
+                owner_id=connection.owner_id,
+                expected_credential_ref=connection.credential_ref,
+                now=now,
+            )
+
         live_factories = {
             "youtube": lambda connections, certification: YouTubeLiveAdapter(
                 connections=connections,
                 credential_provider=oauth_vault,
                 http_client=oauth_http_client,
                 certification=certification,
+                mark_reauth_required=mark_reauth_required,
             ),
             "x": lambda connections, certification: XLiveAdapter(
                 connections=connections,
                 credential_provider=oauth_vault,
                 http_client=oauth_http_client,
                 certification=certification,
+                mark_reauth_required=mark_reauth_required,
             ),
             "reddit": lambda connections, certification: RedditLiveAdapter(
                 connections=connections,
@@ -263,6 +276,7 @@ def build_service_bundle(
                 certification=certification,
                 approval_verified=True,
                 user_agent=oauth_providers.get("reddit").user_agent,
+                mark_reauth_required=mark_reauth_required,
             ),
         }
         for platform, certification in standard_certifications.items():

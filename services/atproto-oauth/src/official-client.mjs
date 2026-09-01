@@ -1,10 +1,12 @@
 import { SidecarError } from './errors.mjs'
+import { requireDid, requireOpaqueReference } from './validation.mjs'
 
 export async function createOfficialOAuthClient({
   client,
   stateStore,
   sessionStore,
   requestLock,
+  ownerStates,
   privateKeys,
   fetch,
 }) {
@@ -17,6 +19,7 @@ export async function createOfficialOAuthClient({
       { status: 503 },
     )
   }
+  requireOwnerStateStore(ownerStates)
   const clientMetadata = buildClientMetadata(client)
   if (!Array.isArray(privateKeys) || privateKeys.length === 0) {
     throw new SidecarError(
@@ -58,14 +61,71 @@ export async function createOfficialOAuthClient({
     }),
   )
 
-  return new NodeOAuthClient({
+  const ownerBoundStateStore = {
+    async set(protocolState, value) {
+      const protocol = requireOpaqueReference(protocolState, 'oauth_protocol_state')
+      const appState = requireOpaqueReference(value?.appState, 'oauth_app_state')
+      if (typeof ownerStates.bindOfficialState === 'function') {
+        await ownerStates.bindOfficialState(appState, protocol, value)
+        return
+      }
+      await stateStore.set(protocol, value)
+      try {
+        await ownerStates.bindProtocolState(appState, protocol)
+      } catch (error) {
+        await stateStore.del(protocol).catch(() => {})
+        throw error
+      }
+    },
+    get: (protocolState) => stateStore.get(protocolState),
+    del: (protocolState) => stateStore.del(protocolState),
+  }
+
+  const oauthClient = new NodeOAuthClient({
     clientMetadata,
     keyset,
-    stateStore,
+    stateStore: ownerBoundStateStore,
     sessionStore,
     requestLock,
     ...(fetch ? { fetch } : {}),
   })
+  Object.defineProperties(oauthClient, {
+    revokeWithProof: {
+      value: async (did, onProviderConfirmed) => {
+        const subject = requireDid(did)
+        if (typeof onProviderConfirmed !== 'function') {
+          throw new TypeError('provider revocation confirmation callback is required')
+        }
+        const session = await oauthClient.restore(subject, false)
+        const tokenSet = await session.getTokenSet(false)
+        const accessToken = tokenSet?.access_token
+        if (typeof accessToken !== 'string' || accessToken.length === 0) {
+          throw new SidecarError(
+            'session_revoke_unavailable',
+            'The stored AT Protocol session cannot prove provider revocation.',
+            { status: 409 },
+          )
+        }
+        if (!session.server || typeof session.server.request !== 'function') {
+          throw new SidecarError(
+            'sidecar_dependencies_incompatible',
+            'The pinned official OAuth client cannot perform confirmed revocation.',
+            { status: 503 },
+          )
+        }
+        // OAuthServerAgent.revoke intentionally swallows endpoint failures. The
+        // pinned request primitive is used inside this credential boundary so
+        // only a successful provider response can create durable proof.
+        await session.server.request('revocation', { token: accessToken })
+        await onProviderConfirmed()
+        await sessionStore.del(subject)
+      },
+    },
+    discardSession: {
+      value: async (did) => sessionStore.del(requireDid(did)),
+    },
+  })
+  return oauthClient
 }
 
 export function buildClientMetadata(client) {
@@ -144,6 +204,22 @@ function requireStore(value, name) {
     throw new SidecarError(
       'sidecar_storage_unconfigured',
       `An injected ${name} with set/get/del is required.`,
+      { status: 503 },
+    )
+  }
+}
+
+function requireOwnerStateStore(value) {
+  if (
+    !value ||
+    typeof value.bound !== 'function' ||
+    typeof value.deleteByAppState !== 'function' ||
+    (typeof value.bindOfficialState !== 'function' &&
+      typeof value.bindProtocolState !== 'function')
+  ) {
+    throw new SidecarError(
+      'sidecar_storage_unconfigured',
+      'An owner-bound OAuth transaction store is required.',
       { status: 503 },
     )
   }

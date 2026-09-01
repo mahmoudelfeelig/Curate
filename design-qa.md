@@ -7,6 +7,7 @@
 ## Visual source and implementation contract
 
 - Visual direction: a tactile 2009–2013 passport and customs-desk utility.
+- Public visual source of truth: the live DOM/CSS implementation and curated browser captures.
 - Curated final comparison captures: `artifacts/evidence/screenshots/overview-1440x1024.png`, `artifacts/evidence/screenshots/feature-clerk-proposal.png`, and `artifacts/evidence/screenshots/agent-390x844.png`.
 - The implementation retains the navy cloth field, open cream passport, paper grain, ink stamps, dense early-2010s travel-document typography, colored desk tabs, customs consent ticket, and coral action language, while every label and control is driven by live application state.
 - Only the licensed and provenance-tracked imagery listed in `THIRD_PARTY_NOTICES.md` is stored, served from `public/`, or emitted in the build.

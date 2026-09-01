@@ -4,6 +4,7 @@ import base64
 import json
 import secrets
 import sqlite3
+import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -66,11 +67,21 @@ class LocalEncryptedOAuthVault:
         http_client: HttpClient,
         id_factory: Callable[[], str] | None = None,
         refresh_skew: timedelta = timedelta(minutes=2),
+        refresh_lease_for: timedelta = timedelta(minutes=3),
+        refresh_wait_timeout: timedelta = timedelta(seconds=5),
+        refresh_poll_interval_seconds: float = 0.01,
+        coordination_clock: Callable[[], datetime] | None = None,
     ) -> None:
         if len(encryption_key) != 32 or not key_id.strip():
             raise ValueError("the OAuth vault requires a named 32-byte external key")
         if refresh_skew < timedelta(0) or refresh_skew > timedelta(minutes=10):
             raise ValueError("OAuth refresh skew must be between zero and ten minutes")
+        if not timedelta(seconds=30) <= refresh_lease_for <= timedelta(minutes=10):
+            raise ValueError("OAuth refresh lease must be between thirty seconds and ten minutes")
+        if not timedelta(milliseconds=10) <= refresh_wait_timeout <= timedelta(minutes=1):
+            raise ValueError("OAuth refresh wait must be between ten milliseconds and one minute")
+        if not 0.001 <= refresh_poll_interval_seconds <= 1:
+            raise ValueError("OAuth refresh polling interval must be between 0.001 and 1 second")
         self.store = store
         self._cipher = AESGCM(bytes(encryption_key))
         self._key_id = key_id
@@ -78,6 +89,10 @@ class LocalEncryptedOAuthVault:
         self._http = http_client
         self._id_factory = id_factory or (lambda: f"credential_{secrets.token_urlsafe(24)}")
         self._refresh_skew = refresh_skew
+        self._refresh_lease_for = refresh_lease_for
+        self._refresh_wait_timeout = refresh_wait_timeout
+        self._refresh_poll_interval_seconds = refresh_poll_interval_seconds
+        self._coordination_clock = coordination_clock or (lambda: datetime.now(timezone.utc))
         self._initialize_schema()
 
     def put(
@@ -159,9 +174,14 @@ class LocalEncryptedOAuthVault:
             )
         expires_at = datetime.fromisoformat(str(payload["expires_at"]))
         if force_refresh or expires_at <= canonical_now + self._refresh_skew:
-            payload = self._refresh(row, payload, now=canonical_now)
+            payload = self._refresh_singleflight(row, payload, now=canonical_now)
             scopes = frozenset(str(value) for value in payload.get("scopes", ()))
             expires_at = datetime.fromisoformat(str(payload["expires_at"]))
+            if not required_scopes <= scopes:
+                raise CredentialScopeDenied(
+                    "credential_scope_denied",
+                    "The refreshed connected account credential lacks a required scope.",
+                )
         if expires_at <= canonical_now:
             raise CredentialUnavailable("credential_expired", "The connected account credential expired.")
         access_token = payload.get("access_token")
@@ -213,10 +233,10 @@ class LocalEncryptedOAuthVault:
                     "revocation_unavailable",
                     "The platform credential revocation could not be confirmed.",
                 )
-            if response.status_code >= 400:
+            if not 200 <= response.status_code < 300:
                 raise CredentialUnavailable(
-                    "revocation_rejected",
-                    "The platform rejected credential revocation.",
+                    "revocation_rejected" if response.status_code >= 400 else "revocation_unconfirmed",
+                    "The platform credential revocation could not be confirmed.",
                 )
         self._complete_revocation(connection, now=canonical_now)
 
@@ -230,6 +250,84 @@ class LocalEncryptedOAuthVault:
             )
             if cursor.rowcount not in {0, 1}:
                 raise RuntimeError("unexpected OAuth credential deletion count")
+
+    def retry_pending_retirements(
+        self,
+        *,
+        now: datetime,
+        owner_id: str | None = None,
+        platform: str | None = None,
+        connection_id: str | None = None,
+        limit: int = 100,
+    ) -> int:
+        _aware(now, "now")
+        if not 1 <= limit <= 1000:
+            raise ValueError("OAuth credential retirement limit must be between one and one thousand")
+        for value, field_name in (
+            (owner_id, "owner_id"),
+            (platform, "platform"),
+            (connection_id, "connection_id"),
+        ):
+            if value is not None and not value.strip():
+                raise ValueError(f"{field_name} cannot be blank")
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        for column, value in (
+            ("owner_id", owner_id),
+            ("platform", platform),
+            ("connection_id", connection_id),
+        ):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                parameters.append(value)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        retired = 0
+        with self.store.transaction() as database:
+            rows = database.execute(
+                f"""
+                SELECT * FROM oauth_credential_retirements
+                {where}
+                ORDER BY created_at, credential_ref
+                LIMIT ?
+                """,
+                (*parameters, limit),
+            ).fetchall()
+            for row in rows:
+                if secrets.compare_digest(
+                    str(row["credential_ref"]),
+                    str(row["replacement_credential_ref"]),
+                ):
+                    raise CredentialUnavailable(
+                        "credential_retirement_invalid",
+                        "A pending credential retirement record is invalid.",
+                    )
+                cursor = database.execute(
+                    """
+                    DELETE FROM oauth_credentials
+                    WHERE credential_ref = ? AND owner_id = ? AND platform = ?
+                    """,
+                    (row["credential_ref"], row["owner_id"], row["platform"]),
+                )
+                if cursor.rowcount not in {0, 1}:
+                    raise RuntimeError("unexpected OAuth credential retirement count")
+                retirement = database.execute(
+                    """
+                    DELETE FROM oauth_credential_retirements
+                    WHERE credential_ref = ? AND owner_id = ? AND platform = ?
+                        AND connection_id = ? AND replacement_credential_ref = ?
+                    """,
+                    (
+                        row["credential_ref"],
+                        row["owner_id"],
+                        row["platform"],
+                        row["connection_id"],
+                        row["replacement_credential_ref"],
+                    ),
+                )
+                if retirement.rowcount != 1:
+                    raise ConcurrencyConflict("OAuth credential retirement changed concurrently")
+                retired += 1
+        return retired
 
     def _revocation_confirmed(self, connection: ExternalConnection) -> bool:
         with self.store.transaction() as database:
@@ -299,12 +397,125 @@ class LocalEncryptedOAuthVault:
             if cursor.rowcount not in {0, 1}:
                 raise RuntimeError("unexpected OAuth credential deletion count")
 
-    def _refresh(
+    def _refresh_singleflight(
         self,
         row: sqlite3.Row,
         current: Mapping[str, Any],
         *,
         now: datetime,
+    ) -> dict[str, Any]:
+        expected_version = int(row["version"])
+        deadline = time.monotonic() + self._refresh_wait_timeout.total_seconds()
+        observed_other_lease = False
+        while True:
+            coordination_now = _aware(self._coordination_clock(), "coordination clock")
+            lease_token = secrets.token_urlsafe(24)
+            lease_expires_at = coordination_now + self._refresh_lease_for
+            if self._acquire_refresh_lease(
+                row,
+                expected_version=expected_version,
+                lease_token=lease_token,
+                now=coordination_now,
+                expires_at=lease_expires_at,
+            ):
+                try:
+                    return self._refresh_owned(
+                        row,
+                        current,
+                        now=now,
+                        lease_token=lease_token,
+                    )
+                except BaseException:
+                    try:
+                        self._release_refresh_lease(row, lease_token=lease_token)
+                    except sqlite3.Error:
+                        pass
+                    raise
+
+            latest_row, latest_payload = self._load(
+                str(row["credential_ref"]),
+                owner_id=str(row["owner_id"]),
+                platform=str(row["platform"]),
+            )
+            if int(latest_row["version"]) != expected_version:
+                return latest_payload
+            active_lease = latest_row["refresh_lease_owner"] is not None
+            lease_expiry = (
+                datetime.fromisoformat(str(latest_row["refresh_lease_expires_at"]))
+                if latest_row["refresh_lease_expires_at"] is not None
+                else None
+            )
+            if observed_other_lease and not active_lease:
+                raise CredentialUnavailable(
+                    "refresh_interrupted",
+                    "The connected account credential could not be refreshed.",
+                )
+            if active_lease and lease_expiry is not None and lease_expiry > coordination_now:
+                observed_other_lease = True
+            elif not active_lease or lease_expiry is None or lease_expiry <= coordination_now:
+                row, current = latest_row, latest_payload
+                continue
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise CredentialUnavailable(
+                    "refresh_in_progress",
+                    "The connected account credential is already being refreshed.",
+                )
+            time.sleep(min(self._refresh_poll_interval_seconds, remaining))
+
+    def _acquire_refresh_lease(
+        self,
+        row: sqlite3.Row,
+        *,
+        expected_version: int,
+        lease_token: str,
+        now: datetime,
+        expires_at: datetime,
+    ) -> bool:
+        with self.store.transaction() as database:
+            cursor = database.execute(
+                """
+                UPDATE oauth_credentials SET
+                    refresh_lease_owner = ?, refresh_lease_expires_at = ?
+                WHERE credential_ref = ? AND owner_id = ? AND platform = ?
+                    AND version = ? AND revoked_at IS NULL
+                    AND (
+                        refresh_lease_owner IS NULL
+                        OR refresh_lease_expires_at IS NULL
+                        OR refresh_lease_expires_at <= ?
+                    )
+                """,
+                (
+                    lease_token,
+                    expires_at.isoformat(),
+                    row["credential_ref"],
+                    row["owner_id"],
+                    row["platform"],
+                    expected_version,
+                    now.isoformat(),
+                ),
+            )
+        return cursor.rowcount == 1
+
+    def _release_refresh_lease(self, row: sqlite3.Row, *, lease_token: str) -> None:
+        with self.store.transaction() as database:
+            database.execute(
+                """
+                UPDATE oauth_credentials SET
+                    refresh_lease_owner = NULL, refresh_lease_expires_at = NULL
+                WHERE credential_ref = ? AND owner_id = ? AND platform = ?
+                    AND refresh_lease_owner = ?
+                """,
+                (row["credential_ref"], row["owner_id"], row["platform"], lease_token),
+            )
+
+    def _refresh_owned(
+        self,
+        row: sqlite3.Row,
+        current: Mapping[str, Any],
+        *,
+        now: datetime,
+        lease_token: str,
     ) -> dict[str, Any]:
         refresh_token = current.get("refresh_token")
         if not isinstance(refresh_token, str) or not refresh_token:
@@ -375,8 +586,10 @@ class LocalEncryptedOAuthVault:
             cursor = connection.execute(
                 """
                 UPDATE oauth_credentials SET
-                    key_id = ?, nonce = ?, ciphertext = ?, version = ?, updated_at = ?
-                WHERE credential_ref = ? AND owner_id = ? AND version = ? AND revoked_at IS NULL
+                    key_id = ?, nonce = ?, ciphertext = ?, version = ?, updated_at = ?,
+                    refresh_lease_owner = NULL, refresh_lease_expires_at = NULL
+                WHERE credential_ref = ? AND owner_id = ? AND version = ?
+                    AND revoked_at IS NULL AND refresh_lease_owner = ?
                 """,
                 (
                     self._key_id,
@@ -387,6 +600,7 @@ class LocalEncryptedOAuthVault:
                     row["credential_ref"],
                     row["owner_id"],
                     expected_version,
+                    lease_token,
                 ),
             )
             if cursor.rowcount != 1:
@@ -572,7 +786,9 @@ class LocalEncryptedOAuthVault:
                     version INTEGER NOT NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    revoked_at TEXT
+                    revoked_at TEXT,
+                    refresh_lease_owner TEXT,
+                    refresh_lease_expires_at TEXT
                 )
                 """
             )
@@ -597,5 +813,23 @@ class LocalEncryptedOAuthVault:
                 """
                 CREATE INDEX IF NOT EXISTS ix_oauth_revocation_receipts_owner
                 ON oauth_revocation_receipts(owner_id, platform)
+                """
+            )
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(oauth_credentials)").fetchall()
+            }
+            if "refresh_lease_owner" not in columns:
+                connection.execute(
+                    "ALTER TABLE oauth_credentials ADD COLUMN refresh_lease_owner TEXT"
+                )
+            if "refresh_lease_expires_at" not in columns:
+                connection.execute(
+                    "ALTER TABLE oauth_credentials ADD COLUMN refresh_lease_expires_at TEXT"
+                )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS ix_oauth_credentials_refresh_lease
+                ON oauth_credentials(refresh_lease_expires_at, refresh_lease_owner)
                 """
             )

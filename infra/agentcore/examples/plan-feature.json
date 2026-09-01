@@ -1,0 +1,28 @@
+{
+  "kind": "plan_feature",
+  "passport": {
+    "id": "replace-with-a-version-id",
+    "owner_id": "replace-with-the-cognito-access-token-sub",
+    "name": "Demo Passport",
+    "version": 1,
+    "intent": "Prefer careful research and deliberately chosen creators.",
+    "topic_targets": {
+      "research": 0.7,
+      "engineering": 0.3
+    },
+    "creator_preferences": {},
+    "format_preferences": {
+      "long_form": 0.8
+    },
+    "languages": [
+      "en"
+    ],
+    "hard_exclusions": [
+      "ragebait"
+    ],
+    "serendipity": 0.2,
+    "max_outrage": 0.05,
+    "max_source_share": 0.3
+  },
+  "request": "Prepare a six-hour isolated research feed."
+}

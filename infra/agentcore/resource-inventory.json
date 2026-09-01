@@ -1,0 +1,85 @@
+{
+  "format": "feed-passport-agentcore-inventory/v1",
+  "stack_name": "FeedPassportAgentCore",
+  "cost_guarantee": "none",
+  "billing_warning": "AWS promotional credits and Budgets are not hard spend caps. Do not apply this stack unless the account owner accepts residual billing risk.",
+  "resources": [
+    {
+      "capability": "proposal-only agent",
+      "cloudformation_type": "AWS::BedrockAgentCore::Runtime",
+      "billing_trigger": "runtime invocation and active runtime consumption",
+      "local_substitute": "async handler exercised with a scripted Strands model",
+      "teardown": "CloudFormation stack deletion; the separately created Runtime log group is optional explicit cleanup"
+    },
+    {
+      "capability": "governed JWT entry point",
+      "cloudformation_type": "AWS::BedrockAgentCore::Gateway",
+      "billing_trigger": "gateway request processing",
+      "local_substitute": "synthesized target/auth assertions only",
+      "teardown": "CloudFormation stack deletion"
+    },
+    {
+      "capability": "runtime gateway route",
+      "cloudformation_type": "AWS::BedrockAgentCore::GatewayTarget",
+      "billing_trigger": "used when gateway requests are routed",
+      "local_substitute": "strict path/schema assertion",
+      "teardown": "CloudFormation stack deletion"
+    },
+    {
+      "capability": "inbound user identity",
+      "cloudformation_type": "AWS::Cognito::UserPool",
+      "billing_trigger": "monthly active users and optional related features",
+      "local_substitute": "synthetic Runtime RequestContext only",
+      "teardown": "CloudFormation stack deletion, including dummy users"
+    },
+    {
+      "capability": "public authorization-code SPA client",
+      "cloudformation_type": "AWS::Cognito::UserPoolClient",
+      "billing_trigger": "authentication through the parent user pool",
+      "local_substitute": "OIDC contract and synthetic JWT-context tests",
+      "teardown": "CloudFormation stack deletion"
+    },
+    {
+      "capability": "hosted authorization endpoint",
+      "cloudformation_type": "AWS::Cognito::UserPoolDomain",
+      "billing_trigger": "Cognito hosted sign-in usage",
+      "local_substitute": "loopback generic OIDC harness",
+      "teardown": "CloudFormation stack deletion releases the configured prefix"
+    },
+    {
+      "capability": "gateway invocation scope",
+      "cloudformation_type": "AWS::Cognito::UserPoolResourceServer",
+      "billing_trigger": "no separate resource charge; used with Cognito authentication",
+      "local_substitute": "exact allowed-scope template assertion",
+      "teardown": "CloudFormation stack deletion"
+    },
+    {
+      "capability": "runtime and gateway service identities",
+      "cloudformation_type": "AWS::IAM::Role (2) and AWS::IAM::Policy (2)",
+      "billing_trigger": "IAM has no direct charge; granted services can incur usage",
+      "local_substitute": "synthesized exact-action and exact-resource assertions",
+      "teardown": "CloudFormation stack deletion"
+    },
+    {
+      "capability": "explicit Strands model",
+      "cloudformation_type": "direct AWS::Bedrock foundation-model reference (not created)",
+      "billing_trigger": "every plan_feature model invocation",
+      "local_substitute": "scripted no-network Strands Model",
+      "teardown": "no model is created; IAM access disappears with the stack"
+    },
+    {
+      "capability": "direct-code deployment asset",
+      "cloudformation_type": "CDK bootstrap S3 object",
+      "billing_trigger": "object storage and requests",
+      "local_substitute": "clean-HEAD-bound Linux ARM64 zip with deterministic archive serialization; base image and ranged dependency resolution remain mutable",
+      "teardown": "optional exact-object cleanup; shared CDKToolkit bucket is never automatically deleted"
+    },
+    {
+      "capability": "runtime observability",
+      "cloudformation_type": "service-created CloudWatch log group",
+      "billing_trigger": "log ingestion, storage, and queries",
+      "local_substitute": "test output only",
+      "teardown": "CloudFormation deletion does not manage the service-created group; separately run set-retention.ps1 after deployment to apply seven-day retention, then optionally delete that exact log group"
+    }
+  ]
+}

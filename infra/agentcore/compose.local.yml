@@ -1,0 +1,14 @@
+services:
+  agentcore:
+    build:
+      context: ../../services/curator
+      dockerfile: Dockerfile.agentcore
+    environment:
+      FEED_PASSPORT_JWT_ISSUER: https://local.invalid/user-pool
+    ports:
+      - "8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true

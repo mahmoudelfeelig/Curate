@@ -1,0 +1,7 @@
+node_modules/
+dist/
+cdk.out/
+artifacts/
+.package-stage/
+.deployment/
+*.tsbuildinfo

@@ -314,6 +314,10 @@ async function captureViewport(browser, viewport) {
     const sectionIndex = sections.findIndex((candidate) => candidate.id === sectionId);
     await page.locator(".desk-tabs button").nth(sectionIndex).click();
     await page.getByRole("heading", { name: section.heading, exact: true }).first().waitFor({ state: "visible", timeout: 10_000 });
+    if (section.id === "visas") {
+      await page.locator(".destination-index button").filter({ hasText: "Bluesky" }).click();
+      await page.getByRole("heading", { name: "Bluesky Visa", exact: true }).waitFor({ state: "visible", timeout: 10_000 });
+    }
     const sectionScreenshot = path.join(outputDir, `${section.id}-${viewport.width}x${viewport.height}.png`);
     await page.screenshot({ path: sectionScreenshot, fullPage: false, animations: "disabled" });
     sectionResults.push({

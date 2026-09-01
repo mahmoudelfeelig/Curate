@@ -1,6 +1,13 @@
 """Pure Feed Passport domain models and policy."""
 
 from .evaluation import evaluate_feed
+from .connections import (
+    AuthorizedConnection,
+    ConnectionStatus,
+    ExternalConnection,
+    OAuthTransaction,
+    OAuthTransactionStart,
+)
 from .ledger import ActionLedger
 from .missions import (
     AgentMissionAcceptance,
@@ -51,12 +58,17 @@ __all__ = [
     "AgentMissionStatus",
     "AgentMissionStopReason",
     "CapabilityLevel",
+    "AuthorizedConnection",
+    "ConnectionStatus",
     "CompanionBlend",
     "FeedEvaluation",
     "FeedItem",
     "FeedPassport",
     "FeedSample",
+    "ExternalConnection",
     "OverlayMode",
+    "OAuthTransaction",
+    "OAuthTransactionStart",
     "PassportOverlay",
     "PlatformCapabilityManifest",
     "PolicyDecision",

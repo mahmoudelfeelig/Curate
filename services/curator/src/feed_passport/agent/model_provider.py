@@ -1,16 +1,71 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import httpx
-from strands.models import Model
+from strands.models import BedrockModel, Model
 from strands.models.llamacpp import LlamaCppModel
 
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+_AWS_REGION = re.compile(r"^[a-z]{2}(?:-gov)?-[a-z0-9-]+-\d$")
+
+ModelEndpointScope = Literal[
+    "loopback_only",
+    "scripted_no_network",
+    "aws_bedrock",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelExecutionProfile:
+    """Evidence contract for where one Strands planner invocation executes."""
+
+    provider: str
+    model_id: str
+    endpoint_scope: ModelEndpointScope
+    external_model_calls: bool
+    paid_model_calls: bool
+
+    def __post_init__(self) -> None:
+        provider = self.provider.strip()
+        model_id = self.model_id.strip()
+        if not provider or len(provider) > 80:
+            raise ValueError("provider must contain between one and 80 characters")
+        if not model_id or len(model_id) > 256:
+            raise ValueError("model_id must contain between one and 256 characters")
+        object.__setattr__(self, "provider", provider)
+        object.__setattr__(self, "model_id", model_id)
+
+        is_external = self.endpoint_scope == "aws_bedrock"
+        if is_external != self.external_model_calls:
+            raise ValueError(
+                "aws_bedrock evidence must declare external calls, and local evidence must not"
+            )
+        if self.paid_model_calls != is_external:
+            raise ValueError(
+                "aws_bedrock calls are potentially billable; local calls must not be marked paid"
+            )
+
+    @classmethod
+    def local(
+        cls,
+        *,
+        provider: str,
+        model_id: str,
+        endpoint_scope: Literal["loopback_only", "scripted_no_network"],
+    ) -> ModelExecutionProfile:
+        return cls(
+            provider=provider,
+            model_id=model_id,
+            endpoint_scope=endpoint_scope,
+            external_model_calls=False,
+            paid_model_calls=False,
+        )
 
 
 class LoopbackLlamaCppModel(LlamaCppModel):
@@ -162,6 +217,16 @@ class LocalModelProviderConfig:
             model_id=self.model_id,
         )
 
+    @property
+    def execution_profile(self) -> ModelExecutionProfile:
+        if not self.configured:
+            raise RuntimeError("the local model provider is disabled")
+        return ModelExecutionProfile.local(
+            provider=self.provider,
+            model_id=self.model_id,
+            endpoint_scope="loopback_only",
+        )
+
     def summary(self) -> dict[str, Any]:
         return {
             "configured": self.configured,
@@ -199,3 +264,110 @@ class LocalModelProviderConfig:
         value["readiness"] = "ready"
         value["reason"] = "The configured loopback llama.cpp server is responding."
         return value
+
+
+@dataclass(frozen=True, slots=True)
+class AgentCoreBedrockModelConfig:
+    """Explicit, fail-closed Bedrock provider for the AgentCore Runtime only.
+
+    This configuration intentionally has no default model or region. Constructing
+    it does not make an AWS call; ``create_model`` creates the Strands Bedrock
+    client and any subsequent planner invocation is external and potentially
+    billable even when credits happen to cover it.
+    """
+
+    model_id: str
+    region_name: str
+    timeout_seconds: float
+    endpoint_scope: Literal["aws_bedrock"] = "aws_bedrock"
+
+    @classmethod
+    def from_env(cls) -> AgentCoreBedrockModelConfig:
+        model_id = os.getenv("FEED_PASSPORT_BEDROCK_MODEL_ID", "").strip()
+        region_name = os.getenv("FEED_PASSPORT_BEDROCK_REGION", "").strip()
+        missing = [
+            name
+            for name, value in (
+                ("FEED_PASSPORT_BEDROCK_MODEL_ID", model_id),
+                ("FEED_PASSPORT_BEDROCK_REGION", region_name),
+            )
+            if not value
+        ]
+        if missing:
+            raise RuntimeError(
+                "AgentCore Bedrock planning is disabled until these explicit settings exist: "
+                + ", ".join(missing)
+            )
+        raw_timeout = os.getenv("FEED_PASSPORT_BEDROCK_TIMEOUT_SECONDS", "60")
+        try:
+            timeout_seconds = float(raw_timeout)
+        except ValueError as exc:
+            raise ValueError(
+                "FEED_PASSPORT_BEDROCK_TIMEOUT_SECONDS must be a number"
+            ) from exc
+        return cls.from_values(
+            model_id=model_id,
+            region_name=region_name,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @classmethod
+    def from_values(
+        cls,
+        *,
+        model_id: str,
+        region_name: str,
+        timeout_seconds: float = 60,
+    ) -> AgentCoreBedrockModelConfig:
+        normalized_model_id = model_id.strip()
+        normalized_region = region_name.strip()
+        if not normalized_model_id or len(normalized_model_id) > 256:
+            raise ValueError("an explicit Bedrock model ID of at most 256 characters is required")
+        if any(character.isspace() for character in normalized_model_id):
+            raise ValueError("the Bedrock model ID must not contain whitespace")
+        if not _AWS_REGION.fullmatch(normalized_region):
+            raise ValueError("an explicit valid AWS Bedrock region is required")
+        timeout = float(timeout_seconds)
+        if not 1 <= timeout <= 300:
+            raise ValueError("the Bedrock timeout must be between 1 and 300 seconds")
+        return cls(
+            model_id=normalized_model_id,
+            region_name=normalized_region,
+            timeout_seconds=timeout,
+        )
+
+    @property
+    def execution_profile(self) -> ModelExecutionProfile:
+        return ModelExecutionProfile(
+            provider="bedrock",
+            model_id=self.model_id,
+            endpoint_scope=self.endpoint_scope,
+            external_model_calls=True,
+            paid_model_calls=True,
+        )
+
+    def create_model(self) -> Model:
+        return BedrockModel(
+            region_name=self.region_name,
+            model_id=self.model_id,
+            max_tokens=600,
+            temperature=0.0,
+            streaming=True,
+        )
+
+    def summary(self) -> dict[str, Any]:
+        profile = self.execution_profile
+        return {
+            "configured": True,
+            "provider": profile.provider,
+            "model_id": profile.model_id,
+            "region": self.region_name,
+            "endpoint_scope": profile.endpoint_scope,
+            "mode": "agentcore_bedrock",
+            "external_model_calls": profile.external_model_calls,
+            "paid_model_calls": profile.paid_model_calls,
+            "reason": (
+                "Explicit Bedrock provider configured. Invocations are external and potentially "
+                "billable; deployment scripts never invoke it without a separate apply gate."
+            ),
+        }

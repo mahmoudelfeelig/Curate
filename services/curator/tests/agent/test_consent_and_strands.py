@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+from pydantic import ValidationError
 from strands.models import Model
 
 from feed_passport.adapters.lab import LabAdapter
@@ -22,7 +23,6 @@ from feed_passport.agent.hooks import CapabilityConsentHooks
 from feed_passport.agent.tools import build_curator_tools
 from feed_passport.application import CuratorApplication
 from feed_passport.infrastructure import SQLiteStore
-from feed_passport.runtime import ServiceBundle
 from feed_passport.runtime.agentcore_app import create_agentcore_app
 
 
@@ -356,59 +356,21 @@ class ConsentAndStrandsTests(unittest.TestCase):
         self.assertEqual(value["allowed_actions"], [])
         self.assertEqual(value["status"], "active")
 
-    def test_agentcore_runtime_dispatches_the_same_deterministic_agent_boundary(self) -> None:
-        service = CuratorAgentService(self.application, self.broker)
-        runtime, handler = create_agentcore_app(
-            ServiceBundle(
-                store=self.store,
-                application=self.application,
-                broker=self.broker,
-                agent_service=service,
-            )
-        )
+    def test_agentcore_runtime_exposes_only_the_proposal_boundary(self) -> None:
+        runtime, handler = create_agentcore_app()
         self.assertIs(runtime.handlers["main"], handler)
-        reply = handler({"command": "list_platforms", "actor_id": "person-a", "arguments": {}})
-        self.assertEqual(reply["status"], "ok")
-        self.assertEqual(reply["data"][0]["platform"], "feed_passport_lab")
+        health = asyncio.run(handler({"kind": "health"}))
+        self.assertEqual(health["operations"], ["health", "plan_feature"])
+        self.assertFalse(health["mutation_tools_exposed"])
 
-        monitor_arguments = {
-            "passport_id": self.passport.id,
-            "platform": self.adapter.platform,
-            "account_id": "destination-new",
-            "interval_minutes": 15,
-            "expires_at": (self.clock.value + timedelta(hours=1)).isoformat(),
-        }
-        with self.assertRaisesRegex(PermissionError, "explicit local UI/API approval surface"):
-            handler(
-                {
-                    "command": "create_drift_monitor",
-                    "actor_id": "person-a",
-                    "arguments": {
-                        **monitor_arguments,
-                        "mode": "bounded_auto",
-                        "allowed_actions": ["hide_topic"],
-                    },
-                }
-            )
-        alert = handler(
-            {
-                "command": "create_drift_monitor",
-                "actor_id": "person-a",
-                "arguments": {
-                    **monitor_arguments,
-                    "mode": "alert_only",
-                    "allowed_actions": [],
-                },
-            }
-        )
-        self.assertEqual(alert["data"]["mode"], "alert_only")
-        self.assertEqual(alert["data"]["allowed_actions"], [])
-
-        with self.assertRaisesRegex(
-            RuntimeError,
-            "Broad AgentCore free-text chat is disabled by design",
+        for payload in (
+            {"command": "approve_migration", "actor_id": "person-a", "arguments": {}},
+            {"command": "execute_migration", "actor_id": "person-a", "arguments": {}},
+            {"message": "Choose a provider and execute it", "actor_id": "person-a"},
         ):
-            handler({"message": "Choose a provider for me", "actor_id": "person-a"})
+            with self.subTest(payload=payload):
+                with self.assertRaises(ValidationError):
+                    asyncio.run(handler(payload))
 
 
 if __name__ == "__main__":

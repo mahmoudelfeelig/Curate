@@ -20,6 +20,8 @@ from feed_passport.domain import (
     CapabilityLevel,
 )
 
+from .model_provider import ModelExecutionProfile
+
 
 class MissionPlannerError(RuntimeError):
     """A local model failed the bounded proposal protocol."""
@@ -141,14 +143,30 @@ class MissionPlanner:
         model_id: str,
         timeout_seconds: float,
         endpoint_scope: str = "loopback_only",
+        execution_profile: ModelExecutionProfile | None = None,
     ) -> None:
+        if execution_profile is None:
+            if endpoint_scope not in {"loopback_only", "scripted_no_network"}:
+                raise ValueError("external mission planning requires an explicit execution profile")
+            execution_profile = ModelExecutionProfile.local(
+                provider=provider,
+                model_id=model_id,
+                endpoint_scope=endpoint_scope,
+            )
+        elif (
+            provider.strip() != execution_profile.provider
+            or model_id.strip() != execution_profile.model_id
+            or endpoint_scope != execution_profile.endpoint_scope
+        ):
+            raise ValueError("planner fields must match the explicit execution profile")
         self.application = application
         self.mission_runner = mission_runner
         self.model_factory = model_factory
-        self.provider = provider
-        self.model_id = model_id
+        self.provider = execution_profile.provider
+        self.model_id = execution_profile.model_id
         self.timeout_seconds = timeout_seconds
-        self.endpoint_scope = endpoint_scope
+        self.endpoint_scope = execution_profile.endpoint_scope
+        self.execution_profile = execution_profile
 
     async def preview(
         self,
@@ -287,13 +305,14 @@ class MissionPlanner:
                 hooks=[protocol_hooks],
                 system_prompt=PLANNER_SYSTEM_PROMPT,
                 callback_handler=None,
-                name="feed-passport-local-mission-planner",
-                description="Local proposal-only Strands planner for a server-bound mission.",
+                name="feed-passport-mission-planner",
+                description="Proposal-only Strands planner for a server-bound mission.",
                 trace_attributes={
-                    "service.name": "feed-passport-local-mission-planner",
-                    "product.local_only": True,
+                    "service.name": "feed-passport-mission-planner",
+                    "product.local_only": not self.execution_profile.external_model_calls,
                     "product.proposal_only": True,
                     "product.public_engagement": False,
+                    "product.endpoint_scope": self.endpoint_scope,
                 },
             )
             async with asyncio.timeout(self.timeout_seconds):
@@ -338,8 +357,8 @@ class MissionPlanner:
             "provider": self.provider,
             "model_id": self.model_id,
             "endpoint_scope": self.endpoint_scope,
-            "external_model_calls": False,
-            "paid_model_calls": False,
+            "external_model_calls": self.execution_profile.external_model_calls,
+            "paid_model_calls": self.execution_profile.paid_model_calls,
             "authority": "proposal_only",
             "stop_reason": result.stop_reason,
             "duration_ms": round((time.perf_counter() - started) * 1000),

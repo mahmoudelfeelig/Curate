@@ -24,6 +24,8 @@ from strands.models import Model
 
 from feed_passport.domain import FeedPassport
 
+from .model_provider import ModelExecutionProfile
+
 
 class FeatureIntentPlannerError(RuntimeError):
     """A local model failed the feature proposal protocol."""
@@ -240,10 +242,10 @@ class FeatureProposalTextDigest(StrictPlannerModel):
 class FeaturePlannerEvidence(StrictPlannerModel):
     runtime: Literal["strands"] = "strands"
     provider: Annotated[str, StringConstraints(min_length=1, max_length=80)]
-    model_id: Annotated[str, StringConstraints(min_length=1, max_length=160)]
-    endpoint_scope: Literal["loopback_only", "scripted_no_network"]
-    external_model_calls: Literal[False] = False
-    paid_model_calls: Literal[False] = False
+    model_id: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    endpoint_scope: Literal["loopback_only", "scripted_no_network", "aws_bedrock"]
+    external_model_calls: bool = False
+    paid_model_calls: bool = False
     authority: Literal["proposal_only"] = "proposal_only"
     mutation_tools_exposed: Literal[False] = False
     proposal_text_source: Literal["deterministic_server_templates"] = (
@@ -267,6 +269,15 @@ class FeaturePlannerEvidence(StrictPlannerModel):
         Literal["execution"],
         Literal["rollback"],
     ]
+
+    @model_validator(mode="after")
+    def require_truthful_execution_evidence(self) -> FeaturePlannerEvidence:
+        is_bedrock = self.endpoint_scope == "aws_bedrock"
+        if self.external_model_calls != is_bedrock or self.paid_model_calls != is_bedrock:
+            raise ValueError(
+                "Bedrock evidence must be external and potentially billable; local evidence must not"
+            )
+        return self
 
     @field_validator("proposal_text_digests")
     @classmethod
@@ -382,7 +393,7 @@ class FeaturePlannerProtocolHooks:
 
 
 class FeatureIntentPlanner:
-    """Runs one fresh, request-bound local Strands feature proposal agent."""
+    """Runs one fresh, request-bound Strands feature proposal agent."""
 
     def __init__(
         self,
@@ -392,6 +403,7 @@ class FeatureIntentPlanner:
         model_id: str,
         timeout_seconds: float,
         endpoint_scope: str = "loopback_only",
+        execution_profile: ModelExecutionProfile | None = None,
     ) -> None:
         if not provider.strip() or len(provider.strip()) > 80:
             raise ValueError("provider must contain between one and 80 characters")
@@ -399,13 +411,28 @@ class FeatureIntentPlanner:
             raise ValueError("model_id must contain between one and 160 characters")
         if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive and finite")
-        if endpoint_scope not in {"loopback_only", "scripted_no_network"}:
-            raise ValueError("feature intent planning is restricted to local model endpoints")
+        if execution_profile is None:
+            if endpoint_scope not in {"loopback_only", "scripted_no_network"}:
+                raise ValueError(
+                    "external feature planning requires an explicit execution profile"
+                )
+            execution_profile = ModelExecutionProfile.local(
+                provider=provider,
+                model_id=model_id,
+                endpoint_scope=endpoint_scope,
+            )
+        elif (
+            provider.strip() != execution_profile.provider
+            or model_id.strip() != execution_profile.model_id
+            or endpoint_scope != execution_profile.endpoint_scope
+        ):
+            raise ValueError("planner fields must match the explicit execution profile")
         self.model_factory = model_factory
-        self.provider = provider.strip()
-        self.model_id = model_id.strip()
+        self.provider = execution_profile.provider
+        self.model_id = execution_profile.model_id
         self.timeout_seconds = timeout_seconds
-        self.endpoint_scope = endpoint_scope
+        self.endpoint_scope = execution_profile.endpoint_scope
+        self.execution_profile = execution_profile
 
     async def propose(
         self,
@@ -577,13 +604,14 @@ class FeatureIntentPlanner:
                 hooks=[protocol_hooks],
                 system_prompt=FEATURE_INTENT_SYSTEM_PROMPT,
                 callback_handler=None,
-                name="feed-passport-local-feature-intent-planner",
-                description="Local proposal-only Strands planner for top-level Passport features.",
+                name="feed-passport-feature-intent-planner",
+                description="Proposal-only Strands planner for top-level Passport features.",
                 trace_attributes={
-                    "service.name": "feed-passport-local-feature-intent-planner",
-                    "product.local_only": True,
+                    "service.name": "feed-passport-feature-intent-planner",
+                    "product.local_only": not self.execution_profile.external_model_calls,
                     "product.proposal_only": True,
                     "product.mutation_tools": False,
+                    "product.endpoint_scope": self.endpoint_scope,
                 },
             )
             async with asyncio.timeout(self.timeout_seconds):
@@ -643,6 +671,8 @@ class FeatureIntentPlanner:
             provider=self.provider,
             model_id=self.model_id,
             endpoint_scope=self.endpoint_scope,
+            external_model_calls=self.execution_profile.external_model_calls,
+            paid_model_calls=self.execution_profile.paid_model_calls,
             stop_reason=str(result.stop_reason),
             duration_ms=max(0, round((time.perf_counter() - started) * 1000)),
             cycles=int(result.metrics.cycle_count),

@@ -60,11 +60,16 @@ const configuredApiBase =
 
 let fixtureSequence = 0;
 let serviceAvailable = Boolean(configuredApiBase);
+let accessTokenProvider = async () => {
+  const value = globalThis.__FEED_PASSPORT_ACCESS_TOKEN__;
+  return typeof value === "string" ? value : "";
+};
 const runtime = {
   demo: null,
   passport: null,
   passportId: null,
   actorId: null,
+  connections: new Map(),
   migrations: new Map(),
   visas: new Map(),
   companions: new Map(),
@@ -169,12 +174,17 @@ async function requestJson(path, requestOptions = {}) {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const accessToken = String((await accessTokenProvider()) || "").trim();
+    if (accessToken && /[\r\n]/.test(accessToken)) {
+      throw new CuratorApiError(0, "The configured access token is invalid", null);
+    }
     const response = await fetch(serviceUrl(path), {
       ...options,
       signal: controller.signal,
       headers: {
         Accept: "application/json",
         ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(options.headers || {}),
       },
     });
@@ -195,6 +205,13 @@ async function requestJson(path, requestOptions = {}) {
   } finally {
     globalThis.clearTimeout(timeout);
   }
+}
+
+export function configureCuratorAuth(getAccessToken) {
+  if (typeof getAccessToken !== "function") {
+    throw new TypeError("configureCuratorAuth requires an asynchronous token provider");
+  }
+  accessTokenProvider = getAccessToken;
 }
 
 function agentMissionRequestBody(spec) {
@@ -267,6 +284,15 @@ function resetPassportRuntime() {
   runtime.agentMissions.clear();
   runtime.lastDrift = null;
   runtime.fixtureCheckpoints.clear();
+}
+
+function accountIdForPlatform(platform) {
+  const normalized = normalizePlatform(platform);
+  if (normalized === "feed_passport_lab") return destinationAccount(normalized);
+  const active = [...runtime.connections.values()].find(
+    (connection) => connection.platform === normalized && connection.status === "active",
+  );
+  return active?.id || destinationAccount(normalized);
 }
 
 function activateServicePassport(passport) {
@@ -351,9 +377,21 @@ function ingestDemo(demo) {
   };
 }
 
+async function fetchDemoWithOnboarding() {
+  let demo = await requestJson("/api/demo", { method: "GET" });
+  if ((demo?.passports || []).length === 0) {
+    await requestJson("/api/onboarding", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    demo = await requestJson("/api/demo", { method: "GET" });
+  }
+  return demo;
+}
+
 async function ensureServiceContext() {
   if (!serviceAvailable || runtime.passportId) return;
-  ingestDemo(await requestJson("/api/demo", { method: "GET" }));
+  ingestDemo(await fetchDemoWithOnboarding());
 }
 
 async function previewMigrationOnService({ destination }) {
@@ -364,7 +402,7 @@ async function previewMigrationOnService({ destination }) {
       actor_id: runtime.actorId,
       passport_id: runtime.passportId,
       platform,
-      destination_account_id: destinationAccount(platform),
+      destination_account_id: accountIdForPlatform(platform),
     }),
   });
   runtime.migrations.set(migration.id, migration);
@@ -529,7 +567,7 @@ export const feedPassportApi = {
       };
     }
     try {
-      const demo = await requestJson("/api/demo", { method: "GET" });
+      const demo = await fetchDemoWithOnboarding();
       let health = { scheduler: "unavailable" };
       try {
         health = await requestJson("/health", { method: "GET" });
@@ -548,10 +586,101 @@ export const feedPassportApi = {
     }
   },
 
+  async loadConnections() {
+    if (!serviceAvailable) {
+      runtime.connections.clear();
+      return { source: "fixture", data: { providers: [], connections: [], configuration: "service_required" } };
+    }
+    await ensureServiceContext();
+    try {
+      const [providers, connections] = await Promise.all([
+        requestJson("/api/oauth/providers", { method: "GET" }),
+        requestJson(`/api/connections?actor_id=${encodeURIComponent(runtime.actorId)}`, { method: "GET" }),
+      ]);
+      runtime.connections.clear();
+      for (const connection of connections) runtime.connections.set(connection.id, connection);
+      return { source: "service", data: { providers, connections, configuration: "configured" } };
+    } catch (error) {
+      if (error instanceof CuratorApiError && error.status === 503) {
+        runtime.connections.clear();
+        let providers = [];
+        try {
+          providers = await requestJson("/api/oauth/providers", { method: "GET" });
+        } catch {
+          // Provider status is optional when local encryption keys are absent.
+        }
+        return {
+          source: "service",
+          data: { providers, connections: [], configuration: "local_keys_required" },
+        };
+      }
+      throw error;
+    }
+  },
+
+  async beginOAuthConnection(platform, { handle = "" } = {}) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(503, "The local Curator service is required for OAuth", null);
+    }
+    await ensureServiceContext();
+    const redirectUri = env.VITE_FEED_PASSPORT_OAUTH_REDIRECT_URI
+      || `${globalThis.location?.origin || "http://127.0.0.1:5173"}/oauth/callback`;
+    const value = await requestJson(`/api/connections/${encodeURIComponent(platform)}/oauth/start`, {
+      method: "POST",
+      body: JSON.stringify({
+        actor_id: runtime.actorId,
+        ...(platform === "bluesky"
+          ? { handle: String(handle).trim() }
+          : { redirect_uri: redirectUri }),
+      }),
+    });
+    globalThis.sessionStorage?.setItem("feed-passport-oauth-platform", platform);
+    return { source: "service", data: value };
+  },
+
+  async completeOAuthConnection({ platform, state, code, callbackQuery = "" }) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(503, "The local Curator service is required for OAuth", null);
+    }
+    await ensureServiceContext();
+    const value = await requestJson(`/api/connections/${encodeURIComponent(platform)}/oauth/callback`, {
+      method: "POST",
+      body: JSON.stringify(platform === "bluesky"
+        ? {
+            actor_id: runtime.actorId,
+            query: String(callbackQuery).replace(/^\?/, "").trim(),
+          }
+        : {
+            actor_id: runtime.actorId,
+            state,
+            code,
+          }),
+    });
+    runtime.connections.set(value.id, value);
+    globalThis.sessionStorage?.removeItem("feed-passport-oauth-platform");
+    return { source: "service", data: value };
+  },
+
+  async revokeOAuthConnection(connection) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(503, "The local Curator service is required for OAuth", null);
+    }
+    await ensureServiceContext();
+    const value = await requestJson(`/api/connections/${encodeURIComponent(connection.id)}/revoke`, {
+      method: "POST",
+      body: JSON.stringify({
+        actor_id: runtime.actorId,
+        expected_version: connection.version,
+      }),
+    });
+    runtime.connections.set(value.id, value);
+    return { source: "service", data: value };
+  },
+
   listState() {
     return withFixtureFallback(
       async () => {
-        const demo = await requestJson("/api/demo", { method: "GET" });
+        const demo = await fetchDemoWithOnboarding();
         const ui = ingestDemo(demo);
         const activeVisas = (demo.overlays || [])
           .filter((item) => item.base_passport_id === ui.passportId)
@@ -608,7 +737,7 @@ export const feedPassportApi = {
     return withMutationFallback(
       async () => {
         const platform = normalizePlatform(source || "lab");
-        const accountId = platform === "feed_passport_lab" ? "source-main" : destinationAccount(platform);
+        const accountId = platform === "feed_passport_lab" ? "source-main" : accountIdForPlatform(platform);
         const captured = await requestJson("/api/passports/capture", {
           method: "POST",
           body: JSON.stringify({
@@ -807,7 +936,7 @@ export const feedPassportApi = {
             actor_id: runtime.actorId,
             passport_id: runtime.passportId,
             platform,
-            account_id: options.accountId || destinationAccount(platform),
+            account_id: options.accountId || accountIdForPlatform(platform),
             interval_minutes: options.intervalMinutes || 60,
             expires_at: futureIso(options.duration || "7 days"),
             mode: options.mode || "alert_only",

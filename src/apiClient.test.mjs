@@ -216,6 +216,181 @@ test("Curator client maps UI state to the real API contract", async () => {
   }
 });
 
+test("authenticated first run provisions its passport before hydrating the UI", async () => {
+  const previousBase = globalThis.__CURATOR_API_URL__;
+  const previousFetch = globalThis.fetch;
+  let snapshotReads = 0;
+  const requests = [];
+  globalThis.__CURATOR_API_URL__ = "http://curator.test/api";
+  globalThis.fetch = async (input, options = {}) => {
+    const url = new URL(String(input));
+    requests.push({ method: options.method || "GET", path: url.pathname });
+    if (url.pathname === "/api/demo") {
+      snapshotReads += 1;
+      return jsonResponse({
+        passports: snapshotReads === 1 ? [] : [{ ...demoPassport, owner_id: "oidc-owner" }],
+        migrations: [],
+        overlays: [],
+        companions: [],
+        receipts: [],
+      });
+    }
+    if (url.pathname === "/api/onboarding" && options.method === "POST") {
+      return jsonResponse({ created: true, passport: { ...demoPassport, owner_id: "oidc-owner" } });
+    }
+    if (url.pathname === "/health") return jsonResponse({ status: "healthy", scheduler: "active" });
+    return jsonResponse({ detail: `Unexpected request: ${options.method || "GET"} ${url.pathname}` }, 500);
+  };
+
+  try {
+    const { feedPassportApi } = await import(`./apiClient.js?onboarding=${Date.now()}`);
+    const loaded = await feedPassportApi.loadPassport();
+
+    assert.equal(loaded.source, "service");
+    assert.equal(loaded.data.ownerId, "oidc-owner");
+    assert.deepEqual(
+      requests.slice(0, 3),
+      [
+        { method: "GET", path: "/api/demo" },
+        { method: "POST", path: "/api/onboarding" },
+        { method: "GET", path: "/api/demo" },
+      ],
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
+    else globalThis.__CURATOR_API_URL__ = previousBase;
+  }
+});
+
+test("connected account IDs become the live execution address and OAuth remains bearer-bound", async () => {
+  const previousBase = globalThis.__CURATOR_API_URL__;
+  const previousFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.__CURATOR_API_URL__ = "http://curator.test/api";
+  globalThis.fetch = async (input, options = {}) => {
+    const url = new URL(String(input));
+    const body = options.body ? JSON.parse(options.body) : null;
+    requests.push({
+      method: options.method || "GET",
+      path: url.pathname,
+      authorization: options.headers?.Authorization,
+      body,
+    });
+    if (url.pathname === "/health") return jsonResponse({ status: "healthy" });
+    if (url.pathname === "/api/demo") {
+      return jsonResponse({ passports: [demoPassport], migrations: [], overlays: [], companions: [], receipts: [] });
+    }
+    if (url.pathname === "/api/oauth/providers") {
+      return jsonResponse([{ platform: "bluesky", configured: true }]);
+    }
+    if (url.pathname === "/api/connections" && options.method !== "POST") {
+      return jsonResponse([{
+        id: "youtube-owner-connection",
+        owner_id: "demo-owner",
+        platform: "youtube",
+        status: "active",
+        external_subject: "dummy-channel",
+        granted_scopes: ["https://www.googleapis.com/auth/youtube"],
+        version: 1,
+      }]);
+    }
+    if (url.pathname === "/api/connections/bluesky/oauth/start") {
+      assert.deepEqual(body, {
+        actor_id: "demo-owner",
+        handle: "dummy.bsky.social",
+      });
+      return jsonResponse({ authorization_url: "https://bsky.example/authorize?state=opaque" });
+    }
+    if (url.pathname === "/api/connections/bluesky/oauth/callback") {
+      assert.deepEqual(body, {
+        actor_id: "demo-owner",
+        query: "code=one-time-code&state=opaque-state&iss=https%3A%2F%2Fissuer.example",
+      });
+      return jsonResponse({
+        id: "bluesky-owner-connection",
+        owner_id: "demo-owner",
+        platform: "bluesky",
+        status: "active",
+        external_subject: "did:plc:dummy",
+        granted_scopes: ["atproto", "transition:generic"],
+        version: 1,
+      });
+    }
+    if (url.pathname === "/api/connections/youtube/oauth/start") {
+      assert.deepEqual(body, {
+        actor_id: "demo-owner",
+        redirect_uri: "http://127.0.0.1:5173/oauth/callback",
+      });
+      return jsonResponse({ authorization_url: "https://accounts.example/authorize?state=opaque" });
+    }
+    if (url.pathname === "/api/connections/youtube/oauth/callback") {
+      assert.deepEqual(body, {
+        actor_id: "demo-owner",
+        state: "youtube-state-with-at-least-thirty-two-characters",
+        code: "youtube-one-time-code",
+      });
+      return jsonResponse({
+        id: "youtube-owner-connection",
+        owner_id: "demo-owner",
+        platform: "youtube",
+        status: "active",
+        external_subject: "dummy-channel",
+        granted_scopes: ["https://www.googleapis.com/auth/youtube"],
+        version: 2,
+      });
+    }
+    if (url.pathname === "/api/migrations/preview") {
+      return jsonResponse({
+        id: `migration-${body.platform}`,
+        passport_id: "passport-demo",
+        passport_version: 1,
+        platform: body.platform,
+        destination_account_id: body.destination_account_id,
+        created_at: "2026-08-29T10:07:00Z",
+        plan: { actions: [], losses: [] },
+      }, 201);
+    }
+    return jsonResponse({ detail: `Unexpected request: ${options.method || "GET"} ${url.pathname}` }, 500);
+  };
+
+  try {
+    const module = await import(`./apiClient.js?connections=${Date.now()}`);
+    module.configureCuratorAuth(async () => "owner-access-token-with-safe-length");
+    await module.feedPassportApi.loadPassport();
+    await module.feedPassportApi.loadConnections();
+    await module.feedPassportApi.previewMigration({ source: "lab", destination: "youtube" });
+    await module.feedPassportApi.beginOAuthConnection("bluesky", { handle: "dummy.bsky.social" });
+    await module.feedPassportApi.completeOAuthConnection({
+      platform: "bluesky",
+      state: "opaque-state",
+      code: "one-time-code",
+      callbackQuery: "code=one-time-code&state=opaque-state&iss=https%3A%2F%2Fissuer.example",
+    });
+    await module.feedPassportApi.beginOAuthConnection("youtube");
+    await module.feedPassportApi.completeOAuthConnection({
+      platform: "youtube",
+      state: "youtube-state-with-at-least-thirty-two-characters",
+      code: "youtube-one-time-code",
+      callbackQuery: "code=must-not-cross&state=must-not-cross",
+    });
+    await module.feedPassportApi.previewMigration({ source: "lab", destination: "bluesky" });
+
+    const previews = requests.filter((item) => item.path === "/api/migrations/preview");
+    assert.equal(previews[0].body.destination_account_id, "youtube-owner-connection");
+    assert.equal(previews[1].body.destination_account_id, "bluesky-owner-connection");
+    const start = requests.find((item) => item.path === "/api/connections/bluesky/oauth/start");
+    assert.equal(start.body.handle, "dummy.bsky.social");
+    const callback = requests.find((item) => item.path === "/api/connections/bluesky/oauth/callback");
+    assert.match(callback.body.query, /&iss=/);
+    assert.ok(requests.every((item) => item.authorization === "Bearer owner-access-token-with-safe-length"));
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
+    else globalThis.__CURATOR_API_URL__ = previousBase;
+  }
+});
+
 test("continuous companion invitation survives service refresh and still requires a second local principal", async () => {
   const previousBase = globalThis.__CURATOR_API_URL__;
   const previousFetch = globalThis.fetch;

@@ -19,6 +19,9 @@ param(
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 $infraRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+if ($Mode -eq "Apply" -and $SkipPackage) {
+    throw "Apply mode forbids -SkipPackage; deployment must rebuild the artifact from this clean checkout"
+}
 $planArguments = @{
     AwsAccountId = $AwsAccountId
     AwsRegion = $AwsRegion

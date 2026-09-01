@@ -979,7 +979,7 @@ Add-ReadinessCheck 'agentcore' 'AWS Builder ID' 'action_required' (
     'The entrant must create and add their own Builder ID in Devpost; it is separate from AWS account deployment access.'
 )
 Add-ReadinessCheck 'agentcore' 'deployment and invocation' 'zero_spend_blocked' (
-    'The checked-in source and template validators can run without AWS. Packaging and full planning additionally require a clean exact-HEAD worktree, Docker, and a provenance-valid artifact; this checker did not assert those gates. Deployment, Runtime health, and Bedrock planning can incur charges and were not attempted.'
+    'The checked-in source and template validators can run without AWS. Packaging and full planning additionally require a clean exact-HEAD worktree and Docker; this checker did not assert those gates. SkipPackage proves only archive shape and a self-declared manifest during no-AWS planning, and Apply always rebuilds. Deployment, Runtime health, and Bedrock planning can incur charges and were not attempted.'
 )
 
 $report = [pscustomobject]@{

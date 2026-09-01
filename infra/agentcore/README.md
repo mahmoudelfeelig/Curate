@@ -80,7 +80,7 @@ Build the deployable Linux ARM64 zip as an additional local check. Packaging fai
 ./scripts/local-dry-run.ps1 -IncludeLinuxArm64Package
 ```
 
-Create a full local CDK plan with explicit placeholders matching the intended account and model. Planning also fails on a dirty tree and validates an existing `-SkipPackage` artifact against the exact clean `HEAD`. It runs tests, packaging, synth, and the deterministic template validator:
+Create a full local CDK plan with explicit placeholders matching the intended account and model. Planning also fails on a dirty tree. A plan may use `-SkipPackage` to check an existing archive's shape and self-declared manifest against the exact clean `HEAD`, but that is not independent proof of the archive's source bytes. The normal path runs tests, rebuilds packaging from the checkout, synthesizes, and runs the deterministic template validator:
 
 ```powershell
 ./scripts/plan.ps1 `
@@ -92,6 +92,8 @@ Create a full local CDK plan with explicit placeholders matching the intended ac
 ```
 
 `compose.local.yml` can start the container for its unauthenticated health boundary. Cloud-mode planning is intentionally unavailable in that container because a locally invented JWT is not equivalent to Runtime validation.
+
+`deploy.ps1 -Mode Apply` rejects `-SkipPackage`. Every apply must rebuild the artifact from the clean checkout in that same invocation; only no-AWS planning may inspect a pre-existing archive.
 
 ## AWS access needed later
 

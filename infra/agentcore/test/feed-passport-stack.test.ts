@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -113,6 +113,27 @@ describe("Feed Passport AgentCore stack", () => {
     );
   });
 
+  it("constrains both AgentCore service roles to this account and Region", () => {
+    const roles = template.findResources("AWS::IAM::Role");
+    const agentCoreRoles = Object.values(roles).filter((resource: any) =>
+      JSON.stringify(resource.Properties.AssumeRolePolicyDocument).includes(
+        "bedrock-agentcore.amazonaws.com",
+      ),
+    );
+    assert.equal(agentCoreRoles.length, 2);
+    for (const resource of agentCoreRoles as any[]) {
+      const statement = resource.Properties.AssumeRolePolicyDocument.Statement[0];
+      assert.deepEqual(statement.Condition.StringEquals, {
+        "aws:SourceAccount": { Ref: "AWS::AccountId" },
+      });
+      assert.ok(statement.Condition.ArnLike["aws:SourceArn"]);
+      assert.match(
+        JSON.stringify(statement.Condition.ArnLike["aws:SourceArn"]),
+        /bedrock-agentcore/,
+      );
+    }
+  });
+
   it("locks both gateway and runtime to Cognito JWT scope and gateway-only ingress", () => {
     template.hasResourceProperties("AWS::BedrockAgentCore::Gateway", {
       AuthorizerType: "CUSTOM_JWT",
@@ -199,6 +220,18 @@ describe("Feed Passport AgentCore stack", () => {
       rendered.Outputs.MmdsV2Enforcement.Value,
       /post-deploy UpdateAgentRuntime/,
     );
+  });
+
+  it("forces every apply to rebuild its artifact from the clean checkout", () => {
+    const deployScript = readFileSync(
+      path.join(__dirname, "..", "..", "scripts", "deploy.ps1"),
+      "utf8",
+    );
+    const rejection = deployScript.indexOf('if ($Mode -eq "Apply" -and $SkipPackage)');
+    const planning = deployScript.indexOf('& (Join-Path $PSScriptRoot "plan.ps1")');
+    assert.ok(rejection >= 0);
+    assert.ok(planning > rejection);
+    assert.match(deployScript, /deployment must rebuild the artifact from this clean checkout/);
   });
 
   it("passes the deterministic local safety validator", () => {

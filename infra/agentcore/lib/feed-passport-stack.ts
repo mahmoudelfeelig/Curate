@@ -212,7 +212,14 @@ export class FeedPassportAgentCoreStack extends Stack {
     codeAsset.grantRead(runtimeRole);
 
     const gatewayRole = new iam.Role(this, "GatewayRole", {
-      assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
+      assumedBy: new iam.ServicePrincipal("bedrock-agentcore.amazonaws.com", {
+        conditions: {
+          StringEquals: { "aws:SourceAccount": Aws.ACCOUNT_ID },
+          ArnLike: {
+            "aws:SourceArn": `arn:${Aws.PARTITION}:bedrock-agentcore:${Aws.REGION}:${Aws.ACCOUNT_ID}:*`,
+          },
+        },
+      }),
       description: "AgentCore Gateway service role; JWT passthrough adds no secret access",
     });
     const gateway = new agentcore.CfnGateway(this, "Gateway", {

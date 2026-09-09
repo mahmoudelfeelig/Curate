@@ -1,17 +1,20 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-01T20:11:30.3331184Z",
+  "generated_at": "2026-09-09T01:52:51.5462857Z",
   "source": {
     "branch": "main",
-    "commit_count": 40,
+    "commit_count": 50,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
-    "snapshot_file_count": 318,
+    "snapshot_file_count": 349,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "16fd540d47c5848788ca035b90e4d0f426441ca6ffc58861bdf58e2fb25b2de8",
+    "snapshot_sha256": "971b2c89f4224a7c75c7a292571354f9dbb3f09fef526c299c3dcc5b2d870a3b",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,
-    "history_rewritten_to_logical_commits": true
+    "history_rewritten_to_logical_commits": true,
+    "sanitized_baseline_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
+    "sanitized_baseline_commit_count": 40,
+    "append_only_commits_after_sanitized_baseline": 10
   },
   "environment": {
     "operating_system": "win32-x64",
@@ -33,8 +36,11 @@
     "paid_model_calls": 0,
     "competition_credits_used": 0,
     "cloud_deployments": 0,
-    "git_remotes_configured": 0,
-    "git_pushes": 0
+    "aws_agentcore_invocations": 0,
+    "oauth_authorizations": 0,
+    "platform_api_requests": 0,
+    "git_remotes_configured": 1,
+    "git_pushes_before_this_manifest_release": 1
   },
   "model_provenance": {
     "repository": "Qwen/Qwen3-1.7B-GGUF",
@@ -42,7 +48,8 @@
     "file": "Qwen3-1.7B-Q8_0.gguf",
     "bytes": 1834426016,
     "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "evidence_scope": "archived_sanitized_baseline"
   },
   "runtime_provenance": {
     "name": "llama.cpp",
@@ -51,29 +58,50 @@
     "archive_sha256": "2d60828f4b90bdd1e93698837c163b54f40e7d682e8018dc40f52eb444c3cceb",
     "server_sha256": "94254e58f4f73cdf978dcfaa04007eabc38337c839bc674b54161b5ba3cffd3b",
     "offline": true,
-    "listen_host": "127.0.0.1"
+    "listen_host": "127.0.0.1",
+    "evidence_scope": "archived_sanitized_baseline"
+  },
+  "curated_artifact_provenance": {
+    "scope": "archived_sanitized_baseline_evidence",
+    "source_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
+    "source_commit_count": 40,
+    "relationship": "The curated artifacts below remain immutable baseline evidence and are not relabeled as outputs of the append-only platform integration source."
   },
   "verification": [
     {
       "gate": "python",
       "command": ".\\services\\curator\\.venv\\Scripts\\python.exe -m pytest services/curator/tests -o addopts= -q -p no:cacheprovider",
       "status": "passed",
-      "tests": 198,
-      "subtests": 146,
+      "tests": 519,
+      "subtests": 155,
       "warnings": 2,
       "warning_scope": "upstream dependency deprecations"
     },
     {
       "gate": "node",
-      "command": "node --test tests/assets.test.mjs tests/contracts.test.mjs tests/sites-worker.test.mjs tests/ui-fixtures.test.mjs tests/webmcp.test.mjs src/apiClient.test.mjs src/webmcp.test.mjs src/features/featureClerk.test.mjs",
+      "command": "npm test",
       "status": "passed",
-      "tests": 37
+      "tests": 76
+    },
+    {
+      "gate": "independent_live_recovery_security_focus",
+      "command": "focused pytest recovery, certification, transport, and live commission audit selection",
+      "status": "passed",
+      "tests": 146,
+      "material_findings": 0
+    },
+    {
+      "gate": "atproto_sidecar",
+      "command": "npm test and node --check src/*.mjs in services/atproto-oauth",
+      "status": "passed",
+      "tests": 52,
+      "all_source_modules_syntax_checked": true
     },
     {
       "gate": "production_build",
       "command": "npm run build",
       "status": "passed",
-      "transformed_modules": 42,
+      "transformed_modules": 48,
       "sites_artifacts_prepared": true
     },
     {
@@ -82,14 +110,42 @@
       "status": "passed"
     },
     {
+      "gate": "python_dependency_consistency",
+      "command": ".\\services\\curator\\.venv\\Scripts\\python.exe -m pip check",
+      "status": "passed",
+      "broken_requirements": 0
+    },
+    {
+      "gate": "owned_platform_browser",
+      "command": "npm run test:browser:platforms",
+      "status": "passed",
+      "assertions": 8,
+      "screenshots": 6,
+      "viewports": 2,
+      "external_http_or_websocket_requests": 0,
+      "console_errors": 0,
+      "page_errors": 0,
+      "owned_processes_terminated": true,
+      "owned_database_removed": true
+    },
+    {
+      "gate": "external_readiness_inventory",
+      "command": "read-only external readiness checker",
+      "status": "passed",
+      "network_calls_made": 0,
+      "secret_values_printed": false,
+      "live_provider_validation": "blocked_on_owner_accounts_and_registrations",
+      "agentcore_deployment": "zero_spend_blocked"
+    },
+    {
       "gate": "evidence_manifest",
       "command": "npm run test:evidence",
       "status": "passed",
       "artifacts": 13,
-      "source_files": 217,
+      "source_files": 349,
       "tracked_tree_clean": true,
       "byte_source": "git-index-blobs",
-      "commit_count": 20
+      "commit_count": 50
     },
     {
       "gate": "deterministic_evaluation",
@@ -116,6 +172,7 @@
       "command": "scripts/run-local-feature-planner-proof.py (two independent runs)",
       "status": "passed",
       "runs": 2,
+      "evidence_scope": "archived_sanitized_baseline",
       "feature_kinds": 3,
       "tokens_per_run": 16706,
       "semantic_output_sha256": "527c7922a5ca68b392764cba0cb62548895b03f8ce9f692e0310821e10310c78",
@@ -127,6 +184,7 @@
       "command": "scripts/run-local-model-proof.py against the pinned loopback runtime",
       "status": "passed",
       "assertions": 10,
+      "evidence_scope": "archived_sanitized_baseline",
       "tokens": 3527,
       "tool_sequence": [
         "inspect_selected_passport",
@@ -139,6 +197,7 @@
       "gate": "passive_browser",
       "recorded_run": "final-passive-source-freeze-v1",
       "status": "passed",
+      "evidence_scope": "archived_sanitized_baseline",
       "viewports": 5,
       "rendered_states": 50,
       "violations": 0,
@@ -148,6 +207,7 @@
       "gate": "fixture_browser_journey",
       "recorded_run": "final-fixture-source-freeze-v1",
       "status": "passed",
+      "evidence_scope": "archived_sanitized_baseline",
       "steps": 10,
       "screenshots": 12,
       "external_browser_requests": 0
@@ -156,6 +216,7 @@
       "gate": "deterministic_service_browser",
       "recorded_run": "final-service-source-freeze-v1",
       "status": "passed",
+      "evidence_scope": "archived_sanitized_baseline",
       "assertions": 11,
       "two_browser_contexts": true,
       "feature_clerk_readiness": "disabled",
@@ -166,6 +227,7 @@
       "gate": "local_model_service_browser",
       "recorded_run": "final-model-source-freeze-v1",
       "status": "passed",
+      "evidence_scope": "archived_sanitized_baseline",
       "assertions": 12,
       "feature_clerk_tokens": 5491,
       "mission_planner_tokens": 3521,

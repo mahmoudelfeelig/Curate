@@ -1,61 +1,79 @@
 # Verification report
 
-Date: 1 September 2026
+Date: 9 September 2026
+
+This report covers the current append-only integration work built on the public,
+sanitized 40-commit baseline
+`d6727618fbe9339d1c95281806498002096dbdbd`. The public repository is
+[mahmoudelfeelig/feed-passport](https://github.com/mahmoudelfeelig/feed-passport).
+The source-binding manifest is committed only after the implementation and
+documentation commits so its clean-tree gate can bind the final indexed source.
 
 ## Verdict
 
-- **Specification, local account-free product:** Pass at the exercised seams. The versioned public Passport, declared-snapshot capture, migration, temporary modes, continuously refreshed two-person Companion, drift control, creator continuity fixtures, checkpoints, authenticated conformance receipts, rollback, persisted bounded agent missions, ten account-free platform control twins, two request-bound Strands planners, deterministic policy boundaries, six WebMCP tools, SQLite persistence, and autonomous scheduler are implemented.
-- **Engineering quality:** Pass for the exercised local architecture and failure boundaries. Domain policy is separated from platform adapters, orchestration, storage, API, agent runtime, and browser client; mutation consent, action budgets, idempotency, expiry, rollback, and unknown network outcomes fail closed.
-- **Genuine local model planning:** Pass for both pinned local protocols. Feature Clerk used 5,491 tokens in the final browser run, called exactly `inspect_selected_passport`, `inspect_safe_feature_catalog`, and one typed submission tool, and produced a proposal that performed no mutation. Its model tool schema contains no free-form goal, purpose, rationale, identity, approval, execution, or fidelity prose; the server renders explanation text and binds capability. The mission planner separately used 3,521 tokens, called exactly `inspect_selected_passport`, `inspect_selected_control_surface`, and `submit_mission_proposal`, narrowed its proposal through deterministic validation, and stopped awaiting human consent. Neither planner received credentials, approval, execution, or rollback authority; no paid or external model call occurred.
-- **Real external social-platform execution:** Partial by design. Ten unprefixed external adapters have deterministic declared dummy snapshots and guided plans, but no credentials, network transport, authorized live-account mutation, or live-feed conformance receipt is present. Feed Passport Lab and ten `twin:<platform>` adapters close loops only over deterministic local state. A twin certifies neither ranker fidelity nor external-platform access.
-- **Rendered browser quality:** Pass for the declared local prototype scope. User-authorized Playwright exercised the final source in local Chrome across 50 rendered states, ten fixture workflows, a two-context deterministic service run, and a genuine local-model run covering both Feature Clerk and the mission planner. Responsive, focus, accessible-name, console, network, history, reduced-motion, clipping, consent, execution, Companion refresh, and rollback checks passed as recorded in `design-qa.md`. All runs enforced a loopback-only policy and recorded zero external browser requests.
-- **Network-exposed identity security:** Not production-ready by design. The localhost API validates owner equality but accepts `actor_id` from the caller; authenticated identity middleware that overrides client identity is required before public exposure.
+- **Account-free deadline demo:** Pass. Instagram portability intake plus exact Guided handoffs for Instagram, YouTube, and Bluesky run locally without a social account. The owned browser proof uses a disposable API/database and makes no non-local request.
+- **Live integration implementation:** Pass at the source and contract-test boundary. YouTube subscriptions and Bluesky follows, actor mutes, and muted words have owner-bound OAuth transports, signed exact-revision certification, consent, journals, reconciliation, and rollback safeguards. No live account or provider call was used, so neither platform is promoted beyond Guided.
+- **Instagram boundary:** Pass and deliberately narrower. The app parses only a user-supplied Accounts Center-format following export, retains no raw upload, and merges only explicitly selected handles into Passport intent. It does not log in to Instagram, write an Instagram control, or claim access to consumer recommendation state.
+- **Agent boundary:** Pass locally. The internal YouTube/Bluesky Strands planner may return only a complete priority ordering of certified action families for an already compiled plan. Deterministic code withholds exact targets, fixes the budget, seals the action sequence, owns consent, and performs any later write. External model profiles fail closed. This commission lifecycle is not exposed through HTTP or the mounted browser UI pending an explicit live-endpoint authorization decision.
+- **Release readiness:** Ready for the local hackathon demo and source review. Not live-provider validated and not AWS-deployed. Provider registrations, dummy-account OAuth, signed live receipts, AWS deployment/invocation, and the entrant's Builder ID remain external gates.
 
-## Requirement-to-evidence matrix
+## Fresh verification gates
 
-| Requirement or risk | Observable behavior | Best fresh evidence | Result |
-| --- | --- | --- | --- |
-| Modular architecture | Domain has no agent, HTTP, database, or platform dependency; adapters, mission orchestration, consent, API, and runtimes share explicit contracts | Source boundary inspection plus the full Python suite | Pass |
-| Capture and copy a feed intent | Lab and every declared external dummy snapshot create a new Passport; arbitrary unknown account IDs fail closed | API, agent, adapter, client, and live-service checks | Pass for Lab and declared fixtures; partial for live platforms |
-| Migration safety | Preview is non-mutating; a one-time token bound to the localhost demo principal and resource fingerprint gates execution; translation loss stays visible; rollback restores Lab state | Application, API, policy, Lab, client, evaluation, and live smoke | Pass locally; this token is not production authentication |
-| Temporary and incognito algorithms | Isolated and Reversible Lab overlays preserve the base Passport; persisted due jobs expire autonomously; revoke works early | Domain/application/SQLite/API tests and lifespan smoke | Pass |
-| Companion synchronization | Bridge View, Weighted Mix, Common Ground, and Taste Swap require two distinct local principals and two independently selected expiring consent slices; either source revision refreshes only consented fields; revoke and expiry invalidate the effective blend while base Passports stay immutable | Semantic, restart, revision, expiry, and API tests plus live smoke and two isolated browser contexts | Pass locally; local principals are not production authentication |
-| Drift control | Fresh observations produce an explicit decision; bounded correction and monitors are consent- and action-budget constrained | Application, scheduler, API, client, evaluation, and live smoke | Pass in Lab |
-| Creator continuity | Known synthetic directory mappings preserve matching identities; unknown identities require human confirmation | Application/API tests and live smoke | Pass for seeded directory; no live identity verification |
-| Portability and recovery | The strict `feed-passport/v1` export hides local identity/history, import creates a new local identity, and every stored revision is exportable. Provenance uses issuer-specific HMAC key IDs: an unknown issuer imports only the policy with an explicit loss, while a trusted issuer with a bad hash or signature is rejected. Checkpoints restore as a new version and state survives restart | Schema, public-codec, cross-deployment trust, atomic write-boundary, SQLite restart, evaluation, client, and live smoke tests | Pass |
-| Agent control | Feature Clerk converts natural language into one typed proposal and only pre-fills a deterministic desk. The mission planner can inspect only the selected Passport and control-surface summary, then submit a proposal. Deterministic services own identity, resources, capabilities, action admission, budgets, consent, execution, and rollback. Broad free-text AgentCore dispatch is disabled | Adversarial planner/API tests, two independent cold-start Feature Clerk receipts, provider/consent/runtime tests, and the final model browser report | Pass locally with genuine model inference; no hosted-provider or AgentCore-deployment claim |
-| Persisted local agent mission | Preview records outcome, acceptance target, initial controls, action-family allowlist, total/per-pass/iteration budgets, trace, and before/counterfactual measurements without mutation; one-time mission consent gates a bounded observe/evaluate/plan/act/re-observe/adapt-or-stop loop; later targets remain constrained by the Passport version, allowed action families, and remaining budgets; owner checks, stop reasons, receipts, and separate reverse-order rollback are persisted; rollback succeeds only when a namespaced SHA-256 fingerprint of the local control state matches the pre-mutation baseline, while feed re-observation remains separate evidence | Mission runner, consent, API, restart, budget, owner-isolation, mismatch, no-raw-state, and rollback tests | Pass locally; live social-account behavior is out of scope |
-| Account-free platform coverage | Every supported profile has an explicit `twin:<platform>` adapter limited to declared control semantics, with public engagement excluded and simulation/no-ranking-fidelity evidence attached. Public conformance status remains `not_run` unless a bound HMAC receipt and matching evidence hash validate | Twin registry, strict manifest schema, forged/tampered receipt rejection, deterministic isolation, exact local rollback, and health/observation tests | Pass for ten local simulators; not external conformance |
-| WebMCP trust boundary | Six site-owned tools register, invoke, clean up, and degrade without granting social-account access; mission tools preview and inspect only | Node WebMCP tests assert no approval, execution, or run-mission tool | Pass |
-| UI build, fixture honesty, and asset provenance | Twelve responsive desks bundle from modular feature/API/style surfaces; Feature Clerk is disabled rather than faked in fixture mode; synthetic creator and platform evidence is labeled; no AI-generated image is shipped | Vite build, Node tests, asset provenance, passive/fixture/service/model browser reports | Pass statically and in the exercised browser workflows |
-
-## Fresh commands and results
-
-| Command | Result |
+| Gate | Fresh result |
 | --- | --- |
-| `.\services\curator\.venv\Scripts\python.exe -m pytest services/curator/tests -o addopts= -q -p no:cacheprovider` | Fresh integrated run: 198 passed plus 146 subtests; two upstream dependency deprecation warnings |
-| `node --test tests/assets.test.mjs tests/contracts.test.mjs tests/sites-worker.test.mjs tests/ui-fixtures.test.mjs tests/webmcp.test.mjs src/apiClient.test.mjs src/webmcp.test.mjs src/features/featureClerk.test.mjs` | Fresh integrated run: 37 passed, including strict contracts, persisted reciprocal Companion binding, truthful incomplete rollback, Feature Clerk mapping, shipped-asset provenance, and no-AI-generated-shipping checks |
-| `npm run build` | Passed; 42 modules transformed and Sites artifacts prepared |
-| `node scripts/prepare-sites-build.mjs` | Passed; client, server, and hosting artifacts prepared |
-| `python -m compileall -q services/curator/src evaluation` | Passed |
-| `python -m evaluation --output artifacts/evaluations/feed-passport-evaluation.json` | Fresh final-state run: 14 of 14 scenarios passed, including all ten twins and the bounded mission lifecycle; those scenarios report zero external accounts and services |
-| `npm run test:live-service` | The command owned a loopback API and disposable SQLite directory, passed 14 of 14 process-boundary checks, terminated the API, and removed its database. It covered mission preview, one-time approval, bounded execution, trace, receipts, separately approved rollback, reverse receipt order, and matching pre/post local-control-state fingerprints |
-| `node scripts/browser-qa.mjs --pass=final-passive-source-freeze-v1` against local Chrome and the fixture preview | 50 rendered desk states passed across `1440x1024`, `1024x768`, `768x1024`, `390x844`, and effective 200% reflow at `195x422`; zero violations, console/page/request failures, overflow, clipping, collisions, or unlabeled controls |
-| `node scripts/browser-flow-qa.mjs --run=final-fixture-source-freeze-v1` against the fixture-only preview | 10 interaction scenarios and 12 screenshots passed, including validation, migration, temporary and Companion lifecycles, drift, creator continuity, templates, checkpoint/portability, desktop/mobile mission consent/run/cancel/rollback, keyboard traversal, and six bounded WebMCP tools |
-| `node scripts/browser-service-qa.mjs --run=final-service-source-freeze-v1` against isolated ports and SQLite with model inference disabled | Eleven assertions passed: Feature Clerk stayed explicitly disabled, two isolated browser contexts completed the reciprocal Companion handoff and revision refresh, and the mission rollback restored the exact SHA-256 control-state fingerprint; zero browser/external failures |
-| `FEED_PASSPORT_EXPECT_LOCAL_MODEL=1 node scripts/browser-service-qa.mjs --run=final-model-source-freeze-v1` against the pinned loopback model runtime and isolated service | Twelve assertions passed. Feature Clerk used exactly three typed tools and 5,491 tokens, left stable service state unchanged, and Apply made zero API calls. The separate mission planner used exactly three tools and 3,521 tokens; consent-gated execution and rollback restored the exact fingerprint. Zero paid/external model calls or browser failures occurred |
-| Two cold starts of `scripts/run-local-feature-planner-proof.py` | Both self-owned offline llama.cpp processes terminated after all migration, Temporary Visa, and Companion probes passed; every mutable SQLite table fingerprint stayed unchanged and both runs produced semantic SHA-256 `527c7922a5ca68b392764cba0cb62548895b03f8ce9f692e0310821e10310c78` |
-| Fresh preview and health probes | Frontend 200; API healthy; scheduler active; 21 adapters registered (Lab, ten twins, ten guided external planners); clean demo database contains one seeded Passport, zero receipts, and zero missions |
+| Full Curator suite | 519 passed, 155 subtests passed, two upstream dependency deprecation warnings |
+| Independent live recovery/concurrency focus | 146 passed; no remaining material race, mutation bypass, lock inversion, or deadlock found |
+| Root browser/API contract suite | 76 passed |
+| AT Protocol sidecar suite | 52 passed; every sidecar source module also passed `node --check` |
+| Production client build | 48 modules transformed; `dist/client`, `dist/server`, and `dist/.openai` prepared |
+| Python bytecode compilation | Passed for `services/curator/src` and `evaluation` |
+| Python dependency consistency | `pip check` reported no broken requirements |
+| Owned local service proof | 14 assertions passed against a disposable loopback API and database; the owned process and database were removed afterward |
+| Deterministic evaluation suite | 14 scenarios passed with no provider, model, or other external request |
+| Owned browser platform proof | 8 assertions and 6 screenshots passed at desktop and 390 CSS pixels; zero external HTTP/WebSocket requests, console errors, or page errors |
+| External-readiness inspection | Passed as a read-only inventory with zero network calls and no secret values printed |
+| Source-bound evidence | The clean-tree indexed-blob verifier is the final post-commit gate; its exact source digest, file count, artifact hashes, and commit count live in `artifacts/evidence/manifest.json` |
 
-## Curated evidence handoff
+## Owned deadline browser proof
 
-The release evidence set contains compact copies of the [local-model browser proof](artifacts/evidence/browser/final-official-b8184-model/report.json), [deterministic service proof](artifacts/evidence/browser/final-deterministic-service/report.json), [passive browser matrix](artifacts/evidence/browser/final-passive-v2/report.json), [fixture interaction flow](artifacts/evidence/browser/final-fixture-flow-v2/report.json), [14-scenario evaluation](artifacts/evidence/evaluations/feed-passport-evaluation.json), [first Feature Clerk cold-start proof](artifacts/evidence/evaluations/local-feature-planner-proof.json), [repeat Feature Clerk cold-start proof](artifacts/evidence/evaluations/local-feature-planner-proof-repeat.json), and representative screenshots. The [source-binding manifest](artifacts/evidence/manifest.json) records canonical Git-blob hashes for every curated artifact and the complete tracked source snapshot. Its verifier refuses a dirty tree and enforces the requested 20-commit history.
+The full Python command was:
 
-## Environment limitations and deliberately unperformed actions
+```powershell
+.\services\curator\.venv\Scripts\python.exe -m pytest services/curator/tests -o addopts= -q -p no:cacheprovider
+```
 
-- The final build used the installed npm/Node runtime and prepared the client, server worker, and hosting artifacts successfully.
-- Ruff is not installed in the project environment; Python bytecode compilation and the full test suite passed instead. No lint-pass claim is made.
-- Playwright was used only after explicit user authorization. Every browser context blocked non-local requests; no external account, cookie, or browser profile was used.
-- Owner and consent tests prove deterministic local boundary behavior; they do not prove authentication because this checkout has no identity provider or auth middleware.
-- The live-service smoke, deterministic browser-service flow, and local-model browser-service flow independently exercise planning or preview, approval, execution, receipts, honest stop behavior, and rollback. They prove the local model, simulator, and policy boundary, not a live social platform or private ranker.
-- No external account was accessed, no OAuth credential was supplied, no platform action was performed, and no deployment, publication, paid service, competition credit, or push was used.
+The account-free deadline browser command was:
+
+```powershell
+npm run test:browser:platforms
+```
+
+The browser runner strips inherited Feed Passport, Vite, and AWS configuration, forces loopback demo authentication with model inference disabled, allocates fresh ports, and creates a new temporary SQLite database. The API returns a one-run UUID and HMAC database-path binding through `/health`; both the parent and the browser child verify that proof before any state revision. The child blocks Service Workers and non-local HTTP or WebSocket traffic, has a 180-second hard limit, and refuses reused or path-traversing output names. The final run then confirmed both owned processes stopped and its temporary directory was removed.
+
+The local ignored report is `artifacts/browser-qa/final-platform-portability-owned-v3/report.json`. It records the strict Instagram preview/selection/consumption flow, a no-overflow 390px state, and exact server-bound Instagram, YouTube, and Bluesky handoff steps. Every completed handoff in that account-free proof used `CONTROL NOT FOUND` and finalized with zero API writes and zero verified recommendation outcomes.
+
+## Safety and recovery evidence
+
+- The Instagram parser rejects ambiguous JSON, duplicate recognized archive members, encrypted or unsafe paths, oversized/deep input, invalid scalar types, and archive expansion abuse. A 15-minute owner/Passport/version-bound session retains normalized preview data only; apply consumes and redacts it.
+- Guided handoffs durably preserve the exact target and instruction before approval. One active handoff locks its owner/Passport route, restart recovery is owner-scoped, and final receipts remain explicit user attestations rather than platform-write evidence.
+- Live commission recovery resumes a durable sealing transition without asking the model twice, and can reconstruct completion only from an exact matching receipt or journal outcome. A valid but expired certification permits only observation of an already-journaled uncertain write; it grants no planning, execution, replay, or rollback authority.
+- Expired forward and rollback leases, provider outcome-unknown results, untyped rollback failures, and legacy unknown rollback records terminate in `needs_human` rather than replaying a mutation. Active journal leases cover the whole migration, action state is refreshed before each compare-and-swap, and deterministic create-only receipt IDs prevent duplicate receipts across competing processes.
+- OAuth callback restoration during an active Guided handoff discards the pending provider callback instead of exchanging or storing it. Initial browser hydration keeps mutation and WebMCP tools fail-closed until authoritative owner state is loaded.
+
+## External boundary and deliberately unperformed actions
+
+During this integration and verification work:
+
+- social accounts used: 0;
+- OAuth authorizations or platform API requests: 0;
+- external or paid model calls: 0;
+- AWS deployments or AgentCore invocations: 0;
+- competition credits or other paid services used: 0.
+
+YouTube still needs an owner-created Google Cloud project, enabled YouTube Data API v3, testing-mode consent screen, OAuth web client, and dummy YouTube account. Bluesky still needs the account owner's dummy account plus a public HTTPS metadata/JWKS/callback origin and private sidecar configuration. Instagram has no general consumer recommendation-control write API represented here; its honest deadline path is the local export intake plus exact native-control handoff.
+
+AWS credentials were not inspected and SSO was not refreshed. The local readiness checker found partial AgentCore inputs invalid and classified actual deployment/invocation as `zero_spend_blocked`, because a budget or promotional credit is not a hard guarantee of zero charges. Builder ID is an entrant-owned identity step and cannot be created or accepted by the repository.
+
+## Curated evidence provenance
+
+The large curated browser/model/evaluation artifacts under `artifacts/evidence/` remain immutable evidence from the sanitized 40-commit baseline. They are not relabeled as outputs of the new integration source. The current manifest records that archived provenance separately while binding the complete current source snapshot and fresh integration gate results. Generated databases, raw exports, OAuth state, keys, logs, caches, normal browser runs, and build output remain ignored.

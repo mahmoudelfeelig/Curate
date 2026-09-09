@@ -77,6 +77,10 @@ class ConsentBroker:
         ttl: timedelta = timedelta(minutes=10),
     ) -> ConsentGrant:
         migration = self.application.projection_get("migrations", migration_id)
+        if migration.get("execution_authority") == "agent_live_commission_only":
+            raise ConsentError(
+                "this migration is bound to an exact live commission approval"
+            )
         if migration["status"] != "awaiting_approval":
             raise ConsentError("only a previewed migration can be approved")
         passport = self.application.get_passport(str(migration["passport_id"]))
@@ -88,7 +92,13 @@ class ConsentBroker:
         budget = action_count if max_total_actions is None else int(max_total_actions)
         if budget < 1 or budget > action_count:
             raise ConsentError("approval budget must be between one and the proposed action count")
-        fingerprint = self._fingerprint(migration["plan"])
+        fingerprint = self._fingerprint(
+            {
+                "plan": migration["plan"],
+                "execution_authority": migration.get("execution_authority"),
+                "agent_live_commission_id": migration.get("agent_live_commission_id"),
+            }
+        )
         return self._issue(
             operation="execute_migration",
             resource_id=migration_id,
@@ -102,6 +112,53 @@ class ConsentBroker:
                 "action_count": action_count,
                 "approved_action_count": budget,
                 "loss_count": len(migration["plan"].get("losses", ())),
+            },
+        )
+
+    def issue_for_live_commission(
+        self,
+        commission_id: str,
+        *,
+        actor_id: str,
+        ttl: timedelta = timedelta(minutes=10),
+    ) -> ConsentGrant:
+        commission = self.application.projection_get(
+            "agent_live_commissions", commission_id
+        )
+        if commission.get("status") not in {"awaiting_approval", "failed_recoverable"}:
+            raise ConsentError(
+                "only an exact previewed or recoverable live commission can be approved"
+            )
+        if commission.get("owner_id") != actor_id:
+            raise ConsentError("only the live commission owner can approve it")
+        scope = commission.get("approval_scope")
+        if not isinstance(scope, Mapping):
+            raise ConsentError("live commission approval scope is missing")
+        action_count = int(scope.get("max_total_actions", 0))
+        executable_plan = scope.get("executable_plan")
+        if (
+            action_count < 1
+            or not isinstance(executable_plan, Mapping)
+            or len(executable_plan.get("actions", ())) != action_count
+        ):
+            raise ConsentError("live commission has no exact executable action plan")
+        return self._issue(
+            operation="execute_agent_live_commission",
+            resource_id=commission_id,
+            actor_id=actor_id,
+            max_total_actions=action_count,
+            fingerprint=self._fingerprint(scope),
+            ttl=ttl,
+            summary={
+                "platform": scope["platform"],
+                "destination_connection_id": scope["destination_connection_id"],
+                "action_count": action_count,
+                "action_types": list(scope["allowed_action_types"]),
+                "passport_version": scope["passport_version"],
+                "connection_version": scope["connection_version"],
+                "certification_receipt_ref": scope["certification"]["receipt_ref"],
+                "certification_expires_at": scope["certification"]["expires_at"],
+                "code_revision": scope["certification"]["code_revision"],
             },
         )
 
@@ -337,7 +394,12 @@ class ConsentBroker:
 
     def _current_fingerprint(self, operation: str, resource_id: str) -> str:
         if operation == "execute_migration":
-            resource = self.application.projection_get("migrations", resource_id)["plan"]
+            migration = self.application.projection_get("migrations", resource_id)
+            resource = {
+                "plan": migration["plan"],
+                "execution_authority": migration.get("execution_authority"),
+                "agent_live_commission_id": migration.get("agent_live_commission_id"),
+            }
         elif operation == "rollback_receipt":
             resource = self.application.projection_get("receipts", resource_id)
         elif operation == "execute_agent_mission":
@@ -345,6 +407,13 @@ class ConsentBroker:
             resource = mission.get("approval_scope")
             if not isinstance(resource, Mapping):
                 raise ConsentError("mission approval scope is missing")
+        elif operation == "execute_agent_live_commission":
+            commission = self.application.projection_get(
+                "agent_live_commissions", resource_id
+            )
+            resource = commission.get("approval_scope")
+            if not isinstance(resource, Mapping):
+                raise ConsentError("live commission approval scope is missing")
         elif operation == "rollback_agent_mission":
             resource = self._mission_rollback_scope(resource_id)
         else:

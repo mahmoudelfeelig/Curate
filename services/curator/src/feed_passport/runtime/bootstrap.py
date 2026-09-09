@@ -19,10 +19,15 @@ from feed_passport.agent import (
     ConsentBroker,
     CuratorAgentService,
     FeatureIntentPlanner,
+    LiveCommissionPlanner,
     LocalModelProviderConfig,
     MissionPlanner,
 )
-from feed_passport.application import CuratorApplication
+from feed_passport.application import (
+    CuratorApplication,
+    InstagramImportSessionService,
+    LiveCommissionService,
+)
 from feed_passport.application.oauth import (
     AtprotoOAuthConnectionService,
     OAuthConnectionService,
@@ -50,6 +55,11 @@ class ServiceBundle:
         )
     )
     mission_planner: MissionPlanner | None = None
+    live_commission_service: LiveCommissionService | None = None
+    live_commission_planner: LiveCommissionPlanner | None = None
+    instagram_import_sessions: InstagramImportSessionService = field(
+        default_factory=InstagramImportSessionService
+    )
     feature_intent_planner: FeatureIntentPlanner | None = None
     oauth_providers: OAuthProviderCatalog = field(default_factory=lambda: OAuthProviderCatalog({}))
     connection_registry: EncryptedConnectionRegistry | None = None
@@ -60,6 +70,7 @@ class ServiceBundle:
     live_certifications: dict[str, ValidatedLiveCertification] = field(default_factory=dict)
 
     def close(self) -> None:
+        self.instagram_import_sessions.clear()
         if self.oauth_http_client is not None:
             self.oauth_http_client.close()
         self.store.close()
@@ -215,12 +226,14 @@ def build_service_bundle(
         live_certifications = LiveCertificationVerifier(
             hmac_key=_decode_external_key("FEED_PASSPORT_LIVE_CERTIFICATION_HMAC_KEY_B64"),
             expected_revision=certification_revision,
-        ).load_directory(certification_dir)
+        ).load_directory_for_reconciliation(certification_dir)
         unknown = set(live_certifications) - {"youtube", "x", "reddit", "bluesky"}
         if unknown:
             raise ValueError(f"unsupported live certification platforms: {', '.join(sorted(unknown))}")
         if live_certifications and connection_registry is None:
-            raise ValueError("live certification promotion requires connection encryption keys")
+            raise ValueError(
+                "live certification promotion and recovery require connection encryption keys"
+            )
         if "bluesky" in live_certifications and atproto_sidecar_client is None:
             raise ValueError(
                 "Bluesky live promotion requires the configured official AT Protocol sidecar"
@@ -315,6 +328,10 @@ def build_service_bundle(
         secret=configured_secret,
     )
     agent_service = CuratorAgentService(application, broker)
+    live_commission_service = LiveCommissionService(
+        application,
+        consent_broker=broker,
+    )
     model_provider = LocalModelProviderConfig.from_env()
     mission_planner = (
         MissionPlanner(
@@ -340,6 +357,18 @@ def build_service_bundle(
         if model_provider.configured
         else None
     )
+    live_commission_planner = (
+        LiveCommissionPlanner(
+            live_commission_service,
+            model_factory=model_provider.create_model,
+            provider=model_provider.provider,
+            model_id=model_provider.model_id,
+            timeout_seconds=model_provider.timeout_seconds,
+            endpoint_scope=model_provider.endpoint_scope,
+        )
+        if model_provider.configured
+        else None
+    )
     return ServiceBundle(
         store=store,
         application=application,
@@ -347,6 +376,8 @@ def build_service_bundle(
         agent_service=agent_service,
         model_provider=model_provider,
         mission_planner=mission_planner,
+        live_commission_service=live_commission_service,
+        live_commission_planner=live_commission_planner,
         feature_intent_planner=feature_intent_planner,
         oauth_providers=oauth_providers,
         connection_registry=connection_registry,

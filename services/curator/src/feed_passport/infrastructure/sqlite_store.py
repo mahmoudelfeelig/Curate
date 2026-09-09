@@ -180,6 +180,19 @@ class SQLiteStore:
             )
         return True
 
+    def has_idempotency_reservation(self, key: str, request_hash: str) -> bool:
+        """Confirm an exact reservation without exposing stored response data."""
+
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT request_hash FROM idempotency WHERE key = ?",
+                (key,),
+            ).fetchone()
+        return row is not None and secrets.compare_digest(
+            str(row["request_hash"]),
+            request_hash,
+        )
+
     def get_or_create_secret(self, name: str, *, byte_length: int = 32) -> bytes:
         """Return a durable local runtime secret without exposing it through projections."""
 

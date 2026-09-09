@@ -1,6 +1,8 @@
 """Feed Passport application use cases."""
 
 from .curator import CuratorApplication, InvalidStateError, NotFoundError
+from .instagram_import_sessions import InstagramImportSessionService
+from .live_commission import LiveCommissionCandidate, LiveCommissionService, LivePriorityMode
 from .mission_runner import AgentMissionRunner
 from .oauth import (
     AtprotoOAuthConnectionService,
@@ -14,6 +16,10 @@ __all__ = [
     "AtprotoOAuthConnectionService",
     "CuratorApplication",
     "InvalidStateError",
+    "InstagramImportSessionService",
+    "LiveCommissionCandidate",
+    "LiveCommissionService",
+    "LivePriorityMode",
     "NotFoundError",
     "OAuthConnectionService",
     "OAuthFlowError",

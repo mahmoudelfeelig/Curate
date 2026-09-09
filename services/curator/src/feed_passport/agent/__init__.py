@@ -12,6 +12,11 @@ from .feature_intent_planner import (
     SafeFeatureCatalog,
     TemporaryVisaMode,
 )
+from .live_commission_planner import (
+    LiveCommissionPlanner,
+    LiveCommissionPlannerError,
+    LiveCommissionProposal,
+)
 from .mission_planner import MissionPlanner, MissionPlannerError, MissionPlannerProposal
 from .model_provider import LocalModelProviderConfig
 from .service import AgentCommand, AgentCommandName, AgentReply, CuratorAgentService
@@ -31,6 +36,9 @@ __all__ = [
     "FeatureIntentResult",
     "FeatureKind",
     "LocalModelProviderConfig",
+    "LiveCommissionPlanner",
+    "LiveCommissionPlannerError",
+    "LiveCommissionProposal",
     "MissionPlanner",
     "MissionPlannerError",
     "MissionPlannerProposal",

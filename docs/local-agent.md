@@ -179,6 +179,14 @@ After the proposal passes its schema and sequence checks, deterministic code int
 
 The resulting mission remains `awaiting_approval`. A separate one-time approval is required for execution, and another approval is required for rollback. Planner evidence is display evidence only and remains unchanged through execution and rollback.
 
+## Internal live-commission priority protocol
+
+The separate one-shot YouTube/Bluesky commission planner is source- and test-level infrastructure, not a user-callable chat surface. It accepts only the explicitly local model configuration; any execution profile that permits external model calls is rejected before model or commission state is created.
+
+Its model context contains only privacy-reduced Passport-derived demand buckets, the names and counts of every certified action family in an already compiled plan, and the locked action budget. Exact targets remain in deterministic application code. The only accepted model result is a unique complete permutation of all supplied families. There is no model field for a goal, rationale, target, approval, authority claim, executable action, or revised budget.
+
+Deterministic code uses the permutation to order the withheld exact actions, truncates that sequence under the fixed budget, and seals the resulting plan. The later commission boundary revalidates the owner connection, Passport version, effective-policy fingerprint, compiled plan, certification, and one-time exact-plan consent. Generic migration authority cannot execute a live adapter. No owner-authenticated API route or browser workflow currently exposes commission preview, approval, execution, reconciliation, or rollback, and no live account has been validated.
+
 ## API behavior
 
 The supported routes are:
@@ -277,7 +285,7 @@ Raw model weights, runtime binaries, archives, SQLite files, evaluation output, 
 - the deterministic evaluation JSON;
 - the final model browser report;
 - a small set of legible screenshots;
-- a manifest containing the canonical tracked-source digest, canonical Git-blob artifact hashes, commands, exact 20-commit history count, and declared local-only boundaries.
+- a manifest containing the canonical tracked-source digest, canonical Git-blob artifact hashes, commands, the exact history count for that source revision, and declared local-only boundaries. The archived public baseline manifest records 40 commits at `d6727618fbe9339d1c95281806498002096dbdbd`; append-only integration commits require a newly generated manifest rather than editing that historical proof by hand.
 
 Neither a local twin run nor a local model proof is evidence of a live social-platform account, ranking-system fidelity, AgentCore deployment, or external-platform conformance.
 

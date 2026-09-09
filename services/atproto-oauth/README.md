@@ -218,10 +218,10 @@ The Python service uses the same internal secret plus
 `FEED_PASSPORT_ATPROTO_APP_CALLBACK_URI`; it stores only the opaque connection
 reference in its encrypted connection registry.
 
-The Dockerfile and installation command intentionally require a registry-derived
-`package-lock.json`. Until that lock is generated with registry access, the
-packaging gate is incomplete; do not invent integrity hashes. Once the real lock
-is committed, the deterministic sequence is:
+The Dockerfile and installation command intentionally require the checked-in,
+registry-derived `package-lock.json`. It records the pinned package graph and
+npm integrity metadata; do not replace it with hand-authored hashes. The
+deterministic sequence is:
 
 ```sh
 npm ci

@@ -2,11 +2,13 @@
 
 Feed Passport can be built, tested, and demonstrated account-free. External account control is a separate evidence gate. This page identifies what is complete locally, what only the account owner or platform can create, and what cannot be attempted while the requirement is zero spend.
 
-No passing local test promotes a named platform. An unprefixed platform remains **Guided** until a fresh, signed conformance receipt proves an explicitly authorized dummy-account action against the exact Git revision being run.
+No passing local test promotes a named platform. An unprefixed platform remains **Guided** until a fresh, signed conformance receipt proves an explicitly authorized dummy-account action against the exact Git revision being run. Even with such a receipt, generic migrations cannot execute a live adapter; the separately bound owner-authenticated live-commission lifecycle is the only implemented live execution authority, and it has no public routes.
+
+The public repository is anchored by the 40-commit baseline at `d6727618fbe9339d1c95281806498002096dbdbd`. Integration work after that point is append-only. The committed evidence manifest is a historical source snapshot for that baseline, not a live publication ledger; its recorded zero pushes must not be used to describe the current public repository. Regenerate evidence only from the final clean committed revision.
 
 ## What is available without an account
 
-The browser, Curator API, local Qwen/llama.cpp Strands agents, deterministic Feed Passport Lab, ten restricted platform twins, OAuth transaction tests, live-transport contract tests, recovery journal tests, AT Protocol sidecar tests, and AgentCore/CDK source validation can all run without a social account or AWS call.
+The browser, Curator API, local Qwen/llama.cpp Strands agents, deterministic Feed Passport Lab, ten restricted platform twins, OAuth transaction tests, live-transport contract tests, recovery journal tests, AT Protocol sidecar tests, the loopback Instagram export importer, Guided handoff state machine, internal YouTube/Bluesky commission tests, and AgentCore/CDK source validation can all run without a social account or AWS call.
 
 The local twins are the complete safe demo for all ten named networks. They test agent planning, policy limits, consent, mutation budgets, re-observation, stop conditions, receipts, and rollback against deterministic control surfaces. They do not test a private recommendation ranker or contact the named network.
 
@@ -22,7 +24,15 @@ For machine-readable output:
 .\scripts\check-external-readiness.ps1 -AsJson
 ```
 
-The checker reads only local command availability, files, and the current process environment. It does not load an `.env` file, read an OAuth token, open a database, inspect AWS profiles, contact an identity provider, refresh SSO, or call a social platform. It never prints environment values.
+The deadline-platform browser proof is also account-free and self-contained:
+
+```powershell
+npm run test:browser:platforms
+```
+
+That runner strips project, Vite, and AWS configuration inherited from the shell, forces demo authentication with model inference disabled, starts its own loopback API and Vite process, and uses a new SQLite database under the operating-system temporary directory. A random one-run nonce and keyed database-path binding must round-trip through `/health` before the browser child can revise any state. The run blocks Service Workers and all non-local HTTP or WebSocket traffic, then terminates its processes and removes its temporary database. Its screenshots and JSON report remain ignored local artifacts unless deliberately curated into a source-bound evidence set.
+
+The readiness checker reads only local command availability, files, and the current process environment. It does not load an `.env` file, read an OAuth token, open a database, inspect AWS profiles, contact an identity provider, refresh SSO, or call a social platform. It never prints environment values.
 
 | Status | Meaning |
 | --- | --- |
@@ -115,7 +125,9 @@ Do not edit the database, delete the encrypted credential by hand, or describe `
 
 ## Google and YouTube
 
-The implemented candidate surface observes subscriptions and can subscribe or unsubscribe from a channel. It does not read or write YouTube Home ranking, watch history, likes, comments, recommendation feedback, or hidden personalization state.
+Google's official subscriptions resource exposes `list`, `insert`, and `delete`. The implemented candidate maps that bounded surface to observation plus `subscribe_creator` and `unsubscribe_creator`. It does not read or write YouTube Home ranking, watch history, likes, comments, recommendation feedback, or hidden personalization state.
+
+The internal one-shot commission service can ask the local-only model to order every certified action family already present in an exact server-compiled plan. The model receives privacy-reduced Passport-derived demand buckets, family names/counts, and the locked budget, then must return only a unique complete family permutation. Exact channel targets, goals, rationale, approval, and execution authority never enter or leave model context; external-model configurations fail closed. Deterministic code applies the priority order to exact withheld actions and seals the budgeted plan. The service has no owner-authenticated public API route or connected browser workflow, so it is not currently an operable live-account agent surface.
 
 The account owner must complete these provider steps:
 
@@ -167,6 +179,8 @@ Official references: [Reddit Data API Wiki](https://support.reddithelp.com/hc/en
 ## Bluesky and AT Protocol
 
 Bluesky uses the official AT Protocol OAuth/DPoP Node client in a credential-isolated sidecar. App passwords are not accepted. Python receives only an opaque connection reference and short-lived opaque lease; access tokens, refresh tokens, DPoP keys, and confidential-client keys stay in the sidecar.
+
+The implemented candidate observes follows, actor mutes, and muted-word preferences and can perform follow/unfollow, actor mute/unmute, and muted-word add/remove. It does not install or create custom feeds, reproduce a timeline, or read or write ranking state. As with YouTube, the internal local-only commission model can return only a complete priority permutation of the certified action families for an already compiled plan; deterministic code alone selects exact budgeted actions. No owner-authenticated public API route exposes that service, and generic migrations cannot use the live adapter.
 
 The account-free tests need Node.js 22 or newer. The registry-derived `package-lock.json` is checked in with exact integrity metadata and is used by `npm ci`; do not replace it with invented hashes. Package installation may download the pinned packages from npm, but it creates no social account and makes no social-platform request:
 
@@ -246,20 +260,48 @@ The in-memory constructors remain test helpers only and lose OAuth/DPoP state on
 
 Official references: [AT Protocol OAuth specification](https://atproto.com/specs/oauth) and the [official Node OAuth client](https://github.com/bluesky-social/atproto/tree/main/packages/oauth/oauth-client-node).
 
-## Instagram, Facebook, Threads, TikTok, LinkedIn, and Snapchat
+## Instagram local portability intake
+
+Instagram remains Guided. The repository does not implement Instagram OAuth or a consumer recommendation-control transport. It instead offers a separate, opt-in local import of a user-supplied Accounts Center-format following export. The parser recognizes that format but does not authenticate the file with Meta or prove its origin.
+
+Start a loopback-bound Curator with `FEED_PASSPORT_ENABLE_LOCAL_IMPORT=1` to enable the intake routes. The parser accepts either a standalone `following.json` or a ZIP containing exactly one recognized `connections/followers_and_following/following.json`. It reads only normalized followed-account handles and optional relationship timestamps. Feed items, topic distributions, mutes, hidden words, language/format preferences, serendipity, outrage, source concentration, and recommendation state remain explicitly unobserved.
+
+The raw upload is never retained. A normalized preview lives only in an owner-bound in-memory session for 15 minutes, and the user may select at most 500 handles subject to the Passport's creator-capacity limit. Applying a selection revises only Passport creator preferences and stores parser provenance plus a digest of the normalized selected subset, not the raw-file or ZIP digest; it does not log into Instagram, contact Meta, follow an account, or change a recommendation feed. See Meta's [Instagram information export help](https://www.facebook.com/help/instagram/181231772500920) and [published Instagram API collection](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api).
+
+The Guided handoff is separate from import. After an approved migration produces native-only actions, Feed Passport seals their exact order and target and asks the owner to record each as `completed_by_user`, `skipped_by_user`, or `control_not_found`. Finalization is unavailable until every step is resolved. The final receipt contains only `GUIDED` or `SKIPPED` outcomes and always reports `api_writes=0`, `recommendation_outcomes_verified=0`, and `platform_verified=false`.
+
+The focused account-free gate for the three integration seams is:
+
+```powershell
+.\services\curator\.venv\Scripts\python.exe -m pytest `
+  services/curator/tests/unit/test_instagram_accounts_center_import.py `
+  services/curator/tests/application/test_instagram_import_sessions.py `
+  services/curator/tests/application/test_guided_handoff.py `
+  services/curator/tests/integration/test_guided_handoff_store.py `
+  services/curator/tests/api/test_platform_import_and_guided_handoff_api.py `
+  services/curator/tests/agent/test_live_commission.py `
+  -o addopts= -q -p no:cacheprovider
+
+node --test `
+  src/features/passport/instagramImportView.test.mjs `
+  src/features/agent/connectedAgentDesk.test.mjs
+```
+
+These tests use fixtures, scripted transports/models, and local storage only. Passing them does not promote YouTube, Bluesky, or Instagram beyond the capability levels above.
+
+## Facebook, Threads, TikTok, LinkedIn, and Snapchat
 
 These platforms have deterministic local twins and Guided adapters, but no supported general API in this repository that can write a consumer recommendation feed. Dummy accounts do not create API authority that the provider does not offer.
 
 | Platform | Complete test available now | Honest external limit |
 | --- | --- | --- |
-| Instagram | `twin:instagram` plus Guided native steps | No general consumer recommendation-control write API is claimed. |
 | Facebook | `twin:facebook` plus Guided Favorites/snooze/unfollow steps | Consumer feed preferences remain native UI controls. |
 | Threads | `twin:threads` plus Guided native controls | Regional/temporary Your Algo behavior is not a supported write API. |
 | TikTok | `twin:tiktok` plus Guided Manage Topics/portability steps | Access is region- and approval-gated; no feed-control write surface is claimed. |
 | LinkedIn | `twin:linkedin` plus Guided portability/unfollow steps | Open OAuth scopes do not grant consumer feed control. |
 | Snapchat | `twin:snapchat` plus Guided native steps | Login Kit is identity-only and grants no feed-control authority. |
 
-For these six, “tested” means the deterministic twin, policy compiler, UI handoff, and translation-loss path pass. It must never be described as a live social-account mutation.
+For these five, “tested” means the deterministic twin, policy compiler, UI handoff, and translation-loss path pass. It must never be described as a live social-account mutation. Instagram's additional local export parser and user-attested handoff remain equally non-live: neither is a provider API mutation or recommendation verification.
 
 ## Dummy-account conformance
 
@@ -300,7 +342,7 @@ The built-in factory requires `FEED_PASSPORT_DB_PATH` to name the existing SQLit
 
 Do not run that command merely because credentials exist. The account owner must approve the exact target and mutation at the time of the run. If it reports an unknown outcome or failure, inspect the dummy account manually before retrying; never assume rollback occurred.
 
-To activate a successful receipt, set `FEED_PASSPORT_LIVE_CERTIFICATIONS_DIR` to its directory, set the same external HMAC key as `FEED_PASSPORT_LIVE_CERTIFICATION_HMAC_KEY_B64`, and set `FEED_PASSPORT_CODE_REVISION` to the exact deployed lowercase 40-character Git SHA. Runtime startup requires all three together and independently verifies the signature, expiry, exact revision match, action subset, dummy-account class, provider approval, and receipt shape. Keep the adapter Guided if any check fails.
+To activate a successful receipt, set `FEED_PASSPORT_LIVE_CERTIFICATIONS_DIR` to its directory, set the same external HMAC key as `FEED_PASSPORT_LIVE_CERTIFICATION_HMAC_KEY_B64`, and set `FEED_PASSPORT_CODE_REVISION` to the exact deployed lowercase 40-character Git SHA. Runtime startup requires all three together and independently verifies the signature, exact revision match, action subset, dummy-account class, provider approval, and receipt shape. A fresh unexpired receipt is mandatory for planning or mutation. An expired but otherwise valid receipt may construct only an observation-only recovery adapter for an already-journaled uncertain write; it grants no new planning, execution, replay, or rollback authority. Keep the adapter Guided if any normal activation check fails.
 
 ## AWS, AgentCore, and Builder ID
 
@@ -354,4 +396,4 @@ The user does not need to give anyone a password or secret. The irreducibly pers
 - an AWS account, Builder ID, and dedicated local SSO login if the event requires them;
 - a later, separate decision accepting potential AWS charges before any deployment or invocation.
 
-Once those exist, the user can provide only non-secret identifiers and explicit scope. The project can then run read-only preflights first, perform one reversible dummy-account action at a time, verify rollback, and promote only the exact capability supported by a signed receipt.
+Once those exist, the user can provide only non-secret identifiers and explicit scope. The project can then run read-only preflights first and produce a signed conformance receipt from one separately approved reversible dummy-account action at a time. Exposing the owner-authenticated commission preview, exact-plan approval, execution, reconciliation, and rollback routes is still required before the shipped HTTP/browser product can use a live adapter; generic migrations remain blocked from live execution.

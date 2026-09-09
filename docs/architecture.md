@@ -16,11 +16,15 @@ FastAPI application boundary
         |           |
         |           +--> persisted mission runner --> observe / evaluate / plan /
         |           |                              act / re-observe / adapt / stop
-        |           +--> request-bound Strands planner --> exactly three proposal-only tools
+        |           +--> request-bound Strands planners --> bounded proposal-only tools
+        |           +--> guided handoff --> immutable native steps / user attestation
+        |           +--> Instagram import --> ephemeral normalized following subset
         |           +--> independent evaluator
         |
         +--> platform port --> deterministic Lab / 10 twin:<platform> simulators /
         |                    10 guided planners / 4 certification-gated transports
+        |                                      ^
+        |                                      +-- internal YouTube/Bluesky commission
         |
         +--> OIDC owner boundary --> encrypted connection metadata / credential broker
         +--> SQLite event, projection, action-journal, and scheduled-job store
@@ -32,25 +36,25 @@ FastAPI application boundary
 ## Module boundaries
 
 `domain`
-: Pure models and deterministic functions. It owns validation, composition normalization, overlays, consent state, blending, action policy, budgets, expiry, evaluation thresholds, idempotency, and rollback invariants.
+: Pure models and deterministic functions. It owns validation, composition normalization, overlays, consent state, blending, action policy, budgets, expiry, evaluation thresholds, idempotency, rollback invariants, and the owner-bound Guided handoff lifecycle.
 
 `application`
-: Use cases and transactions. It coordinates repositories, adapters, clocks, the persisted mission runner, the planner, and the evaluator without importing concrete infrastructure.
+: Use cases and transactions. It coordinates repositories, adapters, clocks, the persisted mission runner, planners, evaluator, ephemeral Instagram import sessions, and Guided handoffs without importing concrete infrastructure.
 
 `agent`
-: Two request-bound Strands protocols with separate typed outputs. The feature clerk proposes one migration, temporary-visa, or companion configuration from a server-derived safe catalogue. The local-twin mission planner proposes a subset of reversible private controls. Each request creates a fresh agent and enforces its own exact three-tool sequence; neither protocol can authorize, create partner consent, execute, approve, or roll back.
+: Two user-callable request-bound Strands protocols plus one internal live-commission protocol, all with separate typed outputs. The feature clerk proposes one migration, temporary-visa, or companion configuration from a server-derived safe catalogue. The local-twin mission planner proposes a subset of reversible private controls. Each creates a fresh agent and enforces its bounded tool sequence; neither can authorize, create partner consent, execute, approve, or roll back. The internal commission planner is local-only and sees privacy-reduced Passport-derived demand buckets plus certified action-family names/counts for one already compiled YouTube or Bluesky migration. Its entire output is a complete permutation of those families; it never receives or authors exact targets, identity, credentials, goals, rationale, or authority, and it has no public API route.
 
 `ports`
 : Stable platform, identity, connection, credential, OAuth, live-transport, and durable action-journal boundaries. Credentials are non-serializable leases and never enter model context.
 
 `adapters`
-: Concrete platform implementations. Each publishes a capability manifest and passes the same conformance suite. Feed Passport Lab is the reference closed loop. Ten `twin:<platform>` adapters also close the control loop over isolated deterministic state while limiting actions to each profile's declared control semantics and explicitly denying ranking fidelity. Every unprefixed external adapter remains Guided by default. Bounded live candidates for YouTube, X, Reddit, and Bluesky activate only with an owner-bound connection and a fresh signed exact-revision authorized-dummy-account receipt. Runtime construction injects one declared deterministic dummy snapshot per external platform for capture tests; arbitrary account identifiers remain unobserved.
+: Concrete platform implementations. Each publishes a capability manifest and passes the same conformance suite. Feed Passport Lab is the reference closed loop. Ten `twin:<platform>` adapters also close the control loop over isolated deterministic state while limiting actions to each profile's declared control semantics and explicitly denying ranking fidelity. Every unprefixed external adapter remains Guided by default. Bounded live candidates for YouTube, X, Reddit, and Bluesky can load only with an owner-bound connection and a fresh signed exact-revision authorized-dummy-account receipt; generic migration authority still cannot execute them. Runtime construction injects one declared deterministic dummy snapshot per external platform for capture tests; arbitrary account identifiers remain unobserved.
 
 `infrastructure`
-: SQLite event/projection/scheduled-job/action-journal storage, encrypted connection metadata with blind indexes, a local AES-GCM OAuth credential vault, strict serialization helpers, and no-ambient-network HTTP boundaries. AT Protocol OAuth tokens and DPoP keys remain in the separate Node sidecar.
+: SQLite event/projection/scheduled-job/action-journal and Guided-handoff storage, encrypted connection metadata with blind indexes, a local AES-GCM OAuth credential vault, strict serialization helpers, and no-ambient-network HTTP boundaries. AT Protocol OAuth tokens and DPoP keys remain in the separate Node sidecar. Instagram import previews are deliberately not persisted: normalized handles live only in an owner-bound 15-minute in-memory session, and raw uploads are never retained.
 
 `api`
-: FastAPI routes with strict Pydantic request models. API models are mapped from domain objects rather than becoming the domain. Local `demo` mode accepts `actor_id` as a deterministic test principal. Credentialed/live surfaces normally require `oidc`, which verifies an exact issuer, audience/client ID, JWKS signature, scope, and expiry, derives the owner from `sub`, and rejects conflicting caller-supplied identity fields. An explicit insecure one-person dummy-account override exists only on a loopback bind with loopback-only origins and client IPs; it is never a proxy, deployment, LAN, team, or production authentication boundary.
+: FastAPI routes with strict Pydantic request models. API models are mapped from domain objects rather than becoming the domain. Local `demo` mode accepts `actor_id` as a deterministic test principal. Credentialed/live surfaces normally require `oidc`, which verifies an exact issuer, audience/client ID, JWKS signature, scope, and expiry, derives the owner from `sub`, and rejects conflicting caller-supplied identity fields. An explicit insecure one-person dummy-account override exists only on a loopback bind with loopback-only origins and client IPs; it is never a proxy, deployment, LAN, team, or production authentication boundary. Instagram upload routes additionally require `FEED_PASSPORT_ENABLE_LOCAL_IMPORT=1` and a loopback client. Guided-handoff inspection, resolution, and finalization are owner-bound. The internal live-commission request models are intentionally not routed.
 
 `runtime`
 : Service bootstrap, certification-gated adapter restoration, the optional proposal-only AgentCore entrypoint, live conformance runner, and `DueJobRunner`. The app-owned FastAPI lifespan starts and stops the runner; it does not authorize a social account without a user-completed OAuth transaction.
@@ -71,11 +75,13 @@ health() -> AdapterHealth
 
 Every unsupported action produces a typed capability failure. Guided external adapters never report executed success. A `twin:<platform>` adapter may report success only for an explicitly labeled deterministic local mutation, never as external-platform success.
 
+A Guided migration creates a sealed handoff from the plan's exact native actions. The lifecycle is `previewed -> consented -> awaiting_handoff -> user_resolved -> finalized`. The user resolves every step as `completed_by_user`, `skipped_by_user`, or `control_not_found`; repeated identical resolution is idempotent and conflicting resolution fails. Finalization alone issues a receipt, whose outcomes are only `GUIDED` or `SKIPPED` and whose summary fixes API writes and verified recommendation outcomes at zero with `platform_verified=false`.
+
 Destination cards marked “Selected” or “Included” are local demo state. They are not part of this adapter contract and do not mean OAuth, an authenticated social account, or live conformance exists. The Authorization Desk reports connection state separately, and a connection still does not promote an adapter without a signed conformance receipt.
 
 ## Closed-loop Lab migration
 
-The following sequence is implemented against deterministic Feed Passport Lab. An unconfigured external adapter stops after capability-aware compilation with a Guided handoff or translation loss. A certified transport may execute only the action subset proven by its receipt; this checkout currently contains no live account receipt.
+The following sequence is implemented against deterministic Feed Passport Lab. An unconfigured external adapter stops after capability-aware compilation with a Guided handoff or translation loss. Even when a certified live transport is loaded, generic migration authority rejects its execution. Only the separately bound owner-authenticated live-commission service can reach the transport, and that service is not routed in this checkout. No live account receipt exists.
 
 ```text
 observe source
@@ -106,6 +112,18 @@ After the proposal is accepted, the deterministic mission runner recompiles and 
 `POST /api/agent/features/plan` accepts only a local test principal, an already selected Passport ID, and untrusted request prose. The server resolves ownership before model invocation and derives a non-identifying catalogue from registered non-twin destination manifests plus the product's bounded temporary and companion choices. The model must call `inspect_selected_passport`, `inspect_safe_feature_catalog`, and exactly one matching typed submission tool: `submit_migration_proposal`, `submit_temporary_visa_proposal`, or `submit_companion_sync_proposal`.
 
 The model-authored tool payload contains categorical and numeric choices only. Migration may select one catalogued destination. Temporary Visa may select a bounded duration and isolated or reversible-Lab mode. Companion may select field categories, strategy, 10–50 percent companion input, and a bounded expiry. Model-authored prose never crosses the API boundary: deterministic server templates create the displayed goal, purpose, and rationale, and migration embeds the exact server-selected `{destination_id, evidence_level, execute_mode, limitations}` capability record. The agent therefore cannot name a partner, invent capability or ranking-fidelity claims, create a slice or overlay, approve, execute, or roll back. The endpoint creates no event or projection; accepting a proposal in the browser only pre-fills the corresponding deterministic desk.
+
+## Internal certified live commission boundary
+
+The internal `LiveCommissionService` accepts only YouTube or Bluesky and first requires an active owner-bound connection plus a fresh exact-revision signed live certification. The request is bound to one Passport version, effective-policy fingerprint, destination connection version, compiled migration fingerprint, total-action budget, and the certification's exact observe/execute/verify/rollback subset. Public-engagement actions are rejected. A fresh certification is mandatory for every plan or mutation. An expired but otherwise valid exact-revision receipt can be restored only as an observation-only adapter for reconciliation of a write that was durably journaled before the crash.
+
+The local-only model receives privacy-reduced Passport-derived demand buckets and the names/counts of every certified action family present in the compiled plan, together with the locked budget. It must return only a unique complete permutation of those families. The schema has no model-authored goal, rationale, target, authority, approval, or executable-action field, and configurations that allow external model calls are rejected before model construction. Deterministic code applies that ordering to the withheld exact actions, truncates under the locked budget, and seals the exact target sequence. Execution revalidates every binding and marks the commission stale if the Passport, plan, connection, or certification changed; generic migration authority cannot use a live adapter. Reconciliation and rollback reuse the existing migration journal and receipt mechanisms. Crash recovery never blindly replays an expired or outcome-unknown forward or rollback lease: it observes when allowed, otherwise terminalizes the record for human review. Active journal leases cover the whole migration, and receipt creation is deterministic and create-only so competing reconcilers cannot issue two receipts. This service is source- and test-level infrastructure only: no owner-authenticated public API route exposes preview, approval, execute, reconcile, or rollback, and no live account or provider result has been validated.
+
+## Instagram portability intake
+
+The opt-in local parser accepts a direct Instagram `following.json` or a ZIP with exactly one recognized `connections/followers_and_following/following.json`. It validates archive paths, entry types, compression, sizes, JSON depth, duplicate keys, handle/URL agreement, and bounded record counts before returning normalized followed handles. All other export members and preference fields are ignored and reported as unobserved rather than inferred.
+
+The API streams at most 64 MiB from a loopback client into the parser, stages only the normalized preview in an owner-bound in-memory session, and advertises that the raw source is not retained and no platform account was accessed. The upload is a user-supplied Accounts Center-format file, not a provider-authenticated export. Apply requires the same Passport version and a unique user-selected subset within the 500-creator capacity, adds those handles at positive creator intent, and records parser provenance plus a digest of the normalized selected subset rather than the raw file or ZIP. It changes neither the Instagram account nor its recommendation feed.
 
 ## Continuous companion projection
 

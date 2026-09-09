@@ -1,6 +1,7 @@
 import { DESTINATIONS } from "../../data.js";
 import { useState } from "react";
 import { ActionButton, CompositionBar, Field, PageHeading, PlatformVisa, StatusStamp } from "../../components/passportUi.jsx";
+import { InstagramImportDesk } from "./InstagramImportDesk.jsx";
 
 export function OverviewSpread({
   constitution,
@@ -147,6 +148,14 @@ export function VisaSpread({
   onRevoke,
   busyAction = "",
   platformProfiles = [],
+  instagramImport = null,
+  instagramImportSelection = [],
+  setInstagramImportSelection,
+  instagramImportNotice = "",
+  onInstagramImportPreview,
+  onInstagramImportApply,
+  onInstagramImportDiscard,
+  serviceAvailable = false,
 }) {
   const destination = DESTINATIONS.find((item) => item.id === selectedVisa) || DESTINATIONS[0];
   const platformKey = destination.id === "lab" ? "feed_passport_lab" : destination.id;
@@ -192,6 +201,7 @@ export function VisaSpread({
           {destination.id === "lab" ? <p>The Proof Lab uses deterministic fixtures. It never asks for a social account.</p> : connection?.status === "active" ? <><dl><div><dt>Account subject</dt><dd>{connection.external_subject}</dd></div><div><dt>Granted scopes</dt><dd>{connection.granted_scopes.join(", ") || "None recorded"}</dd></div><div><dt>Capability evidence</dt><dd>{evidenceStatus}</dd></div><div><dt>Credential location</dt><dd>Broker only; never model context</dd></div></dl><ActionButton variant="danger" onClick={() => onRevoke?.(connection)} busy={busyAction === "oauth-revoke"} disabled={Boolean(busyAction) && busyAction !== "oauth-revoke"}>REVOKE AUTHORIZATION</ActionButton></> : <><p>{unavailableReason}</p>{destination.id === "bluesky" && liveAuthorizeAvailable ? <label className="connection-handle"><span>Dummy account handle</span><input value={blueskyHandle} onChange={(event) => setBlueskyHandle(event.target.value)} placeholder="name.bsky.social" autoComplete="off" spellCheck="false" /></label> : null}{liveAuthorizeAvailable ? <ActionButton variant="ink" onClick={() => onAuthorize?.(destination.id, blueskyHandle)} busy={busyAction === "oauth-connect"} disabled={(Boolean(busyAction) && busyAction !== "oauth-connect") || (destination.id === "bluesky" && !blueskyHandle.trim())}>AUTHORIZE A DUMMY ACCOUNT</ActionButton> : <small>{connectionConfiguration === "checking" ? "Checking the local credential boundary." : "No authorization action is available in this configuration."}</small>}</>}
           {connectionNotice ? <p className="success-note">{connectionNotice}</p> : null}
         </section>
+        {destination.id === "instagram" ? <InstagramImportDesk session={instagramImport} selectedHandles={instagramImportSelection} setSelectedHandles={setInstagramImportSelection} onPreview={onInstagramImportPreview} onApply={onInstagramImportApply} onDiscard={onInstagramImportDiscard} busyAction={busyAction} notice={instagramImportNotice} serviceAvailable={serviceAvailable} /> : null}
         <div className="evidence-note"><p className="eyebrow">LIMITATION ON THE RECORD</p><p>{destination.limitation}</p></div>
         <aside className="passport-warning">Test accounts do not waive platform rules. A visa never exposes account credentials to the model.</aside>
         <footer className="passport-footer"><span>{destination.id.toUpperCase()}</span><span>CAPABILITY MANIFEST</span><span>PAGE 6</span></footer>

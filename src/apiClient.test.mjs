@@ -2,7 +2,20 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { migrationPreviewForUi } from "./api/clientProjections.js";
+import {
+  guidedAttestationReceiptForUi,
+  historyReceiptsForUi,
+  instagramImportTransportFilename,
+  migrationPreviewForUi,
+  resumableGuidedMigrationForUi,
+} from "./api/clientProjections.js";
+import { summarizeMigrationExecution } from "./apiClient.js";
+import {
+  ACTIVE_GUIDED_HANDOFF_NOTICE,
+  GUIDED_PREVIEW_DISCLOSURE,
+  guidedPreviewIntegrity,
+  isActiveGuidedHandoff,
+} from "./features/workflows/migrationPreviewView.js";
 
 const demoPassport = {
   id: "passport-demo",
@@ -35,6 +48,23 @@ const PLATFORM_PROFILE_FILES = [
   "youtube",
 ];
 
+test("Instagram import transport never includes the private local filename", () => {
+  assert.equal(
+    instagramImportTransportFilename({
+      name: "mahmoud-private-account-export.zip",
+      type: "application/zip",
+    }),
+    "accounts-center.zip",
+  );
+  assert.equal(
+    instagramImportTransportFilename({
+      name: "personal-following-history.json",
+      type: "application/json",
+    }),
+    "following.json",
+  );
+});
+
 test("migration preview labels unknown external delivery as unavailable", () => {
   const preview = migrationPreviewForUi({
     platform: "youtube",
@@ -58,6 +88,458 @@ test("migration preview labels unknown external delivery as unavailable", () => 
     },
   });
   assert.equal(authorized.actions[0].mode, "Executable");
+});
+
+test("migration preview preserves every exact guided target and instruction in plan order", () => {
+  const firstInstruction = "Open Following, find @calm-studio, and select Unfollow.";
+  const secondInstruction = "Open Hidden Words and add ragebait without changing other entries.";
+  const preview = migrationPreviewForUi({
+    id: "migration-guided-exact",
+    platform: "instagram",
+    plan: {
+      actions: [
+        {
+          id: "guided-action-1",
+          action_type: "unfollow_creator",
+          target: "@calm-studio",
+          parameters: { delivery: "guided_handoff", instruction: firstInstruction },
+        },
+        {
+          id: "guided-action-2",
+          action_type: "mute_keyword",
+          target: "ragebait",
+          parameters: { delivery: "guided_handoff", instruction: secondInstruction },
+        },
+      ],
+      losses: [],
+    },
+  });
+
+  assert.deepEqual(preview.guidedSteps, [
+    {
+      id: "guided-action-1",
+      ordinal: 1,
+      actionType: "unfollow_creator",
+      action: "Unfollow Creator",
+      target: "@calm-studio",
+      instruction: firstInstruction,
+    },
+    {
+      id: "guided-action-2",
+      ordinal: 2,
+      actionType: "mute_keyword",
+      action: "Mute Keyword",
+      target: "ragebait",
+      instruction: secondInstruction,
+    },
+  ]);
+  assert.deepEqual(preview.actions, [
+    { action: "Unfollow Creator", count: 1, mode: "Guided" },
+    { action: "Mute Keyword", count: 1, mode: "Guided" },
+  ]);
+
+  const integrity = guidedPreviewIntegrity(preview);
+  assert.equal(integrity.complete, true);
+  assert.equal(integrity.declaredCount, 2);
+  assert.deepEqual(integrity.steps.map((step) => step.target), ["@calm-studio", "ragebait"]);
+  assert.match(GUIDED_PREVIEW_DISCLOSURE, /exact native steps/i);
+  assert.match(GUIDED_PREVIEW_DISCLOSURE, /user-attested handoff record/i);
+  assert.match(GUIDED_PREVIEW_DISCLOSURE, /zero API writes/i);
+});
+
+test("guided migration approval fails closed when exact preview details are missing", () => {
+  const incomplete = guidedPreviewIntegrity({
+    actions: [{ action: "Unfollow Creator", count: 2, mode: "Guided" }],
+    guidedSteps: [{
+      id: "guided-action-1",
+      ordinal: 1,
+      actionType: "unfollow_creator",
+      target: "@calm-studio",
+      instruction: "",
+    }],
+  });
+  assert.equal(incomplete.requiresExactReview, true);
+  assert.equal(incomplete.complete, false);
+});
+
+test("only awaiting and user-resolved guided handoffs hold the active consent guard", () => {
+  assert.equal(isActiveGuidedHandoff({ state: "awaiting_handoff" }), true);
+  assert.equal(isActiveGuidedHandoff({ state: "user_resolved" }), true);
+  assert.equal(isActiveGuidedHandoff({ state: "finalized" }), false);
+  assert.equal(isActiveGuidedHandoff({ state: "previewed" }), false);
+  assert.equal(isActiveGuidedHandoff(null), false);
+  assert.match(ACTIVE_GUIDED_HANDOFF_NOTICE, /mark every remaining step SKIP/i);
+  assert.match(ACTIVE_GUIDED_HANDOFF_NOTICE, /finalize the user-attested record/i);
+  assert.match(ACTIVE_GUIDED_HANDOFF_NOTICE, /No API writes or platform verification/i);
+});
+
+test("one active guided guard protects previews, Passport changes, and every route entry", async () => {
+  const appSource = await readFile(new URL("./App.jsx", import.meta.url), "utf8");
+  const panelSource = await readFile(new URL("./features/workflows/GuidedHandoffPanel.jsx", import.meta.url), "utf8");
+  assert.match(appSource, /const hasActiveGuidedHandoff = isActiveGuidedHandoff\(guidedHandoff\)/);
+  assert.match(appSource, /hasActiveGuidedHandoff \}/);
+  assert.match(appSource, /const rejectWhileGuidedHandoffActive = useCallback/);
+  assert.match(appSource, /previewMigration: async[\s\S]*rejectWhileGuidedHandoffActive\(\)[\s\S]*ACTIVE_GUIDED_HANDOFF_NOTICE/);
+  assert.match(appSource, /const handleMigrationPreview = \(\) => \{\s*if \(rejectWhileGuidedHandoffActive\(\)\)/);
+  assert.match(appSource, /const handleSaveConstitution = \(\) => \{\s*if \(rejectWhileGuidedHandoffActive\(\)\)/);
+  assert.match(appSource, /const handleMigrationCapture = \(\) => \{\s*if \(rejectWhileGuidedHandoffActive\(\)\)/);
+  assert.match(appSource, /handleMigrationSourceChange[\s\S]*rejectWhileGuidedHandoffActive\(\)/);
+  assert.match(appSource, /handleMigrationDestinationChange[\s\S]*rejectWhileGuidedHandoffActive\(\)/);
+  assert.match(appSource, /const handlePopState[\s\S]*rejectWhileGuidedHandoffActive\(nextSection\)/);
+  assert.match(appSource, /const navigate = \(section\)[\s\S]*rejectWhileGuidedHandoffActive\(section\)/);
+  assert.match(appSource, /replaceSectionHistory\("migration"\);\s*setActiveSection\("migration"\);\s*setMigrationDestination/);
+  assert.match(panelSource, /ACTIVE_GUIDED_HANDOFF_NOTICE/);
+});
+
+test("the first Passport snapshot arms the guided lock before deferred service follow-ups", async () => {
+  const appSource = await readFile(new URL("./App.jsx", import.meta.url), "utf8");
+  assert.match(appSource, /useState\(true\).*initialHydrationPending|initialHydrationPending.*useState\(true\)/);
+  assert.match(appSource, /const runBusy[\s\S]*appRef\.current\.hydrationPending[\s\S]*INITIAL_HYDRATION_NOTICE/);
+  assert.match(appSource, /const rejectWhileBusy[\s\S]*appRef\.current\.hydrationPending[\s\S]*INITIAL_HYDRATION_NOTICE/);
+  assert.match(appSource, /previewMigration: async[\s\S]*appRef\.current\.hydrationPending[\s\S]*INITIAL_HYDRATION_NOTICE/);
+  assert.match(appSource, /inert=\{workspaceLocked\} aria-busy=\{workspaceLocked\}/);
+  const immediateHydration = appSource.indexOf(
+    "hydrateGuidedMigrationState(loaded.data?.resumableGuidedMigration || null);",
+  );
+  const deferredConnections = appSource.indexOf("await feedPassportApi.loadConnections()", immediateHydration);
+  const deferredModel = appSource.indexOf("await feedPassportApi.getAgentModelStatus()", immediateHydration);
+  const deferredState = appSource.indexOf("await feedPassportApi.listState()", immediateHydration);
+  assert.ok(immediateHydration > 0);
+  assert.ok(deferredConnections > immediateHydration);
+  assert.ok(deferredModel > immediateHydration);
+  assert.ok(deferredState > immediateHydration);
+  const releaseHydration = appSource.indexOf("setInitialHydrationPending(false);", immediateHydration);
+  assert.ok(releaseHydration > immediateHydration);
+  assert.ok(releaseHydration < deferredConnections);
+
+  const hydratorStart = appSource.indexOf("const hydrateGuidedMigrationState");
+  const hydratorEnd = appSource.indexOf("const hydratePassportState", hydratorStart);
+  const hydrator = appSource.slice(hydratorStart, hydratorEnd);
+  assert.match(hydrator, /appRef\.current = \{ \.\.\.appRef\.current, hasActiveGuidedHandoff: true \}/);
+  assert.match(hydrator, /replaceSectionHistory\("migration"\)/);
+  assert.match(hydrator, /setGuidedHandoff\(handoff\)/);
+  assert.match(appSource, /data\.activePassportId \|\| data\.passportId \|\| data\.activePassport\?\.id/);
+  assert.match(appSource, /if \(appRef\.current\.hasActiveGuidedHandoff\)[\s\S]*pending OAuth callback was not exchanged or stored[\s\S]*feedPassportSection: "migration"/);
+  assert.match(appSource, /const handleRevokeConnection = \(connection\) => \{\s*if \(rejectWhileGuidedHandoffActive\("visas"\)\)/);
+
+  let releaseConnections;
+  let releaseModel;
+  let releaseState;
+  const connections = new Promise((resolve) => { releaseConnections = resolve; });
+  const model = new Promise((resolve) => { releaseModel = resolve; });
+  const state = new Promise((resolve) => { releaseState = resolve; });
+  const appRef = { current: { hasActiveGuidedHandoff: false } };
+  const firstSnapshot = {
+    resumableGuidedMigration: {
+      preview: { previewId: "migration-first-snapshot" },
+      handoff: { state: "awaiting_handoff" },
+    },
+  };
+  const hydrateBeforeFollowUps = async () => {
+    appRef.current = {
+      ...appRef.current,
+      hasActiveGuidedHandoff: isActiveGuidedHandoff(
+        firstSnapshot.resumableGuidedMigration.handoff,
+      ),
+    };
+    await connections;
+    await model;
+    await state;
+  };
+
+  const pendingHydration = hydrateBeforeFollowUps();
+  assert.equal(appRef.current.hasActiveGuidedHandoff, true);
+  assert.equal(
+    appRef.current.hasActiveGuidedHandoff && "constitution" !== "migration",
+    true,
+  );
+  assert.equal(
+    appRef.current.hasActiveGuidedHandoff && "migration" !== "migration",
+    false,
+  );
+  releaseConnections();
+  releaseModel();
+  releaseState();
+  await pendingHydration;
+});
+
+test("migration desk renders exact guided targets and instructions before approval", async () => {
+  const source = await readFile(new URL("./features/workflows/WorkflowSpreads.jsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("./styles.css", import.meta.url), "utf8");
+  assert.match(source, /EXACT PRE-APPROVAL RECORD/);
+  assert.match(source, /\{step\.target \|\| "TARGET MISSING"\}/);
+  assert.match(source, /\{step\.instruction \|\| "Instruction missing from this preview\."\}/);
+  assert.match(source, /GUIDED_PREVIEW_DISCLOSURE/);
+  assert.match(source, /disabled=\{Boolean\(outcome\) \|\| !guidedPreview\.complete/);
+  assert.match(styles, /\.guided-preview-steps li\s*\{[^}]*grid-template-columns:\s*26px minmax\(0, 1fr\)/s);
+  assert.match(styles, /\.guided-preview-steps code\s*\{[^}]*overflow-wrap:\s*anywhere/s);
+  assert.match(styles, /@media \(max-width:\s*560px\)[\s\S]*\.guided-preview-head\s*\{[^}]*flex-direction:\s*column/s);
+});
+
+function guidedMigrationFixture({
+  id,
+  ownerId = demoPassport.owner_id,
+  passportId = demoPassport.id,
+  state,
+  updatedAt,
+  revision = 3,
+}) {
+  const finalized = state === "finalized";
+  return {
+    id,
+    owner_id: ownerId,
+    passport_id: passportId,
+    passport_version: 1,
+    platform: "instagram",
+    destination_account_id: "instagram-demo-account",
+    status: finalized ? "guided_recorded" : state === "user_resolved" ? "handoff_resolved" : "awaiting_handoff",
+    created_at: "2026-09-09T09:00:00Z",
+    guided_handoff_id: `handoff-${id}`,
+    plan: {
+      id: `plan-${id}`,
+      actions: [{
+        id: `action-${id}`,
+        action_type: "unfollow_creator",
+        target: "@exact-target",
+        parameters: {
+          delivery: "guided_handoff",
+          instruction: "Open Following, find @exact-target, and select Unfollow.",
+        },
+      }],
+      losses: [],
+    },
+    guided_handoff: {
+      id: `handoff-${id}`,
+      owner_id: ownerId,
+      platform: "instagram",
+      plan_id: `plan-${id}`,
+      passport_id: passportId,
+      passport_version: 1,
+      state,
+      revision,
+      created_at: "2026-09-09T09:00:00Z",
+      updated_at: updatedAt,
+      finalized_at: finalized ? updatedAt : null,
+      steps: [{
+        id: `action-${id}`,
+        ordinal: 1,
+        action_type: "unfollow_creator",
+        target: "@exact-target",
+        instruction: "Open Following, find @exact-target, and select Unfollow.",
+        resolution: state === "awaiting_handoff" ? null : "completed_by_user",
+        resolved_at: state === "awaiting_handoff" ? null : updatedAt,
+      }],
+      receipt: finalized ? {
+        id: `guided-receipt-${id}`,
+        issued_at: updatedAt,
+        summary: {
+          total_steps: 1,
+          completed_by_user: 1,
+          skipped_by_user: 0,
+          control_not_found: 0,
+          api_writes: 0,
+          recommendation_outcomes_verified: 0,
+          platform_verified: false,
+        },
+      } : null,
+    },
+  };
+}
+
+test("hydration selects the latest resumable guided migration for the active owner and Passport", () => {
+  const migrations = [
+    guidedMigrationFixture({
+      id: "owned-awaiting",
+      state: "awaiting_handoff",
+      updatedAt: "2026-09-09T09:10:00Z",
+    }),
+    guidedMigrationFixture({
+      id: "owned-resolved",
+      state: "user_resolved",
+      updatedAt: "2026-09-09T09:20:00Z",
+      revision: 4,
+    }),
+    guidedMigrationFixture({
+      id: "owned-finalized-newer",
+      state: "finalized",
+      updatedAt: "2026-09-09T09:30:00Z",
+      revision: 5,
+    }),
+    guidedMigrationFixture({
+      id: "other-owner-newest",
+      ownerId: "other-owner",
+      passportId: "other-passport",
+      state: "user_resolved",
+      updatedAt: "2026-09-09T09:40:00Z",
+      revision: 9,
+    }),
+  ];
+
+  const restored = resumableGuidedMigrationForUi(migrations, {
+    ownerId: demoPassport.owner_id,
+    passportId: demoPassport.id,
+  });
+  assert.equal(restored.migrationId, "owned-resolved");
+  assert.equal(restored.handoff.state, "user_resolved");
+  assert.equal(restored.preview.guidedSteps[0].target, "@exact-target");
+  assert.match(restored.preview.guidedSteps[0].instruction, /select Unfollow/);
+});
+
+test("finalized guided handoffs hydrate as non-canonical user-attestation History records", () => {
+  const finalized = guidedMigrationFixture({
+    id: "owned-finalized",
+    state: "finalized",
+    updatedAt: "2026-09-09T09:30:00Z",
+    revision: 5,
+  });
+  const otherOwner = guidedMigrationFixture({
+    id: "other-finalized",
+    ownerId: "other-owner",
+    passportId: "other-passport",
+    state: "finalized",
+    updatedAt: "2026-09-09T09:40:00Z",
+    revision: 5,
+  });
+  const canonical = {
+    id: "canonical-local-receipt",
+    owner_id: demoPassport.owner_id,
+    passport_id: demoPassport.id,
+    passport_version: 1,
+    destination_id: "destination-new",
+    platform: "feed_passport_lab",
+    issued_at: "2026-09-09T09:15:00Z",
+    status: "issued",
+    outcomes: [],
+  };
+  const projected = guidedAttestationReceiptForUi(finalized);
+  assert.equal(projected.type, "User-attested guided handoff record");
+  assert.equal(projected.status, "User attested");
+  assert.equal(projected.reversible, false);
+  assert.equal(projected._guidedAttestation, true);
+  assert.equal(projected._apiWrites, 0);
+  assert.equal(projected._recommendationOutcomesVerified, 0);
+  assert.equal(projected._platformVerified, false);
+  assert.match(projected.detail, /not a canonical API-write receipt/i);
+  assert.match(projected.detail, /platform verification is false/i);
+
+  const history = historyReceiptsForUi({
+    passports: [demoPassport, { ...demoPassport, id: "other-passport", owner_id: "other-owner" }],
+    migrations: [otherOwner, finalized],
+    receipts: [canonical],
+  }, { ownerId: demoPassport.owner_id, passportId: demoPassport.id });
+  assert.deepEqual(history.map((record) => record.id), [
+    "guided-receipt-owned-finalized",
+    "canonical-local-receipt",
+  ]);
+});
+
+test("app hydration and History UI restore guided state without relabeling it as execution", async () => {
+  const appSource = await readFile(new URL("./App.jsx", import.meta.url), "utf8");
+  const historySource = await readFile(new URL("./features/operations/OperationsSpreads.jsx", import.meta.url), "utf8");
+  assert.match(appSource, /data\.resumableGuidedMigration/);
+  assert.match(appSource, /setGuidedHandoff\(handoff\)/);
+  assert.match(appSource, /No API writes or platform verification are claimed/);
+  assert.match(historySource, /USER SESSION RECORD/);
+  assert.match(historySource, /not a canonical API-write receipt/);
+  assert.match(historySource, /Recommendation outcomes verified/);
+  assert.match(historySource, /User record · no API rollback/);
+});
+
+test("service hydration derives resumable handoff and guided History from owned migration projections", async () => {
+  const previousBase = globalThis.__CURATOR_API_URL__;
+  const previousFetch = globalThis.fetch;
+  const resumable = guidedMigrationFixture({
+    id: "resume-from-demo",
+    state: "user_resolved",
+    updatedAt: "2026-09-09T10:20:00Z",
+    revision: 4,
+  });
+  const finalized = guidedMigrationFixture({
+    id: "history-from-demo",
+    state: "finalized",
+    updatedAt: "2026-09-09T10:10:00Z",
+    revision: 5,
+  });
+  globalThis.__CURATOR_API_URL__ = "http://curator.test/api";
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/api/demo") {
+      return jsonResponse({
+        passports: [demoPassport],
+        platforms: [],
+        templates: [],
+        overlays: [],
+        shares: [],
+        companions: [],
+        checkpoints: [],
+        migrations: [finalized, resumable],
+        receipts: [],
+        drift_alerts: [],
+        drift_monitors: [],
+        creator_links: [],
+        agent_missions: [],
+      });
+    }
+    if (url.pathname === "/health") {
+      return jsonResponse({ status: "healthy", scheduler: "active" });
+    }
+    return jsonResponse({ detail: `Unexpected request: GET ${url.pathname}` }, 500);
+  };
+
+  try {
+    const { feedPassportApi } = await import(`./apiClient.js?guided-reload=${Date.now()}`);
+    const loaded = await feedPassportApi.loadPassport();
+    assert.equal(loaded.source, "service");
+    assert.equal(loaded.data.resumableGuidedMigration.migrationId, "resume-from-demo");
+    assert.equal(loaded.data.resumableGuidedMigration.handoff.state, "user_resolved");
+    assert.deepEqual(loaded.data.receipts.map((record) => record.id), [
+      "guided-receipt-history-from-demo",
+    ]);
+    assert.equal(loaded.data.receipts[0]._guidedAttestation, true);
+
+    const state = await feedPassportApi.listState();
+    assert.equal(state.data.resumableGuidedMigration.migrationId, "resume-from-demo");
+    assert.equal(state.data.resumableGuidedMigration.preview.guidedSteps[0].target, "@exact-target");
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
+    else globalThis.__CURATOR_API_URL__ = previousBase;
+  }
+});
+
+test("migration outcome summary never labels failed or partial runs as aligned", () => {
+  const failed = summarizeMigrationExecution({
+    status: "issued_partial",
+    execution_summary: {
+      mode: "authorized_live",
+      executed_action_count: 0,
+      remote_write_count: 0,
+      guided_action_count: 0,
+      skipped_action_count: 0,
+      failed_action_count: 1,
+      denied_action_count: 0,
+    },
+  }, { sourceName: "Passport", destinationName: "YouTube" });
+  assert.equal(failed.needsAttention, true);
+  assert.equal(failed.resultType, "Migration needs attention");
+  assert.match(failed.resultDetail, /1 failed/);
+  assert.doesNotMatch(failed.resultDetail, /already aligned/i);
+
+  const partial = summarizeMigrationExecution({
+    status: "issued_partial",
+    execution_summary: {
+      mode: "authorized_live",
+      executed_action_count: 1,
+      remote_write_count: 1,
+      guided_action_count: 0,
+      skipped_action_count: 0,
+      failed_action_count: 1,
+      denied_action_count: 0,
+    },
+  }, { sourceName: "Passport", destinationName: "Bluesky" });
+  assert.equal(partial.needsAttention, true);
+  assert.match(partial.resultDetail, /1 confirmed external writes/);
+  assert.match(partial.resultDetail, /1 failed/);
 });
 
 function declaredProfileActions(source) {
@@ -143,6 +625,15 @@ test("Curator client maps UI state to the real API contract", async () => {
         receipt_id: "receipt-1",
         completed_at: "2026-08-29T10:08:00Z",
         decisions: [],
+        execution_summary: {
+          mode: "local_adapter",
+          executed_action_count: 2,
+          remote_write_count: 0,
+          guided_action_count: 0,
+          skipped_action_count: 0,
+          failed_action_count: 0,
+          denied_action_count: 0,
+        },
       });
     }
     return jsonResponse({ detail: `Unexpected request: ${options.method || "GET"} ${url.pathname}` }, 500);
@@ -377,8 +868,8 @@ test("connected account IDs become the live execution address and OAuth remains 
     await module.feedPassportApi.previewMigration({ source: "lab", destination: "bluesky" });
 
     const previews = requests.filter((item) => item.path === "/api/migrations/preview");
-    assert.equal(previews[0].body.destination_account_id, "youtube-owner-connection");
-    assert.equal(previews[1].body.destination_account_id, "bluesky-owner-connection");
+    assert.equal(previews[0].body.destination_account_id, "youtube-demo-account");
+    assert.equal(previews[1].body.destination_account_id, "bluesky-demo-account");
     const start = requests.find((item) => item.path === "/api/connections/bluesky/oauth/start");
     assert.equal(start.body.handle, "dummy.bsky.social");
     const callback = requests.find((item) => item.path === "/api/connections/bluesky/oauth/callback");

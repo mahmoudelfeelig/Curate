@@ -1,9 +1,12 @@
 import { DESTINATIONS } from "../../data.js";
 import { ActionButton, Field, PageHeading, StatusStamp } from "../../components/passportUi.jsx";
+import { GuidedHandoffPanel } from "./GuidedHandoffPanel.jsx";
+import { GUIDED_PREVIEW_DISCLOSURE, guidedPreviewIntegrity } from "./migrationPreviewView.js";
 
-export function MigrationSpread({ source, setSource, destination, setDestination, preview, onCapture, onPreview, onApply, busyAction, outcome, captureNotice, constitutionVersion, proposalPrefill }) {
+export function MigrationSpread({ source, setSource, destination, setDestination, preview, onCapture, onPreview, onApply, busyAction, outcome, captureNotice, constitutionVersion, proposalPrefill, guidedHandoff, onResolveGuidedStep, onFinalizeGuidedHandoff }) {
   const actionTotal = preview?.actions?.reduce((sum, item) => sum + Number(item.count || 0), 0) || 0;
-  const guidedTotal = preview?.actions?.filter((item) => item.mode === "Guided").reduce((sum, item) => sum + Number(item.count || 0), 0) || 0;
+  const guidedPreview = guidedPreviewIntegrity(preview);
+  const guidedTotal = guidedPreview.declaredCount;
   const lossTotal = preview?.losses?.filter((item) => item.severity === "Partial").length || 0;
   const sourceManifest = DESTINATIONS.find((item) => item.id === source);
   const destinationManifest = DESTINATIONS.find((item) => item.id === destination);
@@ -35,7 +38,34 @@ export function MigrationSpread({ source, setSource, destination, setDestination
         <PageHeading eyebrow={preview ? `PREVIEW ${preview.previewId || "READY"}` : "AWAITING ROUTE"} title="Translation Manifest" note="Every unsupported intent remains visible before approval." page="8" />
         {preview?.route && preview?.sourcePassport ? <div className="route-line"><span>BOUND NON-MUTATING PREVIEW</span><b>{sourceManifest?.name || preview.route.source} TO {destinationManifest?.name || preview.route.destination} · {preview.sourcePassport.id} · V{preview.sourcePassport.version}</b></div> : null}
         {!preview ? <div className="empty-manifest"><b>NO PREVIEW STAMPED</b><p>Select a route and ask the agent to compile an action-and-loss manifest.</p></div> : (
-          <><div className="manifest-actions">{preview.actions.map((item) => <div key={item.action}><span>{item.action}</span><b>{item.count}</b><StatusStamp tone={item.mode === "Executable" ? "green" : item.mode === "Guided" ? "purple" : "orange"} compact>{item.mode}</StatusStamp></div>)}</div><section className="translation-loss"><h3>Declared translation loss</h3>{preview.losses.map((loss) => <article key={loss.title}><StatusStamp tone={loss.severity === "Partial" ? "orange" : "blue"} compact>{loss.severity}</StatusStamp><div><b>{loss.title}</b><p>{loss.detail}</p></div></article>)}</section><div className="approval-block"><p><b>{actionTotal}</b> previewed actions · <b>{guidedTotal}</b> guided steps · <b>{lossTotal}</b> material translation limits</p><ActionButton onClick={onApply} busy={busyAction === "migration-apply"} disabled={Boolean(outcome) || (globallyBusy && busyAction !== "migration-apply")}>{outcome?.kind === "guided" ? "GUIDED HANDOFF PREPARED" : outcome?.kind === "simulated" ? "FIXTURE PLAN SIMULATED" : outcome?.kind === "aligned" ? "ALREADY ALIGNED" : outcome ? "LAB ACTIONS APPLIED" : "APPROVE AND APPLY"}</ActionButton>{outcome ? <p className="success-note">{outcome.message}</p> : null}</div></>
+          <>
+            <div className="manifest-actions">{preview.actions.map((item) => <div key={`${item.action}:${item.mode}`}><span>{item.action}</span><b>{item.count}</b><StatusStamp tone={item.mode === "Executable" ? "green" : item.mode === "Guided" ? "purple" : "orange"} compact>{item.mode}</StatusStamp></div>)}</div>
+            {guidedPreview.requiresExactReview ? (
+              <section className="guided-preview" aria-labelledby="guided-preview-title" data-guided-preview-complete={guidedPreview.complete ? "true" : "false"}>
+                <header className="guided-preview-head">
+                  <div><p className="eyebrow">EXACT PRE-APPROVAL RECORD</p><h3 id="guided-preview-title">Guided steps you are consenting to</h3></div>
+                  <StatusStamp tone={guidedPreview.complete ? "purple" : "orange"} compact>{guidedPreview.complete ? `${guidedTotal} EXACT` : "DETAILS INCOMPLETE"}</StatusStamp>
+                </header>
+                <p className="guided-preview-boundary">{GUIDED_PREVIEW_DISCLOSURE}</p>
+                <ol className="guided-preview-steps">
+                  {guidedPreview.steps.map((step) => (
+                    <li key={step.id || `guided-preview-${step.ordinal}`}>
+                      <span className="guided-preview-number">{String(step.ordinal).padStart(2, "0")}</span>
+                      <div>
+                        <b>{step.action}</b>
+                        <code>{step.target || "TARGET MISSING"}</code>
+                        <p>{step.instruction || "Instruction missing from this preview."}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                {!guidedPreview.complete ? <p className="guided-preview-error" role="alert">Exact guided targets or instructions are missing. Refresh the preview before approving; no consent or handoff record will be created from incomplete details.</p> : null}
+              </section>
+            ) : null}
+            <section className="translation-loss"><h3>Declared translation loss</h3>{preview.losses.map((loss) => <article key={loss.title}><StatusStamp tone={loss.severity === "Partial" ? "orange" : "blue"} compact>{loss.severity}</StatusStamp><div><b>{loss.title}</b><p>{loss.detail}</p></div></article>)}</section>
+            <div className="approval-block"><p><b>{actionTotal}</b> previewed actions · <b>{guidedTotal}</b> guided steps · <b>{lossTotal}</b> material translation limits{guidedPreview.requiresExactReview ? <><br /><span>Approval records consent for the exact targets and instructions shown above. It performs zero API writes.</span></> : null}</p><ActionButton onClick={onApply} busy={busyAction === "migration-apply"} disabled={Boolean(outcome) || !guidedPreview.complete || (globallyBusy && busyAction !== "migration-apply")}>{outcome?.kind === "needs-attention" ? "REVIEW STOPPED RUN" : outcome?.kind === "guided" ? "GUIDED HANDOFF PREPARED" : outcome?.kind === "simulated" ? "FIXTURE PLAN SIMULATED" : outcome?.kind === "aligned" ? "ALREADY ALIGNED" : outcome?.kind === "live-applied" ? "AUTHORIZED ACCOUNT ACTIONS APPLIED" : outcome ? "LOCAL ACTIONS APPLIED" : "APPROVE AND APPLY"}</ActionButton>{outcome ? <p className="success-note">{outcome.message}</p> : null}</div>
+            <GuidedHandoffPanel handoff={guidedHandoff} onResolve={onResolveGuidedStep} onFinalize={onFinalizeGuidedHandoff} busyAction={busyAction} />
+          </>
         )}
         <footer className="passport-footer"><span>LOSS DECLARED</span><span>FEED PASSPORT</span><span>PAGE 8</span></footer>
       </article>
@@ -171,4 +201,3 @@ export function CompanionSpread({
     </section>
   );
 }
-

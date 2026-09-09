@@ -13,7 +13,7 @@ const LOCAL_TWIN_ACTIONS = {
   x: ["follow_creator", "mute_creator", "add_to_list", "hide_topic"],
   youtube: ["subscribe_creator", "unsubscribe_creator", "hide_topic", "mute_creator"],
   reddit: ["subscribe_creator", "unsubscribe_creator", "mute_creator", "unmute_creator"],
-  instagram: ["follow_creator", "unfollow_creator", "hide_topic", "mute_creator"],
+  instagram: ["follow_creator", "unfollow_creator", "mute_keyword", "mute_creator"],
   facebook: ["follow_creator", "unfollow_creator", "mute_creator", "set_topic_preference"],
   threads: ["follow_creator", "unfollow_creator", "hide_topic", "set_topic_preference"],
   tiktok: ["follow_creator", "unfollow_creator", "hide_topic", "set_topic_preference"],
@@ -138,4 +138,3 @@ export function executeFixtureMission(missionId, context) {
   missions.set(missionId, executed);
   return clone(executed);
 }
-

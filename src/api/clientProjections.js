@@ -34,6 +34,14 @@ export function normalizePlatform(value) {
     : normalized;
 }
 
+export function instagramImportTransportFilename(file) {
+  const originalName = typeof file?.name === "string" ? file.name : "";
+  const mediaType = typeof file?.type === "string" ? file.type.toLowerCase() : "";
+  return originalName.toLowerCase().endsWith(".zip") || mediaType.includes("zip")
+    ? "accounts-center.zip"
+    : "following.json";
+}
+
 export function destinationAccount(platform) {
   return platform === "feed_passport_lab" ? "destination-new" : `${platform}-demo-account`;
 }
@@ -102,6 +110,106 @@ export function serverReceipt(receipt, demo) {
   };
 }
 
+function timestampValue(...values) {
+  for (const value of values) {
+    const parsed = Date.parse(String(value || ""));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function ownedPassportIds(demo, ownerId, activePassportId) {
+  const ids = new Set(
+    (demo?.passports || [])
+      .filter((passport) => String(passport?.owner_id || "") === ownerId)
+      .map((passport) => String(passport.id)),
+  );
+  if (activePassportId) ids.add(activePassportId);
+  return ids;
+}
+
+function isOwnedProjection(value, ownerId, passportIds) {
+  const directOwner = String(value?.owner_id || "");
+  if (directOwner) return directOwner === ownerId;
+  return passportIds.has(String(value?.passport_id || ""));
+}
+
+export function guidedAttestationReceiptForUi(migration) {
+  const handoff = migration?.guided_handoff;
+  const receipt = handoff?.receipt;
+  const summary = receipt?.summary;
+  if (handoff?.state !== "finalized" || !receipt || !summary) return null;
+
+  const completed = Number(summary.completed_by_user || 0);
+  const skipped = Number(summary.skipped_by_user || 0);
+  const unavailable = Number(summary.control_not_found || 0);
+  const apiWrites = Number(summary.api_writes);
+  const verifiedOutcomes = Number(summary.recommendation_outcomes_verified);
+  const platformVerified = summary.platform_verified === true;
+  const boundaryValid = apiWrites === 0
+    && verifiedOutcomes === 0
+    && platformVerified === false;
+
+  return {
+    id: String(receipt.id),
+    type: boundaryValid
+      ? "User-attested guided handoff record"
+      : "Guided handoff record needs attention",
+    detail: boundaryValid
+      ? `${completed} steps marked completed by the user; ${skipped + unavailable} skipped or unavailable. This is a user attestation, not a canonical API-write receipt: 0 API writes, 0 recommendation outcomes verified, and platform verification is false.`
+      : "The stored guided record has inconsistent verification fields and is not being presented as platform execution evidence.",
+    time: formatDateLabel(receipt.issued_at || handoff.finalized_at || handoff.updated_at),
+    status: boundaryValid ? "User attested" : "Needs attention",
+    reversible: false,
+    checkpoint: `v${handoff.passport_version || migration.passport_version || 1}`,
+    _platform: String(handoff.platform || migration.platform || "guided"),
+    _guidedAttestation: true,
+    _recordClass: "guided_user_attestation",
+    _migrationId: String(migration.id || ""),
+    _apiWrites: boundaryValid ? 0 : apiWrites,
+    _recommendationOutcomesVerified: boundaryValid ? 0 : verifiedOutcomes,
+    _platformVerified: boundaryValid ? false : platformVerified,
+  };
+}
+
+export function historyReceiptsForUi(demo, { ownerId, passportId }) {
+  const normalizedOwnerId = String(ownerId || "");
+  const normalizedPassportId = String(passportId || "");
+  const passportIds = ownedPassportIds(demo, normalizedOwnerId, normalizedPassportId);
+  const records = [];
+
+  for (const receipt of demo?.receipts || []) {
+    if (!isOwnedProjection(receipt, normalizedOwnerId, passportIds)) continue;
+    records.push({
+      value: serverReceipt(receipt, demo),
+      at: timestampValue(receipt.issued_at, receipt.completed_at),
+    });
+  }
+  for (const migration of demo?.migrations || []) {
+    if (!isOwnedProjection(migration, normalizedOwnerId, passportIds)) continue;
+    const value = guidedAttestationReceiptForUi(migration);
+    if (!value) continue;
+    records.push({
+      value,
+      at: timestampValue(
+        migration.guided_handoff?.receipt?.issued_at,
+        migration.guided_handoff?.finalized_at,
+        migration.guided_handoff?.updated_at,
+      ),
+    });
+  }
+
+  const seen = new Set();
+  return records
+    .sort((left, right) => right.at - left.at || right.value.id.localeCompare(left.value.id))
+    .map((record) => record.value)
+    .filter((record) => {
+      if (seen.has(record.id)) return false;
+      seen.add(record.id);
+      return true;
+    });
+}
+
 export function actionLabel(value) {
   return String(value || "planned action")
     .split("_")
@@ -111,7 +219,8 @@ export function actionLabel(value) {
 
 export function migrationPreviewForUi(migration) {
   const grouped = new Map();
-  for (const action of migration.plan?.actions || []) {
+  const planActions = migration.plan?.actions || [];
+  for (const action of planActions) {
     const delivery = action.parameters?.delivery;
     const localProofEnvironment = migration.platform === "feed_passport_lab"
       || String(migration.platform || "").startsWith("twin:");
@@ -145,7 +254,59 @@ export function migrationPreviewForUi(migration) {
       detail: "The deterministic preview found a representation for every proposed action at the destination's declared capability level.",
     });
   }
-  return { actions, losses, previewId: migration.id };
+  const guidedSteps = planActions
+    .filter((action) => action.parameters?.delivery === "guided_handoff")
+    .map((action, index) => ({
+      id: typeof action.id === "string" ? action.id : "",
+      ordinal: index + 1,
+      actionType: typeof action.action_type === "string" ? action.action_type : "",
+      action: actionLabel(action.action_type),
+      target: typeof action.target === "string" ? action.target : "",
+      instruction: typeof action.parameters?.instruction === "string"
+        ? action.parameters.instruction
+        : "",
+    }));
+  return { actions, guidedSteps, losses, previewId: migration.id };
+}
+
+export function resumableGuidedMigrationForUi(
+  migrations,
+  { ownerId, passportId },
+) {
+  const normalizedOwnerId = String(ownerId || "");
+  const normalizedPassportId = String(passportId || "");
+  const candidates = (migrations || []).filter((migration) => {
+    const handoff = migration?.guided_handoff;
+    return String(migration?.owner_id || "") === normalizedOwnerId
+      && String(migration?.passport_id || "") === normalizedPassportId
+      && ["awaiting_handoff", "user_resolved"].includes(String(handoff?.state || ""));
+  });
+  candidates.sort((left, right) => {
+    const leftHandoff = left.guided_handoff || {};
+    const rightHandoff = right.guided_handoff || {};
+    const timeDelta = timestampValue(
+      rightHandoff.updated_at,
+      right.completed_at,
+      right.created_at,
+    ) - timestampValue(
+      leftHandoff.updated_at,
+      left.completed_at,
+      left.created_at,
+    );
+    if (timeDelta) return timeDelta;
+    const revisionDelta = Number(rightHandoff.revision || 0) - Number(leftHandoff.revision || 0);
+    if (revisionDelta) return revisionDelta;
+    return String(right.id || "").localeCompare(String(left.id || ""));
+  });
+  const migration = candidates[0];
+  if (!migration) return null;
+  return {
+    migrationId: String(migration.id),
+    platform: String(migration.platform),
+    destinationAccountId: String(migration.destination_account_id || ""),
+    handoff: clone(migration.guided_handoff),
+    preview: migrationPreviewForUi(migration),
+  };
 }
 
 export function hoursForDuration(value) {

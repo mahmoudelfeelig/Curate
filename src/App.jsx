@@ -4,6 +4,11 @@ import { webMcpTemporaryVisaForm } from "./api/clientProjections.js";
 import { browserOidcSession } from "./auth/browserOidc.js";
 import { waitForSocialOAuthPopup } from "./auth/socialOauthPopup.js";
 import {
+  applyingInstagramImportSession,
+  expiredInstagramImportSession,
+  scheduleInstagramImportExpiry,
+} from "./features/passport/instagramImportView.js";
+import {
   CREATOR_FIXTURES,
   DESTINATIONS,
   DRIFT_FIXTURE,
@@ -18,11 +23,16 @@ import { AgentSpread, DEFAULT_AGENT_MISSION_FORM } from "./features/agent/AgentS
 import { CreatorSpread, DriftSpread, HistorySpread, TemplatesSpread } from "./features/operations/OperationsSpreads.jsx";
 import { ConstitutionSpread, OverviewSpread, VisaSpread } from "./features/passport/PassportSpreads.jsx";
 import { CompanionSpread, MigrationSpread, TemporarySpread } from "./features/workflows/WorkflowSpreads.jsx";
+import {
+  ACTIVE_GUIDED_HANDOFF_NOTICE,
+  isActiveGuidedHandoff,
+} from "./features/workflows/migrationPreviewView.js";
 import { prepareWebMcpMigrationPreview, registerFeedPassportTools } from "./webmcp";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const DEFAULT_SECTION = "overview";
+const INITIAL_HYDRATION_NOTICE = "Feed Passport is still loading the authoritative owner state. Wait for that check to finish before changing this Passport.";
 const isKnownSection = (section) => NAV_ITEMS.some(([id]) => id === section);
 const sectionFromLocation = () => {
   if (typeof window === "undefined") return DEFAULT_SECTION;
@@ -34,6 +44,13 @@ const pushSectionHistory = (section) => {
   const nextHash = `#${section}`;
   if (window.location.hash !== nextHash) {
     window.history.pushState({ feedPassportSection: section }, "", nextHash);
+  }
+};
+const replaceSectionHistory = (section) => {
+  if (typeof window === "undefined" || !isKnownSection(section)) return;
+  const nextHash = `#${section}`;
+  if (window.location.hash !== nextHash) {
+    window.history.replaceState({ feedPassportSection: section }, "", nextHash);
   }
 };
 
@@ -67,6 +84,7 @@ export function App() {
   const [issued, setIssued] = useState(false);
   const [busyAction, setBusyAction] = useState("");
   const [actionError, setActionError] = useState("");
+  const [initialHydrationPending, setInitialHydrationPending] = useState(true);
   const [apiMode, setApiMode] = useState("checking");
   const [schedulerStatus, setSchedulerStatus] = useState("checking");
   const [platformProfiles, setPlatformProfiles] = useState([]);
@@ -89,6 +107,7 @@ export function App() {
   const [migrationDestination, setMigrationDestination] = useState("youtube");
   const [migrationPreview, setMigrationPreview] = useState(null);
   const [migrationOutcome, setMigrationOutcome] = useState(null);
+  const [guidedHandoff, setGuidedHandoff] = useState(null);
   const [migrationCaptureNotice, setMigrationCaptureNotice] = useState("");
   const [temporaryForm, setTemporaryForm] = useState({ name: "Conference field notes", purpose: "Temporarily focus on human-centered agents, speakers, and independent implementation notes.", duration: "48 hours", durationMinutes: null, mode: "Isolated Lab" });
   const [temporaryVisas, setTemporaryVisas] = useState([]);
@@ -111,6 +130,9 @@ export function App() {
   const [selectedReceipt, setSelectedReceipt] = useState(INITIAL_RECEIPTS[0]);
   const [checkpoints, setCheckpoints] = useState([]);
   const [portabilityNotice, setPortabilityNotice] = useState("");
+  const [instagramImport, setInstagramImport] = useState(null);
+  const [instagramImportSelection, setInstagramImportSelection] = useState([]);
+  const [instagramImportNotice, setInstagramImportNotice] = useState("");
   const [agentMissionForm, setAgentMissionForm] = useState(clone(DEFAULT_AGENT_MISSION_FORM));
   const [agentMission, setAgentMission] = useState(null);
   const [agentMissionApproved, setAgentMissionApproved] = useState(false);
@@ -118,14 +140,17 @@ export function App() {
   const [featureClerkResult, setFeatureClerkResult] = useState(null);
   const [featureDeskPrefills, setFeatureDeskPrefills] = useState({ migration: null, temporary: null, companion: null });
   const [webmcp, setWebmcp] = useState({ supported: false, registered: 0 });
+  const hasActiveGuidedHandoff = isActiveGuidedHandoff(guidedHandoff);
   const appRef = useRef({});
   const busyRef = useRef(false);
   const identityRevisionRef = useRef(0);
+  const instagramImportRef = useRef(instagramImport);
   const oauthCallbackHandledRef = useRef(false);
+  instagramImportRef.current = instagramImport;
   const [authState, setAuthState] = useState(() => browserOidcSession.snapshot());
   appRef.current = authState.required && !authState.authenticated
-    ? { authenticated: false, passportId: null, constitution: null, connectedIds: [], accountConnections: [], migrationSource: null, activePassportSource: null, migrationDestination: null, agentMission: null }
-    : { authenticated: true, passportId, constitution, connectedIds, accountConnections, migrationSource, activePassportSource, migrationDestination, agentMission };
+    ? { authenticated: false, hydrationPending: initialHydrationPending, passportId: null, constitution: null, connectedIds: [], accountConnections: [], migrationSource: null, activePassportSource: null, migrationDestination: null, agentMission: null, hasActiveGuidedHandoff: false }
+    : { authenticated: true, hydrationPending: initialHydrationPending, passportId, constitution, connectedIds, accountConnections, migrationSource, activePassportSource, migrationDestination, agentMission, hasActiveGuidedHandoff };
 
   useEffect(() => browserOidcSession.subscribe(setAuthState), []);
 
@@ -133,6 +158,10 @@ export function App() {
   const addActivity = useCallback((detail, state = "Recorded", actor = "Passport agent") => { setActivity((current) => [{ id: `ACT-LOCAL-${current.length + 1}`, actor, detail, time: "NOW", state }, ...current]); }, []);
   const syncSource = (source) => setApiMode(source);
   const runBusy = useCallback(async (action, work, errorLead) => {
+    if (appRef.current.hydrationPending) {
+      setActionError(INITIAL_HYDRATION_NOTICE);
+      return null;
+    }
     if (busyRef.current) {
       setActionError("Another Passport operation is still working. Wait for its receipt before starting a second operation.");
       return null;
@@ -152,6 +181,13 @@ export function App() {
       setBusyAction("");
     }
   }, [addActivity]);
+  const rejectWhileGuidedHandoffActive = useCallback((nextSection = null) => {
+    if (!appRef.current.hasActiveGuidedHandoff || nextSection === "migration") return false;
+    setActionError(ACTIVE_GUIDED_HANDOFF_NOTICE);
+    replaceSectionHistory("migration");
+    setActiveSection("migration");
+    return true;
+  }, []);
   const resetPassportScopedUi = useCallback(() => {
     setConsent(false);
     setExpiry("7 days");
@@ -160,6 +196,7 @@ export function App() {
     setSelectedVisa("lab");
     setMigrationPreview(null);
     setMigrationOutcome(null);
+    setGuidedHandoff(null);
     setMigrationCaptureNotice("");
     setTemporaryForm({ name: "Conference field notes", purpose: "Temporarily focus on human-centered agents, speakers, and independent implementation notes.", duration: "48 hours", durationMinutes: null, mode: "Isolated Lab" });
     setTemporaryVisas([]);
@@ -181,6 +218,9 @@ export function App() {
     setAppliedTemplate("");
     setCheckpoints([]);
     setPortabilityNotice("");
+    setInstagramImport(null);
+    setInstagramImportSelection([]);
+    setInstagramImportNotice("");
     setAgentMissionForm(clone(DEFAULT_AGENT_MISSION_FORM));
     setAgentMission(null);
     setAgentMissionApproved(false);
@@ -188,8 +228,40 @@ export function App() {
     setFeatureDeskPrefills({ migration: null, temporary: null, companion: null });
     setConnectionNotice("");
   }, []);
+  const hydrateGuidedMigrationState = useCallback((resumableGuided) => {
+    if (
+      isActiveGuidedHandoff(resumableGuided?.handoff)
+      && resumableGuided?.preview
+    ) {
+      const handoff = resumableGuided.handoff;
+      const unresolved = (handoff.steps || []).filter((step) => !step.resolution).length;
+      const platform = resumableGuided.platform === "feed_passport_lab"
+        ? "lab"
+        : resumableGuided.platform;
+      appRef.current = { ...appRef.current, hasActiveGuidedHandoff: true };
+      replaceSectionHistory("migration");
+      setActiveSection("migration");
+      setMigrationDestination(platform);
+      setMigrationPreview(resumableGuided.preview);
+      setGuidedHandoff(handoff);
+      setMigrationOutcome({
+        kind: "guided",
+        applied: 0,
+        remoteWrites: 0,
+        guided: (handoff.steps || []).length,
+        skipped: 0,
+        failed: 0,
+        message: unresolved > 0
+          ? `Resumed ${handoff.steps.length} exact user-attested handoff steps; ${unresolved} still need your resolution. No API writes or platform verification are claimed.`
+          : `Resumed ${handoff.steps.length} resolved user-attested handoff steps. Finalize the record when ready; no API writes or platform verification are claimed.`,
+      });
+      return;
+    }
+    appRef.current = { ...appRef.current, hasActiveGuidedHandoff: false };
+    setGuidedHandoff(null);
+  }, []);
   const hydratePassportState = useCallback((data) => {
-    const hydratedPassportId = data.activePassportId || data.activePassport?.id || "FP-74128";
+    const hydratedPassportId = data.activePassportId || data.passportId || data.activePassport?.id || "FP-74128";
     setPassportId(hydratedPassportId);
     setCheckpoints((data.checkpoints || []).filter((item) => item.passport_id === hydratedPassportId));
     const activeMonitor = (data.drift_monitors || [])
@@ -237,17 +309,22 @@ export function App() {
       }
       return [...preserved];
     });
-  }, []);
+    hydrateGuidedMigrationState(data.resumableGuidedMigration || null);
+  }, [hydrateGuidedMigrationState]);
 
   useEffect(() => {
     let active = true;
     const load = async () => {
       if (authState.required && !authState.authenticated) {
+        appRef.current = { ...appRef.current, hydrationPending: false };
+        setInitialHydrationPending(false);
         setApiMode("sign_in_required");
         setSchedulerStatus("protected");
         setConnectionConfiguration("sign_in_required");
         return;
       }
+      appRef.current = { ...appRef.current, hydrationPending: true };
+      setInitialHydrationPending(true);
       const hydrationRevision = identityRevisionRef.current;
       const loaded = await feedPassportApi.loadPassport();
       if (!active || hydrationRevision !== identityRevisionRef.current) return;
@@ -255,6 +332,9 @@ export function App() {
       setSchedulerStatus(loaded.data?.scheduler || (loaded.source === "fixture" ? "fixture" : "unknown"));
       if (loaded.data?.passport) setConstitution(loaded.data.passport);
       if (loaded.data?.passportId) setPassportId(loaded.data.passportId);
+      hydrateGuidedMigrationState(loaded.data?.resumableGuidedMigration || null);
+      appRef.current = { ...appRef.current, hydrationPending: false };
+      setInitialHydrationPending(false);
       if (loaded.source !== "service") {
         setModelStatus({
           configured: false,
@@ -277,31 +357,42 @@ export function App() {
         && globalThis.location?.pathname?.replace(/\/$/, "").endsWith("/oauth/callback")
       ) {
         oauthCallbackHandledRef.current = true;
-        const query = new URLSearchParams(globalThis.location.search);
-        const callbackError = query.get("error");
-        const code = query.get("code");
-        const state = query.get("state");
-        const platform = globalThis.sessionStorage?.getItem("feed-passport-oauth-platform") || "";
-        if (callbackError) {
-          setConnectionNotice("Authorization was declined or rejected by the platform. No connection was stored.");
-        } else if (code && state && platform) {
-          try {
-            const connected = await feedPassportApi.completeOAuthConnection({
-              platform,
-              code,
-              state,
-              callbackQuery: globalThis.location.search.replace(/^\?/, ""),
-            });
-            setConnectionNotice(`${connected.data.platform} account authorization completed and bound to this Passport owner.`);
-          } catch (error) {
-            setConnectionNotice(`Account authorization could not be completed: ${error.message}`);
-          }
-        } else {
-          setConnectionNotice("The OAuth callback was incomplete. Start account authorization again.");
-        }
         const basePath = globalThis.location.pathname.replace(/oauth\/callback\/?$/, "");
-        globalThis.history?.replaceState({ feedPassportSection: "visas" }, "", `${basePath}#visas`);
-        setActiveSection("visas");
+        if (appRef.current.hasActiveGuidedHandoff) {
+          globalThis.sessionStorage?.removeItem("feed-passport-oauth-platform");
+          setActionError(`${ACTIVE_GUIDED_HANDOFF_NOTICE} The pending OAuth callback was not exchanged or stored; restart authorization after finalizing the handoff.`);
+          globalThis.history?.replaceState(
+            { feedPassportSection: "migration" },
+            "",
+            `${basePath}#migration`,
+          );
+          setActiveSection("migration");
+        } else {
+          const query = new URLSearchParams(globalThis.location.search);
+          const callbackError = query.get("error");
+          const code = query.get("code");
+          const state = query.get("state");
+          const platform = globalThis.sessionStorage?.getItem("feed-passport-oauth-platform") || "";
+          if (callbackError) {
+            setConnectionNotice("Authorization was declined or rejected by the platform. No connection was stored.");
+          } else if (code && state && platform) {
+            try {
+              const connected = await feedPassportApi.completeOAuthConnection({
+                platform,
+                code,
+                state,
+                callbackQuery: globalThis.location.search.replace(/^\?/, ""),
+              });
+              setConnectionNotice(`${connected.data.platform} account authorization completed and bound to this Passport owner.`);
+            } catch (error) {
+              setConnectionNotice(`Account authorization could not be completed: ${error.message}`);
+            }
+          } else {
+            setConnectionNotice("The OAuth callback was incomplete. Start account authorization again.");
+          }
+          globalThis.history?.replaceState({ feedPassportSection: "visas" }, "", `${basePath}#visas`);
+          setActiveSection("visas");
+        }
       }
       try {
         const connectionState = await feedPassportApi.loadConnections();
@@ -346,14 +437,16 @@ export function App() {
       }
     });
     return () => { active = false; };
-  }, [addActivity, authState.authenticated, authState.required, hydratePassportState]);
+  }, [addActivity, authState.authenticated, authState.required, hydrateGuidedMigrationState, hydratePassportState]);
   useEffect(() => {
     const registration = registerFeedPassportTools({
-      inspect: async () => appRef.current.authenticated
+      inspect: async () => appRef.current.authenticated && !appRef.current.hydrationPending
         ? ({ passport: appRef.current.constitution, selectedDestinations: appRef.current.connectedIds, authorizedAccounts: (appRef.current.accountConnections || []).filter((item) => item.status === "active").map((item) => ({ platform: item.platform, status: item.status })), trustBoundary: { credentialsInModelContext: false, publicEngagementAutomation: false, rawHistoryTransfer: false } })
-        : ({ authenticated: false, signInRequired: true, passport: null, selectedDestinations: [], authorizedAccounts: [], trustBoundary: { credentialsInModelContext: false, publicEngagementAutomation: false, rawHistoryTransfer: false } }),
+        : ({ authenticated: appRef.current.authenticated, signInRequired: !appRef.current.authenticated, hydrationPending: Boolean(appRef.current.hydrationPending), passport: null, selectedDestinations: [], authorizedAccounts: [], trustBoundary: { credentialsInModelContext: false, publicEngagementAutomation: false, rawHistoryTransfer: false } }),
       previewMigration: async (input) => {
         if (!appRef.current.authenticated) return { opened: null, approvalRequired: true, consentGranted: false, executionPerformed: false, mutationPerformed: false, reason: "Owner sign-in is required." };
+        if (appRef.current.hydrationPending) return { opened: null, approvalRequired: true, consentGranted: false, executionPerformed: false, mutationPerformed: false, reason: INITIAL_HYDRATION_NOTICE };
+        if (rejectWhileGuidedHandoffActive()) return { opened: "migration", approvalRequired: true, consentGranted: false, executionPerformed: false, mutationPerformed: false, reason: ACTIVE_GUIDED_HANDOFF_NOTICE };
         if (busyRef.current) return { opened: null, approvalRequired: true, consentGranted: false, executionPerformed: false, mutationPerformed: false, reason: "Another Passport operation is working." };
         busyRef.current = true;
         setBusyAction("migration-preview");
@@ -385,6 +478,8 @@ export function App() {
         }
       },
       prepareTemporaryVisa: async ({ purpose = "Temporary focused feed", duration = "48 hours" }) => {
+        if (appRef.current.hydrationPending) return { opened: null, approvalRequired: true, reason: INITIAL_HYDRATION_NOTICE };
+        if (rejectWhileGuidedHandoffActive("temporary")) return { opened: "migration", approvalRequired: true, reason: ACTIVE_GUIDED_HANDOFF_NOTICE };
         if (busyRef.current) return { opened: null, approvalRequired: true, reason: "Another Passport operation is working." };
         setTemporaryForm((current) => webMcpTemporaryVisaForm(current, { purpose, duration }));
         pushSectionHistory("temporary");
@@ -392,12 +487,16 @@ export function App() {
         return { opened: "temporary", approvalRequired: true };
       },
       openRollback: async () => {
+        if (appRef.current.hydrationPending) return { opened: null, rollbackPerformed: false, reason: INITIAL_HYDRATION_NOTICE };
+        if (rejectWhileGuidedHandoffActive("history")) return { opened: "migration", rollbackPerformed: false, reason: ACTIVE_GUIDED_HANDOFF_NOTICE };
         if (busyRef.current) return { opened: null, rollbackPerformed: false, reason: "Another Passport operation is working." };
         pushSectionHistory("history");
         setActiveSection("history");
         return { opened: "history", rollbackPerformed: false };
       },
       previewAgentMission: async ({ goal, platform, maxTotalActions = 6, maxIterations = 3 }) => {
+        if (appRef.current.hydrationPending) return { opened: null, approvalGranted: false, reason: INITIAL_HYDRATION_NOTICE };
+        if (rejectWhileGuidedHandoffActive("agent")) return { opened: "migration", approvalGranted: false, reason: ACTIVE_GUIDED_HANDOFF_NOTICE };
         if (busyRef.current) return { opened: null, approvalGranted: false, reason: "Another Passport operation is working." };
         busyRef.current = true;
         setBusyAction("mission-preview");
@@ -430,18 +529,26 @@ export function App() {
     });
     setWebmcp({ supported: registration.supported, registered: registration.registered });
     return registration.cleanup;
-  }, []);
+  }, [rejectWhileGuidedHandoffActive]);
   useEffect(() => {
-    const handlePopState = () => setActiveSection(sectionFromLocation());
+    const handlePopState = () => {
+      const nextSection = sectionFromLocation();
+      if (rejectWhileGuidedHandoffActive(nextSection)) return;
+      setActiveSection(nextSection);
+    };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [rejectWhileGuidedHandoffActive]);
   useEffect(() => {
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
   }, [activeSection]);
 
   const rejectWhileBusy = () => {
+    if (appRef.current.hydrationPending) {
+      setActionError(INITIAL_HYDRATION_NOTICE);
+      return true;
+    }
     if (!busyRef.current) return false;
     setActionError("Another Passport operation is still working. Wait for its receipt before changing this Passport.");
     return true;
@@ -459,10 +566,14 @@ export function App() {
     }
   };
   const handleSignOut = () => {
-    if (rejectWhileBusy()) return;
+    if (busyRef.current) {
+      setActionError("Another Passport operation is still working. Wait for its receipt before signing out.");
+      return;
+    }
     browserOidcSession.signOut();
   };
   const handleAuthorizeConnection = (platform, handle = "") => {
+    if (rejectWhileBusy() || rejectWhileGuidedHandoffActive("visas")) return null;
     const popup = globalThis.open?.(
       "about:blank",
       "_blank",
@@ -504,11 +615,14 @@ export function App() {
       }
     }, "Account authorization could not be completed");
   };
-  const handleRevokeConnection = (connection) => runBusy("oauth-revoke", async () => {
-    const revoked = await feedPassportApi.revokeOAuthConnection(connection);
-    setAccountConnections((current) => current.map((item) => item.id === revoked.data.id ? revoked.data : item));
-    setConnectionNotice(`${revoked.data.platform} authorization was revoked and its local credential was destroyed.`);
-  }, "Account authorization could not be revoked");
+  const handleRevokeConnection = (connection) => {
+    if (rejectWhileGuidedHandoffActive("visas")) return null;
+    return runBusy("oauth-revoke", async () => {
+      const revoked = await feedPassportApi.revokeOAuthConnection(connection);
+      setAccountConnections((current) => current.map((item) => item.id === revoked.data.id ? revoked.data : item));
+      setConnectionNotice(`${revoked.data.platform} authorization was revoked and its local credential was destroyed.`);
+    }, "Account authorization could not be revoked");
+  };
   const handleIssue = () => runBusy("issue", async () => {
     const result = await feedPassportApi.issuePassport({ destinations: connectedIds, expiry });
     syncSource(result.source);
@@ -516,115 +630,154 @@ export function App() {
     addReceipt(result.data.receipt);
     addActivity(`Sealed an itinerary for ${connectedIds.length} selected destinations with a ${expiry.toLowerCase()} review window.`, "Approved", "You");
   }, "Passport itinerary could not be sealed");
-  const handleSaveConstitution = () => runBusy("constitution", async () => {
-    const creatorCeiling = Math.max(1, Math.min(100, Number(constitution.creatorCeiling || 1)));
-    const next = { ...constitution, creatorCeiling, sourceDiversity: 100 - creatorCeiling, version: constitution.version + 1 };
-    const result = await feedPassportApi.saveConstitution(next);
-    syncSource(result.source);
-    const saved = result.data.constitution || next;
-    setConstitution(saved);
-    setMigrationPreview(null);
-    setMigrationOutcome(null);
-    const receipt = result.source === "fixture"
-      ? { ...result.data.receipt, _previousConstitution: clone(constitution) }
-      : result.data.receipt;
-    addReceipt(receipt);
-    addActivity(`Stamped constitution version ${saved.version}.`, "Approved", "You");
-    setSavedNotice(`Version ${saved.version} stamped with receipt ${receipt.id}.`);
-  }, "Constitution version could not be stamped");
+  const handleSaveConstitution = () => {
+    if (rejectWhileGuidedHandoffActive()) return null;
+    return runBusy("constitution", async () => {
+      const creatorCeiling = Math.max(1, Math.min(100, Number(constitution.creatorCeiling || 1)));
+      const next = { ...constitution, creatorCeiling, sourceDiversity: 100 - creatorCeiling, version: constitution.version + 1 };
+      const result = await feedPassportApi.saveConstitution(next);
+      syncSource(result.source);
+      const saved = result.data.constitution || next;
+      setConstitution(saved);
+      setMigrationPreview(null);
+      setMigrationOutcome(null);
+      setGuidedHandoff(null);
+      const receipt = result.source === "fixture"
+        ? { ...result.data.receipt, _previousConstitution: clone(constitution) }
+        : result.data.receipt;
+      addReceipt(receipt);
+      addActivity(`Stamped constitution version ${saved.version}.`, "Approved", "You");
+      setSavedNotice(`Version ${saved.version} stamped with receipt ${receipt.id}.`);
+    }, "Constitution version could not be stamped");
+  };
   const handleMigrationSourceChange = (nextSource) => {
-    if (rejectWhileBusy()) return;
+    if (rejectWhileBusy() || rejectWhileGuidedHandoffActive()) return;
     setMigrationSource(nextSource);
     setMigrationDestination((current) => current === nextSource ? (nextSource === "lab" ? "youtube" : "lab") : current);
     setMigrationPreview(null);
     setMigrationOutcome(null);
+    setGuidedHandoff(null);
     setMigrationCaptureNotice("");
   };
   const handleMigrationDestinationChange = (nextDestination) => {
-    if (rejectWhileBusy()) return;
+    if (rejectWhileBusy() || rejectWhileGuidedHandoffActive()) return;
     setMigrationDestination(nextDestination);
     setMigrationPreview(null);
     setMigrationOutcome(null);
+    setGuidedHandoff(null);
   };
-  const handleMigrationCapture = () => runBusy("migration-capture", async () => {
-    const source = DESTINATIONS.find((item) => item.id === migrationSource);
-    const result = await feedPassportApi.capturePassport({
-      source: migrationSource,
-      name: `${source?.name || migrationSource} source Passport`,
-      intent: constitution.intent,
-    });
-    syncSource(result.source);
-    const capturedConstitution = result.data.constitution || constitution;
-    const capturedId = result.data.passportId || result.data.passport?.id || result.data.passport_id || "new local identity";
-    const captureReceipt = result.data.receipt || {
-      id: `CAPTURE-${capturedId}`,
-      type: migrationSource === "lab" ? "Lab Passport captured" : "Declared source observation captured",
-      detail: migrationSource === "lab"
-        ? `Captured the certified Feed Passport Lab observation as ${capturedId}.`
-        : `Captured the declared or fixture ${source?.name || migrationSource} observation as ${capturedId}; no external account read was claimed.`,
-      time: "NOW",
-      status: "Succeeded",
-      reversible: false,
-      checkpoint: `v${capturedConstitution.version}`,
-    };
-    identityRevisionRef.current += 1;
-    resetPassportScopedUi();
-    setConstitution(capturedConstitution);
-    setPassportId(capturedId);
-    setActivePassportSource(migrationSource);
-    setConnectedIds(["lab"]);
-    setMigrationSource(migrationSource);
-    setMigrationDestination((current) => current === migrationSource ? (migrationSource === "lab" ? "youtube" : "lab") : current);
-    setReceipts([captureReceipt]);
-    setSelectedReceipt(captureReceipt);
-    setMigrationCaptureNotice(`Passport ${capturedId} captured with receipt ${captureReceipt.id}.`);
-    setActivity([{
-      id: `ACT-CAPTURE-${capturedId}`,
-      actor: "Passport agent",
-      detail: migrationSource === "lab"
-        ? `Captured certified Lab source evidence as Passport ${capturedId}.`
-        : `Captured declared or fixture ${source?.name || migrationSource} source evidence as Passport ${capturedId}; no external account access was claimed.`,
-      time: "NOW",
-      state: "Verified",
-    }]);
-  }, "Source Passport could not be captured");
-  const handleMigrationPreview = () => runBusy("migration-preview", async () => {
-    const result = await feedPassportApi.previewMigration({ source: migrationSource, destination: migrationDestination });
-    syncSource(result.source);
-    setMigrationPreview(result.data);
-    setMigrationOutcome(null);
-    addActivity(`Compiled a non-mutating ${migrationSource} to ${migrationDestination} translation preview.`, "Plan only");
-  }, "Migration preview could not be compiled");
-  const handleMigrationApply = () => runBusy("migration-apply", async () => {
-    const source = DESTINATIONS.find((item) => item.id === migrationSource);
-    const destination = DESTINATIONS.find((item) => item.id === migrationDestination);
-    const result = await feedPassportApi.applyMigration({ previewId: migrationPreview?.previewId, sourceName: source?.name, destinationName: destination?.name });
-    syncSource(result.source);
-    const applied = Number(result.data.applied || 0);
-    const guided = Number(result.data.guided || 0);
-    const skipped = Number(result.data.skipped || 0);
-    const isLabDestination = migrationDestination === "lab";
-    const simulated = Number(result.data.simulated || 0);
-    const kind = simulated > 0 ? "simulated" : applied > 0 && isLabDestination ? "applied" : guided > 0 ? "guided" : "aligned";
-    const message = kind === "applied"
-      ? `${applied} certified Lab actions applied; ${guided} guided and ${skipped} unsupported actions stayed visible.`
-      : kind === "aligned"
-        ? isLabDestination
-          ? "The certified Lab was already aligned; no controls were changed."
-          : `${destination?.name} required no destination changes; no external account action was claimed.`
-        : kind === "guided"
-          ? `${guided} guided steps prepared; no external account action was claimed.`
-          : `${simulated} planned actions were simulated in the deterministic fixture; no destination account was changed.`;
-    const receipt = kind === "guided" ? {
-      ...result.data.receipt,
-      type: "Guided migration handoff prepared",
-      detail: `${source?.name} to ${destination?.name}; a declared handoff was prepared and no external account mutation was claimed.`,
-      reversible: false,
-    } : result.data.receipt;
-    setMigrationOutcome({ kind, applied, guided, skipped, message });
-    addReceipt(receipt);
-    addActivity(message, kind === "applied" ? "Approved" : "Boundary kept", "You");
-  }, "Migration approval could not be completed");
+  const handleMigrationCapture = () => {
+    if (rejectWhileGuidedHandoffActive()) return null;
+    return runBusy("migration-capture", async () => {
+      const source = DESTINATIONS.find((item) => item.id === migrationSource);
+      const result = await feedPassportApi.capturePassport({
+        source: migrationSource,
+        name: `${source?.name || migrationSource} source Passport`,
+        intent: constitution.intent,
+      });
+      syncSource(result.source);
+      const capturedConstitution = result.data.constitution || constitution;
+      const capturedId = result.data.passportId || result.data.passport?.id || result.data.passport_id || "new local identity";
+      const captureReceipt = result.data.receipt || {
+        id: `CAPTURE-${capturedId}`,
+        type: migrationSource === "lab" ? "Lab Passport captured" : "Declared source observation captured",
+        detail: migrationSource === "lab"
+          ? `Captured the certified Feed Passport Lab observation as ${capturedId}.`
+          : `Captured the declared or fixture ${source?.name || migrationSource} observation as ${capturedId}; no external account read was claimed.`,
+        time: "NOW",
+        status: "Succeeded",
+        reversible: false,
+        checkpoint: `v${capturedConstitution.version}`,
+      };
+      identityRevisionRef.current += 1;
+      resetPassportScopedUi();
+      setConstitution(capturedConstitution);
+      setPassportId(capturedId);
+      setActivePassportSource(migrationSource);
+      setConnectedIds(["lab"]);
+      setMigrationSource(migrationSource);
+      setMigrationDestination((current) => current === migrationSource ? (migrationSource === "lab" ? "youtube" : "lab") : current);
+      setReceipts([captureReceipt]);
+      setSelectedReceipt(captureReceipt);
+      setMigrationCaptureNotice(`Passport ${capturedId} captured with receipt ${captureReceipt.id}.`);
+      setActivity([{
+        id: `ACT-CAPTURE-${capturedId}`,
+        actor: "Passport agent",
+        detail: migrationSource === "lab"
+          ? `Captured certified Lab source evidence as Passport ${capturedId}.`
+          : `Captured declared or fixture ${source?.name || migrationSource} source evidence as Passport ${capturedId}; no external account access was claimed.`,
+        time: "NOW",
+        state: "Verified",
+      }]);
+    }, "Source Passport could not be captured");
+  };
+  const handleMigrationPreview = () => {
+    if (rejectWhileGuidedHandoffActive()) return null;
+    return runBusy("migration-preview", async () => {
+      const result = await feedPassportApi.previewMigration({ source: migrationSource, destination: migrationDestination });
+      syncSource(result.source);
+      setMigrationPreview(result.data);
+      setMigrationOutcome(null);
+      setGuidedHandoff(null);
+      addActivity(`Compiled a non-mutating ${migrationSource} to ${migrationDestination} translation preview.`, "Plan only");
+    }, "Migration preview could not be compiled");
+  };
+  const handleMigrationApply = () => {
+    if (rejectWhileGuidedHandoffActive()) return null;
+    return runBusy("migration-apply", async () => {
+      const source = DESTINATIONS.find((item) => item.id === migrationSource);
+      const destination = DESTINATIONS.find((item) => item.id === migrationDestination);
+      const result = await feedPassportApi.applyMigration({ previewId: migrationPreview?.previewId, sourceName: source?.name, destinationName: destination?.name });
+      syncSource(result.source);
+      const applied = Number(result.data.applied || 0);
+      const remoteWrites = Number(result.data.remoteWrites || 0);
+      const guided = Number(result.data.guided || 0);
+      const skipped = Number(result.data.skipped || 0);
+      const failed = Number(result.data.failed || 0);
+      const needsAttention = result.data.needsAttention === true;
+      const isLabDestination = migrationDestination === "lab";
+      const simulated = Number(result.data.simulated || 0);
+      const kind = simulated > 0 ? "simulated" : needsAttention ? "needs-attention" : remoteWrites > 0 ? "live-applied" : applied > 0 ? "applied" : guided > 0 ? "guided" : "aligned";
+      const message = kind === "needs-attention"
+        ? `The migration stopped as ${String(result.data.migrationStatus || "unknown").replaceAll("_", " ")}: ${remoteWrites} confirmed external writes, ${Math.max(0, applied - remoteWrites)} local executions, ${skipped} skipped, and ${failed} failed. Reconcile before retrying.`
+        : kind === "live-applied"
+          ? `${remoteWrites} authorized ${destination?.name || migrationDestination} account controls were written; ${skipped} actions were skipped.`
+          : kind === "applied"
+            ? `${applied} certified local adapter actions applied; ${guided} guided and ${skipped} unsupported actions stayed visible.`
+            : kind === "aligned"
+              ? isLabDestination
+                ? "The certified Lab was already aligned; no controls were changed."
+                : `${destination?.name} required no destination changes; no external account action was claimed.`
+              : kind === "guided"
+                ? `${guided} guided steps prepared; no external account action was claimed.`
+                : `${simulated} planned actions were simulated in the deterministic fixture; no destination account was changed.`;
+      const receipt = result.data.receipt;
+      setGuidedHandoff(result.data.guided_handoff || null);
+      setMigrationOutcome({ kind, applied, remoteWrites, guided, skipped, failed, message });
+      if (receipt) addReceipt(receipt);
+      addActivity(message, kind === "needs-attention" ? "Needs attention" : kind === "applied" || kind === "live-applied" ? "Approved" : "Boundary kept", "You");
+    }, "Migration approval could not be completed");
+  };
+  const handleResolveGuidedStep = (stepId, resolution) => {
+    if (!guidedHandoff?.id || rejectWhileBusy()) return;
+    return runBusy("guided-handoff-resolve", async () => {
+      const result = await feedPassportApi.resolveGuidedHandoffStep(guidedHandoff.id, stepId, resolution);
+      syncSource(result.source);
+      setGuidedHandoff(result.data);
+      addActivity(`Recorded ${String(resolution).replaceAll("_", " ")} for guided step ${stepId}; this remains a user attestation.`, "Boundary kept", "You");
+    }, "Guided step could not be recorded");
+  };
+  const handleFinalizeGuidedHandoff = () => {
+    if (!guidedHandoff?.id || rejectWhileBusy()) return;
+    return runBusy("guided-handoff-finalize", async () => {
+      const result = await feedPassportApi.finalizeGuidedHandoff(guidedHandoff.id);
+      syncSource(result.source);
+      setGuidedHandoff(result.data.handoff);
+      if (result.data.receipt) addReceipt(result.data.receipt);
+      const summary = result.data.handoff.receipt?.summary;
+      addActivity(`${summary?.completed_by_user || 0} guided controls were user-confirmed; 0 API writes and 0 recommendation outcomes were verified.`, "Boundary kept", "You");
+    }, "Guided handoff could not be finalized");
+  };
   const handleTemporaryIssue = () => runBusy("temporary", async () => {
     const expiryMap = { "6 hours": "29 AUG · 16:30", "48 hours": "31 AUG · 10:30", "7 days": "05 SEP · 10:30" };
     const result = await feedPassportApi.issueTemporaryVisa({ ...temporaryForm, expiresAt: expiryMap[temporaryForm.duration] });
@@ -766,19 +919,21 @@ export function App() {
     addActivity(`Preserved the reviewed public identity match for ${creator.name}.`, "Approved", "You");
   }, `Creator continuity for ${creator.name} could not be preserved`);
   const handleTemplateApply = (template) => {
-    if (rejectWhileBusy()) return;
+    if (rejectWhileBusy() || rejectWhileGuidedHandoffActive("constitution")) return;
     setConstitution((current) => ({ ...current, intent: template.intent, serendipity: template.serendipity, outrageCeiling: template.outrageCeiling, expiresIn: template.duration, topics: current.topics.map((topic, index) => ({ ...topic, percent: template.topics[index] })) }));
     setAppliedTemplate(template.id);
     setSavedNotice(`${template.name} loaded as an unstamped draft.`);
     addActivity(`Loaded ${template.name} into an editable constitution draft.`, "Draft only");
     window.setTimeout(() => {
-      if (!busyRef.current) {
+      if (!busyRef.current && !rejectWhileGuidedHandoffActive("constitution")) {
         pushSectionHistory("constitution");
         setActiveSection("constitution");
       }
     }, 280);
   };
-  const handleRollback = (receipt) => runBusy("rollback", async () => {
+  const handleRollback = (receipt) => {
+    if (rejectWhileGuidedHandoffActive()) return null;
+    return runBusy("rollback", async () => {
     const result = await feedPassportApi.rollback(receipt);
     syncSource(result.source);
     const rollbackReceipt = result.data.receipt;
@@ -838,7 +993,8 @@ export function App() {
       return;
     }
     addActivity(`Approved rollback of ${receipt.id}; the active Passport state was reconciled with the resulting rollback receipt.`, "Approved", "You");
-  }, "Rollback could not be completed");
+    }, "Rollback could not be completed");
+  };
   const handleCheckpoint = () => runBusy("checkpoint", async () => {
     const result = await feedPassportApi.createCheckpoint(`Manual checkpoint · Passport v${constitution.version}`);
     syncSource(result.source);
@@ -858,7 +1014,9 @@ export function App() {
     setPortabilityNotice(`Checkpoint ${checkpoint.id} is ready to restore.`);
     addActivity(`Created checkpoint ${checkpoint.id} for Passport version ${checkpoint.passport_version}.`, "Approved", "You");
   }, "Checkpoint could not be created");
-  const handleRestoreCheckpoint = (checkpoint) => runBusy("restore", async () => {
+  const handleRestoreCheckpoint = (checkpoint) => {
+    if (rejectWhileGuidedHandoffActive()) return null;
+    return runBusy("restore", async () => {
     const result = await feedPassportApi.restoreCheckpoint(checkpoint.id);
     syncSource(result.source);
     setConstitution(result.data.constitution);
@@ -874,7 +1032,8 @@ export function App() {
     addReceipt(receipt);
     setPortabilityNotice(`Restored ${checkpoint.id} as version ${result.data.constitution.version}; history was preserved.`);
     addActivity(`Restored checkpoint ${checkpoint.id} as a new version.`, "Approved", "You");
-  }, "Checkpoint could not be restored");
+    }, "Checkpoint could not be restored");
+  };
   const handleExportPassport = () => runBusy("export", async () => {
     const result = await feedPassportApi.exportPassport(constitution);
     syncSource(result.source);
@@ -897,6 +1056,10 @@ export function App() {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
+    if (rejectWhileGuidedHandoffActive()) {
+      input.value = "";
+      return;
+    }
     await runBusy("import", async () => {
       const documentValue = JSON.parse(await file.text());
       const result = await feedPassportApi.importPassport(documentValue);
@@ -926,6 +1089,81 @@ export function App() {
     }, "Passport import was rejected");
     input.value = "";
   };
+  const handleInstagramImportPreview = (file) => runBusy("instagram-import-preview", async () => {
+    setInstagramImportNotice("");
+    const result = await feedPassportApi.previewInstagramImport(file);
+    syncSource(result.source);
+    setInstagramImport(result.data);
+    setInstagramImportSelection([]);
+    addActivity(`Inspected one Instagram Accounts Center export locally and recognized ${result.data.followed_handles?.length || result.data.handles?.length || 0} followed accounts without retaining the raw archive.`, "Plan only", "Portability clerk");
+  }, "Instagram export could not be inspected");
+  const handleInstagramImportApply = (selectedHandles) => {
+    if (!instagramImport?.session_id || !selectedHandles.length || rejectWhileBusy() || rejectWhileGuidedHandoffActive()) return;
+    const sessionId = instagramImport.session_id;
+    const applying = applyingInstagramImportSession(instagramImport, selectedHandles.length);
+    instagramImportRef.current = applying;
+    setInstagramImport(applying);
+    setInstagramImportSelection([]);
+    setInstagramImportNotice("");
+    return runBusy("instagram-import-apply", async () => {
+      const result = await feedPassportApi.applyInstagramImport(sessionId, selectedHandles);
+      syncSource(result.source);
+      setConstitution(result.data.constitution);
+      setInstagramImport({
+        ...result.data.import,
+        session_id: sessionId,
+        status: "consumed",
+        followed_handles: [],
+      });
+      const appliedCount = Number(result.data.applied_count || selectedHandles.length);
+      setInstagramImportNotice(`${appliedCount} explicitly selected Instagram creators were added to Passport version ${result.data.constitution.version}.`);
+      addActivity(`Added ${appliedCount} user-selected Instagram creator preferences; no Instagram account or recommendation feed was changed.`, "Approved", "You");
+    }, "Instagram creator intent could not be added");
+  };
+  const handleInstagramImportDiscard = () => {
+    if (!instagramImport?.session_id) {
+      setInstagramImport(null);
+      setInstagramImportSelection([]);
+      setInstagramImportNotice("");
+      return;
+    }
+    return runBusy("instagram-import-discard", async () => {
+      if (instagramImport.status === "ready") {
+        await feedPassportApi.discardInstagramImport(instagramImport.session_id);
+      }
+      setInstagramImport(null);
+      setInstagramImportSelection([]);
+      setInstagramImportNotice("");
+      addActivity("Discarded the ephemeral Instagram import preview and its unselected handles.", "Boundary kept", "You");
+    }, "Instagram import preview could not be discarded");
+  };
+  const handleInstagramImportExpire = useCallback((sessionId, expiresAt) => {
+    const current = instagramImportRef.current;
+    if (
+      current?.status !== "ready"
+      || current.session_id !== sessionId
+      || current.expires_at !== expiresAt
+    ) return;
+    const expired = expiredInstagramImportSession(current);
+    instagramImportRef.current = expired;
+    setInstagramImport(expired);
+    setInstagramImportSelection([]);
+    setInstagramImportNotice("");
+  }, []);
+  useEffect(() => {
+    if (instagramImport?.status !== "ready") return undefined;
+    const sessionId = instagramImport.session_id;
+    const expiresAt = instagramImport.expires_at;
+    return scheduleInstagramImportExpiry({
+      expiresAt,
+      expire: () => handleInstagramImportExpire(sessionId, expiresAt),
+    });
+  }, [
+    handleInstagramImportExpire,
+    instagramImport?.expires_at,
+    instagramImport?.session_id,
+    instagramImport?.status,
+  ]);
   const handleMissionPreview = (event) => {
     event.preventDefault();
     if (!agentMissionForm.goal.trim() || rejectWhileBusy()) return;
@@ -1037,7 +1275,7 @@ export function App() {
   };
 
   const handleFeatureClerkApply = () => {
-    if (!featureClerkResult?.proposal || rejectWhileBusy()) return;
+    if (!featureClerkResult?.proposal || rejectWhileBusy() || rejectWhileGuidedHandoffActive()) return;
     const mapped = mapFeatureProposalToDesk(featureClerkResult.proposal);
     if (mapped.section === "migration") {
       if (!DESTINATIONS.some((item) => item.id === mapped.values.destination)) {
@@ -1098,8 +1336,9 @@ export function App() {
         ? "The deterministic fixture remains available, but it will not fabricate a language-model proposal."
         : modelStatus?.reason || "The configured loopback model is not ready.";
   const sectionTitle = useMemo(() => NAV_ITEMS.find(([id]) => id === activeSection)?.[1] || "Passport", [activeSection]);
+  const workspaceLocked = Boolean(busyAction) || initialHydrationPending;
   const navigate = (section) => {
-    if (rejectWhileBusy()) return;
+    if (rejectWhileBusy() || rejectWhileGuidedHandoffActive(section)) return;
     if (!isKnownSection(section) || section === activeSection) return;
     pushSectionHistory(section);
     setActiveSection(section);
@@ -1107,8 +1346,8 @@ export function App() {
   let content;
   switch (activeSection) {
     case "constitution": content = <ConstitutionSpread constitution={constitution} setConstitution={setConstitution} onSave={handleSaveConstitution} busy={busyAction === "constitution"} savedNotice={savedNotice} />; break;
-    case "visas": content = <VisaSpread connectedIds={connectedIds} onToggle={toggleDestination} selectedVisa={selectedVisa} setSelectedVisa={setSelectedVisa} connections={accountConnections} oauthProviders={oauthProviders} connectionConfiguration={connectionConfiguration} connectionNotice={connectionNotice} onAuthorize={handleAuthorizeConnection} onRevoke={handleRevokeConnection} busyAction={busyAction} platformProfiles={platformProfiles} />; break;
-    case "migration": content = <MigrationSpread source={migrationSource} setSource={handleMigrationSourceChange} destination={migrationDestination} setDestination={handleMigrationDestinationChange} preview={migrationPreview} onCapture={handleMigrationCapture} onPreview={handleMigrationPreview} onApply={handleMigrationApply} busyAction={busyAction} outcome={migrationOutcome} captureNotice={migrationCaptureNotice} constitutionVersion={constitution.version} proposalPrefill={featureDeskPrefills.migration} />; break;
+    case "visas": content = <VisaSpread connectedIds={connectedIds} onToggle={toggleDestination} selectedVisa={selectedVisa} setSelectedVisa={setSelectedVisa} connections={accountConnections} oauthProviders={oauthProviders} connectionConfiguration={connectionConfiguration} connectionNotice={connectionNotice} onAuthorize={handleAuthorizeConnection} onRevoke={handleRevokeConnection} busyAction={busyAction} platformProfiles={platformProfiles} instagramImport={instagramImport} instagramImportSelection={instagramImportSelection} setInstagramImportSelection={setInstagramImportSelection} instagramImportNotice={instagramImportNotice} onInstagramImportPreview={handleInstagramImportPreview} onInstagramImportApply={handleInstagramImportApply} onInstagramImportDiscard={handleInstagramImportDiscard} serviceAvailable={apiMode === "service"} />; break;
+    case "migration": content = <MigrationSpread source={migrationSource} setSource={handleMigrationSourceChange} destination={migrationDestination} setDestination={handleMigrationDestinationChange} preview={migrationPreview} onCapture={handleMigrationCapture} onPreview={handleMigrationPreview} onApply={handleMigrationApply} busyAction={busyAction} outcome={migrationOutcome} captureNotice={migrationCaptureNotice} constitutionVersion={constitution.version} proposalPrefill={featureDeskPrefills.migration} guidedHandoff={guidedHandoff} onResolveGuidedStep={handleResolveGuidedStep} onFinalizeGuidedHandoff={handleFinalizeGuidedHandoff} />; break;
     case "temporary": content = <TemporarySpread form={temporaryForm} setForm={setTemporaryForm} visas={temporaryVisas} onIssue={handleTemporaryIssue} onRevoke={handleTemporaryRevoke} busy={busyAction.startsWith("temporary")} proposalPrefill={featureDeskPrefills.temporary} />; break;
     case "companion": content = <CompanionSpread share={share} setShare={setShare} partnerShare={partnerShare} setPartnerShare={setPartnerShare} partnerCode={partnerCode} setPartnerCode={setPartnerCode} blend={blend} setBlend={setBlend} invitation={companionInvitation} partnerConfirmed={partnerConsentConfirmed} setPartnerConfirmed={setPartnerConsentConfirmed} companion={companion} onCreateInvitation={handleCompanionInvitationCreate} onAcceptInvitation={handleCompanionInvitationAccept} onRevokeInvitation={handleCompanionInvitationRevoke} onRevokeCompanion={handleCompanionRevoke} busy={busyAction.startsWith("companion")} passportId={passportId} proposalPrefill={featureDeskPrefills.companion} />; break;
     case "drift": content = <DriftSpread drift={drift} onCheck={handleDriftCheck} onCorrect={handleDriftCorrection} busy={busyAction.startsWith("drift")} correctionApplied={correctionApplied} correctionSimulated={correctionSimulated} canCorrect={driftDecisionReady} monitor={driftMonitor} monitorConfig={monitorConfig} setMonitorConfig={setMonitorConfig} onCreateMonitor={handleCreateMonitor} onStopMonitor={handleStopMonitor} />; break;
@@ -1130,14 +1369,14 @@ export function App() {
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Opened {sectionTitle} desk.</p>
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{activity[0]?.detail || "Passport ready."}</p>
       <header className="site-masthead">
-        <button type="button" className="brand-lockup" onClick={() => navigate("overview")} aria-label="Open passport overview" disabled={Boolean(busyAction)}><span className="brand-monogram">FP</span><span><b>FEED PASSPORT</b><small>YOUR FEED. YOUR RULES. ANYWHERE.</small></span></button>
+        <button type="button" className="brand-lockup" onClick={() => navigate("overview")} aria-label="Open passport overview" disabled={workspaceLocked}><span className="brand-monogram">FP</span><span><b>FEED PASSPORT</b><small>YOUR FEED. YOUR RULES. ANYWHERE.</small></span></button>
         {authState.required && authState.authenticated ? <div className="credential-tag identity-tag"><span>OWNER SESSION VERIFIED</span><button type="button" onClick={handleSignOut}>SIGN OUT</button></div> : <div className="credential-tag"><span>YOUR INTENT TRAVELS.</span><b>YOUR CREDENTIALS DO NOT.</b></div>}
       </header>
-      <nav className="desk-tabs" aria-label="Feed Passport desks">{NAV_ITEMS.map(([id, label], index) => <button type="button" key={id} data-section={id} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigate(id)} disabled={Boolean(busyAction) || (authState.required && !authState.authenticated)}><span>{String(index + 1).padStart(2, "0")}</span>{label}</button>)}</nav>
+      <nav className="desk-tabs" aria-label="Feed Passport desks">{NAV_ITEMS.map(([id, label], index) => <button type="button" key={id} data-section={id} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigate(id)} disabled={workspaceLocked || (authState.required && !authState.authenticated)}><span>{String(index + 1).padStart(2, "0")}</span>{label}</button>)}</nav>
       <div className="section-placard"><span>NOW OPEN</span><b>{sectionTitle.toUpperCase()}</b><small>{apiMode === "service" ? "LOCAL SERVICE" : apiMode === "checking" ? "CHECKING SERVICE" : apiMode === "sign_in_required" ? "SIGN IN REQUIRED" : "DETERMINISTIC DEMO"}</small></div>
       {actionError ? <aside className="passport-warning" role="alert"><strong>Operation stopped</strong><p>{actionError}</p><button type="button" className="text-link" onClick={() => setActionError("")}>Dismiss</button></aside> : null}
-      <div id="workspace" className="workspace-stage" tabIndex="-1" aria-label={`${sectionTitle} workspace`} inert={Boolean(busyAction)} aria-busy={Boolean(busyAction)}>{content}{activeSection !== "history" ? <button className="rollback-tab" type="button" onClick={() => navigate("history")} disabled={Boolean(busyAction)}><span>ROLLBACK & HISTORY</span><b>{receipts.length}</b></button> : null}</div>
-      <footer className="site-footer"><p>Feed Passport demo · capability claims follow the attached evidence level · no credentials or raw private history enter model context.</p><div><button type="button" onClick={() => navigate("agent")} disabled={Boolean(busyAction) || (authState.required && !authState.authenticated)}>Open agent desk</button><button type="button" onClick={() => navigate("history")} disabled={Boolean(busyAction) || (authState.required && !authState.authenticated)}>Inspect receipts</button>{authState.required && authState.authenticated ? <button type="button" onClick={handleSignOut} disabled={Boolean(busyAction)}>Sign out</button> : null}</div></footer>
+      <div id="workspace" className="workspace-stage" tabIndex="-1" aria-label={`${sectionTitle} workspace`} inert={workspaceLocked} aria-busy={workspaceLocked}>{content}{activeSection !== "history" ? <button className="rollback-tab" type="button" onClick={() => navigate("history")} disabled={workspaceLocked}><span>ROLLBACK & HISTORY</span><b>{receipts.length}</b></button> : null}</div>
+      <footer className="site-footer"><p>Feed Passport demo · capability claims follow the attached evidence level · no credentials or raw private history enter model context.</p><div><button type="button" onClick={() => navigate("agent")} disabled={workspaceLocked || (authState.required && !authState.authenticated)}>Open agent desk</button><button type="button" onClick={() => navigate("history")} disabled={workspaceLocked || (authState.required && !authState.authenticated)}>Inspect receipts</button>{authState.required && authState.authenticated ? <button type="button" onClick={handleSignOut} disabled={Boolean(busyAction)}>Sign out</button> : null}</div></footer>
     </main>
   );
 }

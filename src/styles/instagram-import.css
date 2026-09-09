@@ -1,0 +1,275 @@
+.instagram-import-desk {
+  margin-top: 14px;
+  padding: 14px;
+  border: 2px solid var(--blue-dark);
+  background: rgba(214, 225, 224, 0.28);
+  display: grid;
+  gap: 11px;
+}
+
+.instagram-import-desk > * {
+  min-width: 0;
+}
+
+.instagram-import-desk > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.instagram-import-desk h3,
+.instagram-import-desk p {
+  margin: 0;
+}
+
+.instagram-import-boundary,
+.instagram-import-terminal p,
+.instagram-import-contract-error p,
+.instagram-import-unobserved {
+  color: #4e4b43;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.instagram-file-ticket {
+  min-height: 86px;
+  padding: 13px;
+  border: 2px dashed var(--coral-dark);
+  background: rgba(255, 251, 236, 0.52);
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.instagram-file-ticket span {
+  color: var(--coral-dark);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.instagram-file-ticket small {
+  color: #655e52;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.instagram-file-ticket input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 7px;
+  min-height: 32px;
+}
+
+.instagram-file-ticket:has(input:focus-visible) {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.instagram-file-ticket.disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.instagram-import-proof {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid #857d6d;
+}
+
+.instagram-import-proof div {
+  min-width: 0;
+  padding: 7px 8px;
+  border-right: 1px dotted #857d6d;
+  border-bottom: 1px dotted #857d6d;
+  display: grid;
+  gap: 2px;
+}
+
+.instagram-import-proof dt {
+  color: #716858;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.instagram-import-proof dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.instagram-import-proof code {
+  font: inherit;
+}
+
+.instagram-import-proof.compact {
+  grid-template-columns: minmax(0, 0.55fr) minmax(0, 1.45fr);
+}
+
+.instagram-import-warnings {
+  padding: 8px;
+  border-left: 4px solid var(--coral);
+  background: rgba(225, 205, 167, 0.35);
+  display: grid;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.instagram-import-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.instagram-import-controls label {
+  display: grid;
+  gap: 3px;
+  color: #5d5548;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.instagram-import-controls input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  min-height: 40px;
+  border: 1px solid #786f5f;
+  background: rgba(255, 253, 241, 0.8);
+  font: inherit;
+}
+
+.instagram-import-controls > div,
+.instagram-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.instagram-handle-manifest {
+  min-width: 0;
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid #857d6d;
+  background: rgba(255, 253, 241, 0.55);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  overscroll-behavior: contain;
+}
+
+.instagram-handle-manifest label {
+  min-width: 0;
+  padding: 6px;
+  min-height: 38px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.instagram-handle-manifest input,
+.instagram-import-consent input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.instagram-handle-manifest label:has(input:focus-visible),
+.instagram-import-consent:has(input:focus-visible) {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.instagram-handle-manifest label.selected {
+  background: rgba(181, 199, 169, 0.3);
+  outline: 1px solid var(--green-dark);
+}
+
+.instagram-import-truncation,
+.instagram-import-selection {
+  color: #61594b;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.instagram-import-consent {
+  padding: 9px;
+  border: 1px solid var(--green-dark);
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.instagram-import-consent span {
+  display: grid;
+  gap: 3px;
+}
+
+.instagram-import-consent small {
+  color: #625b4f;
+  line-height: 1.4;
+}
+
+.instagram-import-terminal,
+.instagram-import-contract-error {
+  display: grid;
+  gap: 7px;
+}
+
+.instagram-import-terminal-copy {
+  display: grid;
+  gap: 7px;
+}
+
+.instagram-import-contract-error {
+  padding: 10px;
+  border: 1px solid var(--coral-dark);
+  background: rgba(225, 205, 167, 0.25);
+}
+
+@media (max-width: 760px) {
+  .instagram-import-proof,
+  .instagram-import-proof.compact,
+  .instagram-handle-manifest,
+  .instagram-import-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .instagram-import-desk > header {
+    flex-wrap: wrap;
+  }
+
+  .instagram-file-ticket {
+    padding-inline: 9px;
+  }
+
+  .instagram-import-controls > div,
+  .instagram-import-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .instagram-import-actions .action-button {
+    width: 100%;
+  }
+}

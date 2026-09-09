@@ -15,6 +15,9 @@ import {
   formatDateLabel,
   futureIso,
   futureIsoForPayload,
+  guidedAttestationReceiptForUi,
+  historyReceiptsForUi,
+  instagramImportTransportFilename,
   invitationProjection,
   migrationPreviewForUi,
   normalizeLanguage,
@@ -23,6 +26,7 @@ import {
   overlayProjectionForUi,
   projectCompanionForUi,
   projectDriftForUi,
+  resumableGuidedMigrationForUi,
   serverConstitution,
   serverReceipt,
   shareFromSelectedFields,
@@ -286,13 +290,58 @@ function resetPassportRuntime() {
   runtime.fixtureCheckpoints.clear();
 }
 
+export function summarizeMigrationExecution(executed, { sourceName, destinationName }) {
+  const summary = executed?.execution_summary;
+  if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+    throw new CuratorApiError(502, "Migration execution omitted its authoritative outcome summary", executed);
+  }
+  const applied = Number(summary.executed_action_count || 0);
+  const remoteWrites = Number(summary.remote_write_count || 0);
+  const guided = Number(summary.guided_action_count || 0);
+  const skipped = Number(summary.skipped_action_count || 0) + Number(summary.denied_action_count || 0);
+  const failed = Number(summary.failed_action_count || 0);
+  const executionMode = String(summary.mode || "unknown");
+  const migrationStatus = String(executed.status || "unknown");
+  const needsAttention = failed > 0 || [
+    "reconciliation_required",
+    "failed_recoverable",
+    "rollback_reconciliation_required",
+    "needs_human",
+  ].includes(migrationStatus);
+  const resultType = needsAttention
+    ? "Migration needs attention"
+    : applied > 0
+      ? "Migration applied"
+      : guided > 0
+        ? "Guided handoff prepared"
+        : "Migration completed without destination changes";
+  const resultDetail = needsAttention
+    ? `${sourceName} to ${destinationName}; the run stopped as ${migrationStatus.replaceAll("_", " ")} with ${remoteWrites} confirmed external writes, ${Math.max(0, applied - remoteWrites)} local executions, ${skipped} skipped, and ${failed} failed. Inspect reconciliation state before retrying.`
+    : remoteWrites > 0
+      ? `${sourceName} to ${destinationName}; ${remoteWrites} authorized external account controls were written, ${skipped} actions were skipped, and ${failed} failed.`
+      : applied > 0
+        ? `${sourceName} to ${destinationName}; ${applied} approved local adapter actions executed, ${skipped} actions were skipped, and ${failed} failed.`
+        : `${sourceName} to ${destinationName}; no destination controls were executed. ${guided} guided handoff steps were prepared and ${skipped} actions were skipped.`;
+  return {
+    applied,
+    remoteWrites,
+    guided,
+    skipped,
+    failed,
+    executionMode,
+    migrationStatus,
+    needsAttention,
+    resultType,
+    resultDetail,
+  };
+}
+
 function accountIdForPlatform(platform) {
   const normalized = normalizePlatform(platform);
-  if (normalized === "feed_passport_lab") return destinationAccount(normalized);
-  const active = [...runtime.connections.values()].find(
-    (connection) => connection.platform === normalized && connection.status === "active",
-  );
-  return active?.id || destinationAccount(normalized);
+  // The generic Migration desk never silently selects a connected account.
+  // Authorized external writes belong to the separate exact-account commission
+  // flow, where the account and sealed targets are visible during consent.
+  return destinationAccount(normalized);
 }
 
 function activateServicePassport(passport) {
@@ -368,11 +417,19 @@ function ingestDemo(demo) {
     const invitation = invitationProjection({ slice, payload, ownerPrincipalId: runtime.actorId });
     runtime.companionInvitations.set(slice.id, { invitation, ownerSlice: slice, payload });
   }
+  const resumableGuidedMigration = resumableGuidedMigrationForUi(
+    demo.migrations || [],
+    { ownerId: passport.owner_id, passportId: passport.id },
+  );
   return {
     passport: serverConstitution(passport),
     passportId: passport.id,
     ownerId: passport.owner_id,
-    receipts: (demo.receipts || []).map((item) => serverReceipt(item, demo)),
+    receipts: historyReceiptsForUi(demo, {
+      ownerId: passport.owner_id,
+      passportId: passport.id,
+    }),
+    resumableGuidedMigration,
     health: "ready",
   };
 }
@@ -593,6 +650,24 @@ export const feedPassportApi = {
     }
     await ensureServiceContext();
     try {
+      const health = await requestJson("/health", { method: "GET" });
+      if (health?.connections === "local_keys_required") {
+        let providers = [];
+        try {
+          providers = await requestJson("/api/oauth/providers", { method: "GET" });
+        } catch {
+          // Provider status is optional when local encryption keys are absent.
+        }
+        runtime.connections.clear();
+        return {
+          source: "service",
+          data: { providers, connections: [], configuration: "local_keys_required" },
+        };
+      }
+    } catch {
+      // Older compatible Curator services may not expose connection readiness.
+    }
+    try {
       const [providers, connections] = await Promise.all([
         requestJson("/api/oauth/providers", { method: "GET" }),
         requestJson(`/api/connections?actor_id=${encodeURIComponent(runtime.actorId)}`, { method: "GET" }),
@@ -698,6 +773,7 @@ export const feedPassportApi = {
           activeVisas,
           activeCompanion: activeCompanion ? companionProjectionForUi(activeCompanion) : null,
           pendingCompanionConsent: pendingCompanionConsent ? clone(pendingCompanionConsent) : null,
+          resumableGuidedMigration: ui.resumableGuidedMigration,
         };
       },
       () => {
@@ -725,6 +801,7 @@ export const feedPassportApi = {
         activeVisas,
         activeCompanion: activeCompanion ? clone(activeCompanion) : null,
         pendingCompanionConsent: pendingCompanionConsent ? clone(pendingCompanionConsent) : null,
+        resumableGuidedMigration: null,
         activePassport,
         activePassportId: runtime.fixturePassportId,
         ownerId: runtime.fixtureOwnerId,
@@ -873,6 +950,78 @@ export const feedPassportApi = {
         };
       },
     );
+  },
+
+  async previewInstagramImport(file) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(
+        503,
+        "Instagram export intake requires the local Curator service; private account data is never routed through fixtures.",
+        { fallback_permitted: false },
+      );
+    }
+    if (!(file instanceof Blob)) {
+      throw new CuratorApiError(422, "Choose an Instagram JSON or ZIP export file", null);
+    }
+    if (file.size < 1 || file.size > 64 * 1024 * 1024) {
+      throw new CuratorApiError(413, "Instagram export input must be between 1 byte and 64 MiB", null);
+    }
+    await ensureServiceContext();
+    // Preserve only the parser discriminator. Local filenames can contain a
+    // person's name or export-folder details and must not enter HTTP logs.
+    const filename = instagramImportTransportFilename(file);
+    const preview = await requestJson(
+      `/api/platform-imports/instagram/preview?actor_id=${encodeURIComponent(runtime.actorId)}&passport_id=${encodeURIComponent(runtime.passportId)}&filename=${encodeURIComponent(filename)}`,
+      {
+        method: "POST",
+        body: file,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Feed-Passport-Local-Import": "1",
+        },
+        timeoutMs: 30_000,
+      },
+    );
+    return { source: "service", data: preview };
+  },
+
+  async applyInstagramImport(importId, selectedHandles) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(503, "Instagram export intake requires the local Curator service", { fallback_permitted: false });
+    }
+    await ensureServiceContext();
+    const result = await requestJson(`/api/platform-imports/instagram/${encodeURIComponent(importId)}/apply`, {
+      method: "POST",
+      headers: { "X-Feed-Passport-Local-Import": "1" },
+      body: JSON.stringify({
+        actor_id: runtime.actorId,
+        passport_id: runtime.passportId,
+        expected_passport_version: Number(runtime.passport?.version || 0),
+        selected_handles: [...new Set(selectedHandles)].sort((left, right) => left.localeCompare(right)),
+      }),
+      timeoutMs: 15_000,
+    });
+    const passport = result.passport;
+    if (!passport) throw new CuratorApiError(502, "Curator API omitted the revised Passport", result);
+    activateServicePassport(passport);
+    return { source: "service", data: { ...result, constitution: serverConstitution(passport) } };
+  },
+
+  async discardInstagramImport(importId) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(
+        503,
+        "Instagram import discard requires the local Curator service; the private preview will otherwise remain only until its short expiry.",
+        { fallback_permitted: false },
+      );
+    }
+    await ensureServiceContext();
+    const result = await requestJson(`/api/platform-imports/instagram/${encodeURIComponent(importId)}/discard`, {
+      method: "POST",
+      headers: { "X-Feed-Passport-Local-Import": "1" },
+      body: JSON.stringify({ actor_id: runtime.actorId }),
+    });
+    return { source: "service", data: result };
   },
 
   createCheckpoint(label = "Manual Passport checkpoint") {
@@ -1075,7 +1224,6 @@ export const feedPassportApi = {
       async () => {
         const migration = runtime.migrations.get(payload.previewId);
         if (!migration) throw new CuratorApiError(409, "Migration preview is missing or stale", payload);
-        const actionCount = migration.plan?.actions?.length || 0;
         const executed = await approveAndExecuteMigration(migration);
         if (!executed) {
           return {
@@ -1093,31 +1241,20 @@ export const feedPassportApi = {
             },
           };
         }
-        const guided = (executed.decisions || []).filter((item) => item.requires_handoff).length;
-        const skipped = (executed.decisions || []).filter((item) => !item.allowed).length;
-        const applied = Math.max(0, actionCount - guided - skipped);
-        const resultType = applied > 0
-          ? "Migration applied"
-          : guided > 0
-            ? "Guided handoff prepared"
-            : "Migration completed without destination changes";
-        const resultDetail = applied > 0
-          ? `${payload.sourceName} to ${payload.destinationName}; ${applied} approved Lab actions executed, ${guided} guided handoffs prepared, and ${skipped} actions skipped.`
-          : `${payload.sourceName} to ${payload.destinationName}; no destination controls were executed. ${guided} guided handoff steps were prepared and ${skipped} actions were skipped.`;
+        const outcome = summarizeMigrationExecution(executed, payload);
         return {
-          applied,
-          guided,
-          skipped,
-          receipt: {
+          ...outcome,
+          guided_handoff: executed.guided_handoff || null,
+          receipt: executed.receipt_id ? {
             id: executed.receipt_id,
-            type: resultType,
-            detail: resultDetail,
+            type: outcome.resultType,
+            detail: outcome.resultDetail,
             time: formatDateLabel(executed.completed_at),
-            status: "Succeeded",
-            reversible: applied > 0 && Boolean((migration.plan?.actions || []).some((item) => item.reversible)),
+            status: outcome.needsAttention ? "Needs attention" : "Succeeded",
+            reversible: outcome.applied > 0 && Boolean((migration.plan?.actions || []).some((item) => item.reversible)),
             checkpoint: `v${migration.passport_version}`,
             _platform: migration.platform,
-          },
+          } : null,
         };
       },
       () => {
@@ -1135,6 +1272,43 @@ export const feedPassportApi = {
         };
       },
     );
+  },
+
+  async resolveGuidedHandoffStep(handoffId, stepId, resolution) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(503, "Guided handoff records require the local Curator service", { fallback_permitted: false });
+    }
+    await ensureServiceContext();
+    const handoff = await requestJson(`/api/guided-handoffs/${encodeURIComponent(handoffId)}/steps/${encodeURIComponent(stepId)}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: runtime.actorId, resolution }),
+    });
+    return { source: "service", data: handoff };
+  },
+
+  async finalizeGuidedHandoff(handoffId) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(503, "Guided handoff records require the local Curator service", { fallback_permitted: false });
+    }
+    await ensureServiceContext();
+    const handoff = await requestJson(`/api/guided-handoffs/${encodeURIComponent(handoffId)}/finalize`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: runtime.actorId }),
+    });
+    const migration = [...runtime.migrations.values()].find(
+      (value) => value.guided_handoff_id === handoff.id
+        || value.guided_handoff?.id === handoff.id,
+    );
+    const receipt = handoff.receipt ? guidedAttestationReceiptForUi({
+      ...(migration || {}),
+      id: migration?.id || `guided:${handoff.id}`,
+      owner_id: handoff.owner_id,
+      passport_id: handoff.passport_id,
+      passport_version: handoff.passport_version,
+      platform: handoff.platform,
+      guided_handoff: handoff,
+    }) : null;
+    return { source: "service", data: { handoff, receipt } };
   },
 
   issueTemporaryVisa(payload) {

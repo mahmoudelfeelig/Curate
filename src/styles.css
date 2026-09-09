@@ -1,5 +1,7 @@
 @import "./styles/agent-mission.css";
 @import "./styles/feature-clerk.css";
+@import "./styles/guided-handoff.css";
+@import "./styles/instagram-import.css";
 
 @font-face {
   font-family: "Libre Baskerville";
@@ -1476,6 +1478,100 @@ dd {
 .manifest-actions > div > b {
   font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
   font-size: 18px;
+}
+
+.guided-preview {
+  margin-top: 18px;
+  padding: 13px;
+  border: 2px solid var(--purple);
+  background: rgba(95, 70, 123, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+.guided-preview[data-guided-preview-complete="false"] {
+  border-color: var(--coral-dark);
+  background: rgba(180, 102, 39, 0.1);
+}
+
+.guided-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.guided-preview-head h3 {
+  margin: 3px 0 0;
+  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.guided-preview-boundary,
+.guided-preview-error {
+  margin: 10px 0;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.guided-preview-error {
+  padding: 8px;
+  border: 1px solid var(--coral-dark);
+  background: rgba(255, 255, 255, 0.38);
+  font-weight: 700;
+}
+
+.guided-preview-steps {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px dotted #75668a;
+}
+
+.guided-preview-steps li {
+  padding: 10px 0;
+  border-bottom: 1px dotted #75668a;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 9px;
+}
+
+.guided-preview-number {
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: 9px;
+  color: var(--purple);
+}
+
+.guided-preview-steps li > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.guided-preview-steps b {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.guided-preview-steps code {
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 5px;
+  border: 1px solid rgba(95, 70, 123, 0.35);
+  background: rgba(255, 255, 255, 0.4);
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.guided-preview-steps p {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .translation-loss {
@@ -3015,6 +3111,15 @@ dd {
 
   .approval-block {
     grid-template-columns: 1fr;
+  }
+
+  .guided-preview-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .guided-preview-steps li {
+    grid-template-columns: 22px minmax(0, 1fr);
   }
 
   .blend-ticket {

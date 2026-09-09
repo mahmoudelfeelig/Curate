@@ -18,9 +18,6 @@ INSTAGRAM_PROFILE = PlatformProfile(
             ActionType.UNMUTE_CREATOR,
             ActionType.MUTE_KEYWORD,
             ActionType.UNMUTE_KEYWORD,
-            ActionType.HIDE_TOPIC,
-            ActionType.SHOW_TOPIC,
-            ActionType.SET_TOPIC_PREFERENCE,
         }
     ),
     evidence_urls=(
@@ -35,10 +32,23 @@ INSTAGRAM_PROFILE = PlatformProfile(
     topic_strategy="unavailable",
     handoff_instructions=(
         (ActionType.FOLLOW_CREATOR, "Open the creator profile in Instagram and select Follow."),
+        (
+            ActionType.UNFOLLOW_CREATOR,
+            "Open the creator profile in Instagram, open Following, and select Unfollow.",
+        ),
         (ActionType.MUTE_CREATOR, "Open Following options on the creator profile and select Mute."),
+        (
+            ActionType.UNMUTE_CREATOR,
+            "Open Following options on the creator profile, select Mute, and turn off the exact "
+            "muted surfaces.",
+        ),
         (
             ActionType.MUTE_KEYWORD,
             "Open Hidden Words in Instagram settings and add the exact word or phrase.",
+        ),
+        (
+            ActionType.UNMUTE_KEYWORD,
+            "Open Hidden Words in Instagram settings and remove the exact custom word or phrase.",
         ),
     ),
 )

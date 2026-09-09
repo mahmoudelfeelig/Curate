@@ -548,9 +548,14 @@ class PortablePassportCodec:
 
     @staticmethod
     def _export_evidence(value: PreferenceEvidence) -> dict[str, Any]:
+        kind = (
+            "user_provided"
+            if value.source == "user_supplied_instagram_following_export"
+            else "lab_fixture"
+        )
         return {
             "evidence_ref": value.reference,
-            "kind": "lab_fixture",
+            "kind": kind,
             "collected_at": value.observed_at.isoformat(),
             "confidence": value.confidence,
             "source": value.source,

@@ -1,0 +1,26 @@
+{
+  "relationships_following": [
+    {
+      "title": "Paper.Lab",
+      "media_list_data": [],
+      "string_list_data": [
+        {
+          "href": "https://www.instagram.com/Paper.Lab/",
+          "value": "Paper.Lab",
+          "timestamp": 1724889600
+        }
+      ]
+    },
+    {
+      "title": "city_zine",
+      "media_list_data": [],
+      "string_list_data": [
+        {
+          "href": "https://instagram.com/city_zine",
+          "value": "city_zine",
+          "timestamp": 1724976000
+        }
+      ]
+    }
+  ]
+}

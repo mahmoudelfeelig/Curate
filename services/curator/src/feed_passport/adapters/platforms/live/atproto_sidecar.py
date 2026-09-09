@@ -5,7 +5,7 @@ import ipaddress
 import json
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any, ClassVar
@@ -630,6 +630,7 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
         sidecar_client: AtprotoSidecarClient,
         certification: ValidatedLiveCertification | None = None,
         observations: Mapping[str, AccountObservation] | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not isinstance(sidecar_client, AtprotoSidecarClient):
             raise TypeError("an AT Protocol sidecar client is required")
@@ -651,6 +652,7 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
             http_client=_NoDirectPlatformHttp(),
             certification=certification,
             observations=observations,
+            clock=clock,
         )
         self._sidecar = sidecar_client
 
@@ -879,6 +881,7 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
         lease = self._sidecar.restore(connection, now=now)
         if relationship == "follow":
             if present:
+                self._require_active_certification(self._now())
                 result = self._sidecar.execute(
                     lease,
                     AtprotoSidecarOperation.FOLLOW,
@@ -906,6 +909,7 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
                     code="atproto_follow_reference_invalid",
                     detail="An owned follow record reference is required for removal.",
                 )
+            self._require_active_certification(self._now())
             result = self._sidecar.execute(
                 lease,
                 AtprotoSidecarOperation.DELETE_FOLLOW,
@@ -923,6 +927,7 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
             return uri
         if relationship == "mute":
             operation = AtprotoSidecarOperation.MUTE if present else AtprotoSidecarOperation.UNMUTE
+            self._require_active_certification(self._now())
             result = self._sidecar.execute(
                 lease,
                 operation,
@@ -997,6 +1002,7 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
                 }
             )
         preference["items"] = items
+        self._require_active_certification(self._now())
         result = self._sidecar.execute(
             lease,
             AtprotoSidecarOperation.PUT_PREFERENCES,

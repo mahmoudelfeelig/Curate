@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from feed_passport.adapters.platforms.base import UnsupportedPlatformAction
 from feed_passport.adapters.platforms.live.atproto_sidecar import (
     AtprotoSidecarClient,
     AtprotoSidecarLiveAdapter,
@@ -81,6 +82,33 @@ class QueueHttpClient:
         return response
 
 
+@dataclass
+class MutableClock:
+    value: datetime
+
+    def __call__(self) -> datetime:
+        return self.value
+
+
+class ExpiringRestoreHttpClient(QueueHttpClient):
+    def __init__(
+        self,
+        responses: list[FakeResponse | Exception],
+        *,
+        clock: MutableClock,
+        expires_at: datetime,
+    ) -> None:
+        super().__init__(responses)
+        self.clock = clock
+        self.expires_at = expires_at
+
+    def request(self, method: str, url: str, **kwargs: Any) -> FakeResponse:
+        response = super().request(method, url, **kwargs)
+        if url.endswith("/v1/oauth/atproto/sessions/restore"):
+            self.clock.value = self.expires_at
+        return response
+
+
 def restore_response(character: str = "l", *, subject: str = OWNER_DID) -> FakeResponse:
     return FakeResponse(
         200,
@@ -114,6 +142,8 @@ def certification(actions: frozenset[ActionType]) -> ValidatedLiveCertification:
     return ValidatedLiveCertification(
         platform="bluesky",
         certified_at=NOW,
+        expires_at=NOW + timedelta(days=14),
+        code_revision="a" * 40,
         execute=actions,
         observe=frozenset({"authorized_controls"}),
         verify=frozenset({"authorized_controls"}),
@@ -485,6 +515,44 @@ def test_graph_mutations_map_to_exact_sidecar_operations(
         "operation": operation.value,
         "input": input_data,
     }
+    assert not http.responses
+
+
+def test_sidecar_mutation_rechecks_certification_after_session_restore() -> None:
+    validated = certification(frozenset({ActionType.FOLLOW_CREATOR}))
+    clock = MutableClock(NOW)
+    http = ExpiringRestoreHttpClient(
+        [restore_response("e")],
+        clock=clock,
+        expires_at=validated.expires_at,
+    )
+    bound = FakeConnection()
+    live = AtprotoSidecarLiveAdapter(
+        connections={bound.id: bound},
+        sidecar_client=client(http),
+        certification=validated,
+        clock=clock,
+    )
+
+    with pytest.raises(UnsupportedPlatformAction, match="current validated certification"):
+        live._mutate_to_state(
+            bound,
+            proposed(ActionType.FOLLOW_CREATOR),
+            {
+                "present": True,
+                "target_id": TARGET_DID,
+                "relationship": "follow",
+            },
+            current_state={
+                "present": False,
+                "target_id": TARGET_DID,
+                "relationship": "follow",
+                "remote_ref": None,
+            },
+            now=NOW,
+        )
+
+    assert len(http.calls) == 1
     assert not http.responses
 
 

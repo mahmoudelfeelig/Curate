@@ -89,6 +89,8 @@ class ValidatedLiveCertification:
 
     platform: str
     certified_at: datetime
+    expires_at: datetime
+    code_revision: str
     execute: frozenset[ActionType]
     observe: frozenset[str]
     verify: frozenset[str]
@@ -105,6 +107,14 @@ class ValidatedLiveCertification:
         object.__setattr__(self, "rollback", frozenset(self.rollback))
         if self.certified_at.tzinfo is None or self.certified_at.utcoffset() is None:
             raise ValueError("live certification time must be timezone-aware")
+        if self.expires_at.tzinfo is None or self.expires_at.utcoffset() is None:
+            raise ValueError("live certification expiry must be timezone-aware")
+        if self.expires_at <= self.certified_at:
+            raise ValueError("live certification expiry must follow its certification time")
+        if len(self.code_revision) != 40 or any(
+            character not in "0123456789abcdef" for character in self.code_revision
+        ):
+            raise ValueError("live certification requires an exact lowercase Git revision")
         if self.environment != "authorized_live" or self.result != "passed":
             raise ValueError("live certification must be a passed authorized-live result")
         if not self.platform.strip() or not self.receipt_ref.strip():

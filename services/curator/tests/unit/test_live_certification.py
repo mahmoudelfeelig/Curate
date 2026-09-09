@@ -55,6 +55,8 @@ def test_signed_dummy_account_receipt_promotes_only_covered_subset() -> None:
         "unsubscribe_creator",
     }
     assert certification.evidence_sha256 == signed["evidence_sha256"]
+    assert certification.expires_at == NOW + timedelta(days=14)
+    assert certification.code_revision == REVISION
 
 
 def test_tampered_or_expired_receipt_is_rejected() -> None:
@@ -75,6 +77,53 @@ def test_tampered_or_expired_receipt_is_rejected() -> None:
     )
     with pytest.raises(LiveCertificationError, match="expired"):
         late_verifier.verify(verifier.sign(payload()))
+
+
+def test_expired_signed_receipt_is_accepted_only_for_observation_recovery() -> None:
+    signer = LiveCertificationVerifier(
+        hmac_key=b"h" * 32,
+        expected_revision=REVISION,
+        now=NOW,
+    )
+    signed = signer.sign(payload())
+    late_verifier = LiveCertificationVerifier(
+        hmac_key=b"h" * 32,
+        expected_revision=REVISION,
+        now=NOW + timedelta(days=15),
+    )
+
+    recovered = late_verifier.verify_for_reconciliation(signed)
+
+    assert recovered.expires_at == NOW + timedelta(days=14)
+    with pytest.raises(LiveCertificationError, match="expired"):
+        late_verifier.verify(signed)
+
+    tampered = dict(signed)
+    tampered["execute"] = ["subscribe_creator"]
+    with pytest.raises(LiveCertificationError, match="digest"):
+        late_verifier.verify_for_reconciliation(tampered)
+
+
+def test_future_dated_receipt_cannot_promote_before_its_certification_time() -> None:
+    future_payload = payload()
+    future_payload["certified_at"] = (NOW + timedelta(minutes=5)).isoformat()
+    future_payload["expires_at"] = (NOW + timedelta(days=14)).isoformat()
+    future_signer = LiveCertificationVerifier(
+        hmac_key=b"h" * 32,
+        expected_revision=REVISION,
+        now=NOW + timedelta(minutes=5),
+    )
+    signed = future_signer.sign(future_payload)
+    current_verifier = LiveCertificationVerifier(
+        hmac_key=b"h" * 32,
+        expected_revision=REVISION,
+        now=NOW,
+    )
+
+    with pytest.raises(LiveCertificationError, match="not yet active"):
+        current_verifier.verify(signed)
+    with pytest.raises(LiveCertificationError, match="not yet active"):
+        current_verifier.verify_for_reconciliation(signed)
 
 
 def test_signed_receipt_for_another_revision_cannot_promote_live_capability() -> None:

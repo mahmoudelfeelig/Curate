@@ -25,7 +25,15 @@ from feed_passport.adapters.platforms.live.x import (
     XLiveAdapter,
 )
 from feed_passport.adapters.platforms.live.youtube import YOUTUBE_SCOPE, YouTubeLiveAdapter
-from feed_passport.domain import ActionType, CapabilityLevel
+from feed_passport.adapters.platforms.base import UnsupportedPlatformAction
+from feed_passport.domain import (
+    ActionOutcome,
+    ActionReceipt,
+    ActionStatus,
+    ActionType,
+    CapabilityLevel,
+    ProposedAction,
+)
 from feed_passport.domain.connections import AuthorizedConnection, ConnectionStatus
 from feed_passport.ports.credentials import OAuthCredentialLease
 from feed_passport.ports.live_platform import ValidatedLiveCertification
@@ -55,10 +63,65 @@ class NoNetwork:
         raise AssertionError("network must not be called")
 
 
+@dataclass
+class MutableClock:
+    value: datetime
+
+    def __call__(self) -> datetime:
+        return self.value
+
+
+class MutationProbeYouTube(YouTubeLiveAdapter):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.mutation_calls = 0
+        self.read_present = False
+        self.expire_during_read = False
+        self.expire_during_state_match = False
+
+    def _read_action_state(self, _connection, action, *, now: datetime):
+        state = {
+            "present": self.read_present,
+            "target_id": action.target,
+            "remote_ref": None,
+        }
+        if self.expire_during_read:
+            self.expire_during_read = False
+            self._clock.value = self.validated_live_certification.expires_at
+        return state
+
+    def _state_matches(self, observed, expected):
+        if self.expire_during_state_match:
+            self.expire_during_state_match = False
+            self._clock.value = self.validated_live_certification.expires_at
+        return super()._state_matches(observed, expected)
+
+    def _mutate_to_state(self, *_args, **_kwargs):
+        self.mutation_calls += 1
+        return "probe-write"
+
+
+def proposed_action(
+    bound: FakeConnection,
+    action_type: ActionType,
+) -> ProposedAction:
+    return ProposedAction(
+        id=f"action:{action_type.value}",
+        destination_id=bound.id,
+        action_type=action_type,
+        target="creator.example",
+        reason="Apply an explicitly approved private account control.",
+        idempotency_key=f"idempotency:{action_type.value}",
+        reversible=True,
+    )
+
+
 def certification(platform: str, actions: frozenset[ActionType]) -> ValidatedLiveCertification:
     return ValidatedLiveCertification(
         platform=platform,
         certified_at=NOW,
+        expires_at=NOW + timedelta(days=14),
+        code_revision="a" * 40,
         execute=actions,
         observe=frozenset({"authorized_controls"}),
         verify=frozenset({"authorized_controls"}),
@@ -143,6 +206,8 @@ def test_certification_rejects_public_engagement_and_uncovered_rollback() -> Non
         ValidatedLiveCertification(
             platform="x",
             certified_at=NOW,
+            expires_at=NOW + timedelta(days=14),
+            code_revision="a" * 40,
             execute=frozenset({ActionType.FOLLOW_CREATOR}),
             observe=frozenset(),
             verify=frozenset(),
@@ -278,3 +343,101 @@ def test_reddit_remains_guided_until_api_approval_is_explicitly_verified() -> No
 
     assert adapter.capabilities(bound.id).level is CapabilityLevel.GUIDED
     assert adapter.health(now=NOW).mode == "approval_required"
+    action = proposed_action(bound, ActionType.SUBSCRIBE_CREATOR)
+    outcome = adapter.execute(bound.id, action, now=NOW)
+    assert outcome.status is ActionStatus.GUIDED
+    with pytest.raises(UnsupportedPlatformAction, match="no certified live transport"):
+        adapter.prepare_remote_action(bound.id, action, now=NOW)
+
+
+def test_certification_expiry_fails_closed_between_prepare_and_apply() -> None:
+    bound = connection("youtube", frozenset({YOUTUBE_SCOPE}))
+    clock = MutableClock(NOW)
+    adapter = MutationProbeYouTube(
+        connections={bound.id: bound},
+        credential_provider=UnusedCredentials(),
+        http_client=NoNetwork(),
+        certification=certification(
+            "youtube",
+            frozenset({ActionType.SUBSCRIBE_CREATOR}),
+        ),
+        clock=clock,
+    )
+    action = proposed_action(bound, ActionType.SUBSCRIBE_CREATOR)
+    prepared = adapter.prepare_remote_action(bound.id, action, now=NOW)
+
+    clock.value = adapter.validated_live_certification.expires_at
+    assert adapter.capabilities(bound.id).level is CapabilityLevel.GUIDED
+    assert adapter.health(now=clock.value).mode == "live_certification_expired"
+    with pytest.raises(UnsupportedPlatformAction, match="current validated certification"):
+        adapter.apply_prepared_action(prepared, now=NOW)
+    with pytest.raises(UnsupportedPlatformAction, match="current validated certification"):
+        adapter.prepare_remote_action(bound.id, action, now=NOW)
+    receipt = ActionReceipt(
+        id="receipt:expired-authority",
+        passport_id="passport-one",
+        passport_version=1,
+        destination_id=bound.id,
+        outcomes=(
+            ActionOutcome(
+                action=action,
+                status=ActionStatus.EXECUTED,
+                before_state=prepared.before_state,
+                after_state=prepared.desired_state,
+                executed_at=NOW,
+            ),
+        ),
+        issued_at=NOW,
+        trace_id="trace-expired-authority",
+        previous_checkpoint_id=None,
+    )
+    with pytest.raises(UnsupportedPlatformAction, match="current validated certification"):
+        adapter.rollback(bound.id, receipt, now=NOW)
+    assert adapter.mutation_calls == 0
+
+
+def test_certification_expiry_at_the_provider_write_boundary_fails_closed() -> None:
+    bound = connection("youtube", frozenset({YOUTUBE_SCOPE}))
+    clock = MutableClock(NOW)
+    adapter = MutationProbeYouTube(
+        connections={bound.id: bound},
+        credential_provider=UnusedCredentials(),
+        http_client=NoNetwork(),
+        certification=certification(
+            "youtube",
+            frozenset({ActionType.SUBSCRIBE_CREATOR}),
+        ),
+        clock=clock,
+    )
+    action = proposed_action(bound, ActionType.SUBSCRIBE_CREATOR)
+    prepared = adapter.prepare_remote_action(bound.id, action, now=NOW)
+
+    adapter.expire_during_state_match = True
+    with pytest.raises(UnsupportedPlatformAction, match="current validated certification"):
+        adapter.apply_prepared_action(prepared, now=NOW)
+
+    clock.value = NOW
+    adapter.read_present = True
+    adapter.expire_during_read = True
+    receipt = ActionReceipt(
+        id="receipt:expires-during-rollback-read",
+        passport_id="passport-one",
+        passport_version=1,
+        destination_id=bound.id,
+        outcomes=(
+            ActionOutcome(
+                action=action,
+                status=ActionStatus.EXECUTED,
+                before_state=prepared.before_state,
+                after_state=prepared.desired_state,
+                executed_at=NOW,
+            ),
+        ),
+        issued_at=NOW,
+        trace_id="trace-expires-during-rollback-read",
+        previous_checkpoint_id=None,
+    )
+    with pytest.raises(UnsupportedPlatformAction, match="current validated certification"):
+        adapter.rollback(bound.id, receipt, now=NOW)
+
+    assert adapter.mutation_calls == 0

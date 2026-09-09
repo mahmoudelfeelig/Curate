@@ -43,7 +43,7 @@ class LiveCertificationError(ValueError):
 
 
 class LiveCertificationVerifier:
-    """Verify a dummy-account conformance receipt before capability promotion."""
+    """Verify signed conformance receipts for promotion or read-only recovery."""
 
     def __init__(
         self,
@@ -64,6 +64,29 @@ class LiveCertificationVerifier:
         self._now = now
 
     def verify(self, value: Mapping[str, Any]) -> ValidatedLiveCertification:
+        """Verify a currently active receipt that may promote mutation capability."""
+
+        return self._verify(value, allow_expired_for_reconciliation=False)
+
+    def verify_for_reconciliation(
+        self,
+        value: Mapping[str, Any],
+    ) -> ValidatedLiveCertification:
+        """Verify an active or expired receipt for observation-only recovery.
+
+        This deliberately accepts historical expiry, but retains every other
+        signature, exact-revision, environment, action-subset, and start-time
+        check. Adapters still independently reject mutation after expiry.
+        """
+
+        return self._verify(value, allow_expired_for_reconciliation=True)
+
+    def _verify(
+        self,
+        value: Mapping[str, Any],
+        *,
+        allow_expired_for_reconciliation: bool,
+    ) -> ValidatedLiveCertification:
         if set(value) != _FIELDS:
             missing = sorted(_FIELDS - set(value))
             extra = sorted(set(value) - _FIELDS)
@@ -98,8 +121,14 @@ class LiveCertificationVerifier:
         certified_at = _parse_time(value["certified_at"], "certified_at")
         expires_at = _parse_time(value["expires_at"], "expires_at")
         now = self._now or datetime.now(timezone.utc)
-        if expires_at <= certified_at or expires_at <= now:
-            raise LiveCertificationError("live certification is expired or has an invalid lifetime")
+        if certified_at > now or expires_at <= certified_at:
+            raise LiveCertificationError(
+                "live certification is not yet active, expired, or has an invalid lifetime"
+            )
+        if not allow_expired_for_reconciliation and expires_at <= now:
+            raise LiveCertificationError(
+                "live certification is not yet active, expired, or has an invalid lifetime"
+            )
         execute = _actions(value["execute"], "execute")
         rollback = _actions(value["rollback"], "rollback", allow_empty=True)
         observe = _strings(value["observe"], "observe", allow_empty=True)
@@ -121,6 +150,8 @@ class LiveCertificationVerifier:
         return ValidatedLiveCertification(
             platform=platform,
             certified_at=certified_at,
+            expires_at=expires_at,
+            code_revision=revision,
             execute=execute,
             observe=observe,
             verify=verify,
@@ -147,6 +178,24 @@ class LiveCertificationVerifier:
         return value
 
     def load_directory(self, directory: str | Path) -> dict[str, ValidatedLiveCertification]:
+        """Load only currently active certifications for capability promotion."""
+
+        return self._load_directory(directory, allow_expired_for_reconciliation=False)
+
+    def load_directory_for_reconciliation(
+        self,
+        directory: str | Path,
+    ) -> dict[str, ValidatedLiveCertification]:
+        """Load signed active or historical receipts for restart recovery."""
+
+        return self._load_directory(directory, allow_expired_for_reconciliation=True)
+
+    def _load_directory(
+        self,
+        directory: str | Path,
+        *,
+        allow_expired_for_reconciliation: bool,
+    ) -> dict[str, ValidatedLiveCertification]:
         root = Path(directory).resolve()
         if not root.is_dir():
             raise LiveCertificationError("live certification directory does not exist")
@@ -158,10 +207,14 @@ class LiveCertificationVerifier:
                 raise LiveCertificationError(f"invalid certification file: {path.name}") from exc
             if not isinstance(raw, dict):
                 raise LiveCertificationError(f"certification file must contain an object: {path.name}")
-            certification = self.verify(raw)
+            certification = (
+                self.verify_for_reconciliation(raw)
+                if allow_expired_for_reconciliation
+                else self.verify(raw)
+            )
             if certification.platform in values:
                 raise LiveCertificationError(
-                    f"more than one active certification exists for {certification.platform}"
+                    f"more than one certification exists for {certification.platform}"
                 )
             values[certification.platform] = certification
         return values

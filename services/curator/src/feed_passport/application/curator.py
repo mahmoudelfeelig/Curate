@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,7 @@ from feed_passport.domain import (
     RollbackOutcome,
     ActionStatus,
     ActionType,
+    CapabilityLevel,
     FeedPassport,
     OverlayMode,
     PassportOverlay,
@@ -23,11 +25,20 @@ from feed_passport.domain import (
     PreferenceEvidence,
     ShareablePassportSlice,
     StopReason,
+    TranslationPlan,
     apply_overlay,
     blend_slices,
     evaluate_feed,
 )
+from feed_passport.domain.guided_handoff import (
+    GuidedHandoffError,
+    GuidedHandoffSession,
+    GuidedHandoffState,
+    GuidedStepResolution,
+    guided_handoff_to_record,
+)
 from feed_passport.infrastructure import ConcurrencyConflict, SQLiteStore
+from feed_passport.infrastructure.guided_handoff_store import SQLiteGuidedHandoffRepository
 from feed_passport.infrastructure.portable_passport import (
     PortablePassportCodec,
     PortableProvenanceTrustStore,
@@ -54,6 +65,7 @@ from .model_io import (
     receipt_from_dict,
     slice_from_dict,
 )
+from .guided_handoff import GuidedHandoffNotFound, GuidedHandoffService
 
 
 class NotFoundError(KeyError):
@@ -67,6 +79,7 @@ class InvalidStateError(RuntimeError):
 _REMOTE_RECOVERY_MAX_ATTEMPTS = 5
 _REMOTE_RECOVERY_BASE_DELAY_SECONDS = 5
 _REMOTE_RECOVERY_MAX_DELAY_SECONDS = 300
+_INSTAGRAM_HANDLE = re.compile(r"^[a-z0-9_](?:[a-z0-9._]{0,28}[a-z0-9_])?$")
 
 
 def _remote_recovery_delay(attempt_count: int) -> timedelta:
@@ -163,13 +176,25 @@ class CuratorApplication:
         portable_trusted_secrets: Iterable[str | bytes] = (),
         connections: ExternalConnectionRepository | None = None,
         action_journal: ActionJournal | None = None,
+        allow_test_live_execution: bool = False,
     ) -> None:
+        if not isinstance(allow_test_live_execution, bool):
+            raise TypeError("test live execution policy must be boolean")
         self.store = store
         self.adapters = dict(adapters)
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.id_factory = id_factory or (lambda: uuid4().hex)
         self.connections = connections
         self.action_journal = action_journal or store
+        self._allow_test_live_execution = allow_test_live_execution
+        if allow_test_live_execution and any(
+            self._is_live_adapter(adapter) and platform != "live-test"
+            for platform, adapter in self.adapters.items()
+        ):
+            raise ValueError(
+                "test live execution can exempt only the in-memory live-test transport"
+            )
+        self.guided_handoffs = GuidedHandoffService(SQLiteGuidedHandoffRepository(store))
         self._execution_owner = uuid4().hex
         self._execution_locks_guard = Lock()
         self._execution_locks: dict[str, RLock] = {}
@@ -397,6 +422,111 @@ class CuratorApplication:
             actor_id=actor_id,
         )
         self._refresh_continuous_companions_for_passport(passport_id)
+        return revised
+
+    def apply_instagram_creator_import(
+        self,
+        passport_id: str,
+        *,
+        actor_id: str,
+        expected_passport_version: int,
+        selected_handles: Iterable[str],
+        source_sha256: str,
+        parser_id: str,
+    ) -> FeedPassport:
+        """Merge an explicitly selected export subset without inferring ranking intent."""
+
+        stored = self.store.get_projection("passports", passport_id)
+        if stored is None:
+            raise NotFoundError(f"passports:{passport_id}")
+        projection_version, value = stored
+        current = passport_from_dict(value)
+        if current.owner_id != actor_id:
+            raise PermissionError("only the Passport owner can apply an Instagram import")
+        if current.version != expected_passport_version:
+            raise InvalidStateError(
+                "Passport changed after the import preview; review the selection again"
+            )
+        handles = tuple(selected_handles)
+        if not handles or len(handles) > 500 or len(set(handles)) != len(handles):
+            raise ValueError("Instagram creator selection must contain 1 to 500 unique handles")
+        if any(
+            not isinstance(handle, str)
+            or handle != handle.lower()
+            or ".." in handle
+            or _INSTAGRAM_HANDLE.fullmatch(handle) is None
+            for handle in handles
+        ):
+            raise ValueError("Instagram creator selection contains an invalid normalized handle")
+        if not re.fullmatch(r"[a-f0-9]{64}", source_sha256):
+            raise ValueError("Instagram import source digest must be lowercase SHA-256")
+        if parser_id != "meta.instagram.relationships_following.v1":
+            raise ValueError("unsupported Instagram export parser identifier")
+
+        creator_preferences = dict(current.creator_preferences)
+        creator_preferences.update({handle: 1.0 for handle in handles})
+        if len(creator_preferences) > 500:
+            raise InvalidStateError("Instagram creator selection exceeds Passport capacity")
+        selection_sha256 = sha256(
+            json.dumps(
+                {
+                    "parser_id": parser_id,
+                    "selected_handles": sorted(handles),
+                },
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        evidence = PreferenceEvidence(
+            source="user_supplied_instagram_following_export",
+            reference=f"instagram-selection:{selection_sha256}",
+            # The parser proves only that the user supplied a schema-shaped
+            # document. It does not authenticate the document with Meta.
+            confidence=0.8,
+            observed_at=self._now(),
+        )
+        provenance = current.provenance
+        if not any(
+            item.source == evidence.source and item.reference == evidence.reference
+            for item in provenance
+        ):
+            if len(provenance) >= 100:
+                raise InvalidStateError("Passport provenance capacity is exhausted")
+            provenance = (*provenance, evidence)
+        revised = current.revise(
+            creator_preferences=creator_preferences,
+            provenance=provenance,
+            updated_at=self._now(),
+        )
+        self._portable_passports.export(revised)
+        self._record(
+            kind="passports",
+            aggregate_id=passport_id,
+            aggregate_type="feed_passport",
+            event_type="passport.instagram_creators_imported",
+            projection=passport_to_dict(revised),
+            payload={
+                "from_version": current.version,
+                "to_version": revised.version,
+                "selected_creator_count": len(handles),
+                "new_creator_count": len(creator_preferences) - len(current.creator_preferences),
+                "selection_sha256": selection_sha256,
+                "parser_id": parser_id,
+                "provider_authenticated": False,
+                "unobserved_fields_unchanged": True,
+            },
+            actor_id=actor_id,
+            expected_projection_version=projection_version,
+        )
+        # The Passport event above is the commit point for this one-use import.
+        # Continuous companions are derived projections and lazily self-heal on
+        # their next read; a refresh failure must not turn a committed import
+        # into a retryable-looking session failure.
+        try:
+            self._refresh_continuous_companions_for_passport(passport_id)
+        except Exception:
+            pass
         return revised
 
     def create_checkpoint(self, passport_id: str, *, actor_id: str, label: str) -> dict[str, Any]:
@@ -1102,6 +1232,8 @@ class CuratorApplication:
         approved_by: str,
         max_total_actions: int | None = None,
         allowed_action_types: frozenset[ActionType] | None = None,
+        execution_authority: str = "generic",
+        live_consent_payload: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         with self._execution_locks_guard:
             lock = self._execution_locks.setdefault(migration_id, RLock())
@@ -1111,6 +1243,8 @@ class CuratorApplication:
                 approved_by=approved_by,
                 max_total_actions=max_total_actions,
                 allowed_action_types=allowed_action_types,
+                execution_authority=execution_authority,
+                live_consent_payload=live_consent_payload,
             )
 
     def _execute_migration_locked(
@@ -1120,12 +1254,35 @@ class CuratorApplication:
         approved_by: str,
         max_total_actions: int | None = None,
         allowed_action_types: frozenset[ActionType] | None = None,
+        execution_authority: str = "generic",
+        live_consent_payload: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         stored_migration = self.store.get_projection("migrations", migration_id)
         if stored_migration is None:
             raise NotFoundError(f"migrations:{migration_id}")
         migration_version, migration_value = stored_migration
         migration = dict(migration_value)
+        required_authority = migration.get("execution_authority")
+        if required_authority == "agent_live_commission_only":
+            expected_authority = (
+                f"agent_live_commission:{migration.get('agent_live_commission_id', '')}"
+            )
+            if execution_authority != expected_authority:
+                raise InvalidStateError(
+                    "migration execution is restricted to its exact live commission"
+                )
+            self._require_consumed_live_commission_consent(
+                migration=migration,
+                commission_id=str(migration.get("agent_live_commission_id", "")),
+                actor_id=approved_by,
+                max_total_actions=max_total_actions,
+                allowed_action_types=allowed_action_types,
+                consent_payload=live_consent_payload,
+            )
+        elif execution_authority != "generic":
+            raise InvalidStateError("migration does not accept specialized execution authority")
+        elif live_consent_payload is not None:
+            raise InvalidStateError("generic migration execution cannot carry live commission consent")
         base_passport = self.get_passport(str(migration["passport_id"]))
         if base_passport.owner_id != approved_by:
             raise PermissionError("only the Passport owner can approve a migration")
@@ -1152,6 +1309,10 @@ class CuratorApplication:
         account_id = str(migration["destination_account_id"])
         adapter = self._adapter(platform)
         is_live = self._is_live_adapter(adapter)
+        if self._requires_live_commission_consent(adapter) and execution_authority == "generic":
+            raise InvalidStateError(
+                "live account mutations require an exact live commission approval"
+            )
         if migration_status == "executing":
             claim_owner = migration.get("execution_claim_owner")
             claim_expires_at = migration.get("execution_claim_expires_at")
@@ -1170,9 +1331,18 @@ class CuratorApplication:
                 migration_id=migration_id,
                 connection_id=account_id,
             )
-            if attempts:
+            non_resumable_states = {
+                RemoteActionState.DISPATCHING,
+                RemoteActionState.UNKNOWN,
+                RemoteActionState.RECONCILING,
+                RemoteActionState.ROLLBACK_PENDING,
+                RemoteActionState.ROLLBACK_UNKNOWN,
+                RemoteActionState.ROLLED_BACK,
+                RemoteActionState.NEEDS_HUMAN,
+            }
+            if any(attempt.state in non_resumable_states for attempt in attempts):
                 raise InvalidStateError(
-                    "an executing migration with durable remote action reservations must reconcile first"
+                    "an executing migration with uncertain durable remote actions must reconcile first"
                 )
         actions = tuple(
             action
@@ -1198,10 +1368,104 @@ class CuratorApplication:
             stop_conditions=("target reached", "budget exhausted", "unsupported capability", "human judgment"),
         )
         capability = adapter.capabilities(account_id)
+        trace_id = str(migration.get("trace_id") or self._id("trace"))
+
+        # Decide whether this approval is entirely API-executable or entirely a
+        # native handoff before recording execution or making a remote write.
+        # A mixed plan needs separate previews so a crash cannot leave API
+        # actions completed while manual steps are still unresolved.
+        preflight_prior: list[tuple[ActionType, ActionStatus]] = []
+        preflight_decisions: list[dict[str, Any]] = []
+        preflight_guided: list[Any] = []
+        preflight_direct: list[Any] = []
+        for action in actions[:budget]:
+            decision = self.guard.check(
+                action=action,
+                envelope=envelope,
+                capability=capability,
+                prior_actions=preflight_prior,
+                now=self._now(),
+            )
+            preflight_decisions.append({"action_id": action.id, **to_primitive(decision)})
+            if not decision.allowed:
+                continue
+            if decision.requires_handoff:
+                preflight_guided.append(action)
+                preflight_prior.append((action.action_type, ActionStatus.GUIDED))
+            else:
+                preflight_direct.append(action)
+                preflight_prior.append((action.action_type, ActionStatus.EXECUTED))
+
+        if preflight_guided and preflight_direct:
+            raise InvalidStateError(
+                "mixed executable and guided actions require separate migration previews"
+            )
+        if preflight_guided:
+            guided_scope_key = f"guided-handoff:{approved_by}:{passport.id}"
+            with self._execution_locks_guard:
+                guided_scope_lock = self._execution_locks.setdefault(
+                    guided_scope_key,
+                    RLock(),
+                )
+            with guided_scope_lock:
+                guided_handoff = self._open_guided_handoff(
+                    migration=migration,
+                    actions=tuple(preflight_guided),
+                    actor_id=approved_by,
+                )
+            guided_state = str(guided_handoff["state"])
+            migration.update(
+                {
+                    "status": (
+                        "handoff_resolved"
+                        if guided_state == GuidedHandoffState.USER_RESOLVED.value
+                        else "awaiting_handoff"
+                    ),
+                    "approved_at": now.isoformat(),
+                    "approved_by": approved_by,
+                    "envelope": to_primitive(envelope),
+                    "trace_id": trace_id,
+                    "decisions": preflight_decisions,
+                    "guided_handoff_id": guided_handoff["id"],
+                    "guided_handoff": guided_handoff,
+                    "completion_stop_reason": StopReason.HUMAN_JUDGMENT.value,
+                    "execution_summary": {
+                        "mode": "guided_handoff",
+                        "executed_action_count": 0,
+                        "remote_write_count": 0,
+                        "guided_action_count": len(preflight_guided),
+                        "skipped_action_count": 0,
+                        "failed_action_count": 0,
+                        "denied_action_count": sum(
+                            not item["allowed"] for item in preflight_decisions
+                        ),
+                    },
+                    "execution_claim_owner": None,
+                    "execution_claim_expires_at": None,
+                }
+            )
+            self._record(
+                kind="migrations",
+                aggregate_id=migration_id,
+                aggregate_type="migration",
+                event_type="migration.guided_handoff_started",
+                projection=migration,
+                payload={
+                    "platform": platform,
+                    "guided_handoff_id": guided_handoff["id"],
+                    "guided_action_count": len(preflight_guided),
+                    "api_writes": 0,
+                },
+                actor_id=approved_by,
+                trace_id=trace_id,
+                expected_projection_version=migration_version,
+            )
+            return migration
+
         ledger = ActionLedger()
+        recorded_outcomes: list[ActionOutcome] = []
         prior: list[tuple[ActionType, ActionStatus]] = []
         decisions: list[dict[str, Any]] = []
-        trace_id = str(migration.get("trace_id") or self._id("trace"))
         migration.update(
             {
                 "status": "executing",
@@ -1244,8 +1508,9 @@ class CuratorApplication:
             if not decision.allowed:
                 continue
             if decision.requires_handoff:
-                prior.append((action.action_type, ActionStatus.GUIDED))
-                continue
+                raise InvalidStateError(
+                    "migration capability changed to require a guided handoff after preflight"
+                )
             if is_live:
                 outcome, pause_status = self._execute_live_action(
                     adapter=adapter,
@@ -1259,6 +1524,7 @@ class CuratorApplication:
             if outcome is None:
                 break
             ledger.record(outcome)
+            recorded_outcomes.append(outcome)
             prior.append((action.action_type, outcome.status))
             if outcome.status is ActionStatus.FAILED:
                 final_failure = pause_status is None
@@ -1266,6 +1532,7 @@ class CuratorApplication:
                 break
 
         if pause_status is not None:
+            paused_counts = Counter(outcome.status for outcome in recorded_outcomes)
             migration.update(
                 {
                     "status": pause_status,
@@ -1279,6 +1546,19 @@ class CuratorApplication:
                         )
                     ],
                     "paused_at": self._now().isoformat(),
+                    "execution_summary": {
+                        "mode": "authorized_live" if is_live else "local_adapter",
+                        "executed_action_count": paused_counts[ActionStatus.EXECUTED],
+                        "remote_write_count": (
+                            paused_counts[ActionStatus.EXECUTED] if is_live else 0
+                        ),
+                        "guided_action_count": 0,
+                        "skipped_action_count": paused_counts[ActionStatus.SKIPPED],
+                        "failed_action_count": paused_counts[ActionStatus.FAILED],
+                        "denied_action_count": sum(
+                            not item["allowed"] for item in decisions
+                        ),
+                    },
                 }
             )
             self._record(
@@ -1296,7 +1576,7 @@ class CuratorApplication:
         after_sample = adapter.sample(account_id, now=self._now(), limit=24)
         evaluation = evaluate_feed(passport, after_sample)
         receipt = ledger.issue_receipt(
-            receipt_id=self._id("receipt"),
+            receipt_id=self._migration_receipt_id(migration_id),
             passport_id=passport.id,
             passport_version=passport.version,
             destination_id=account_id,
@@ -1307,6 +1587,18 @@ class CuratorApplication:
                 "A platform may retain recommendation-learning signals after reversible controls are restored.",
             ),
         )
+        outcome_counts = Counter(outcome.status for outcome in receipt.outcomes)
+        execution_summary = {
+            "mode": "authorized_live" if is_live else "local_adapter",
+            "executed_action_count": outcome_counts[ActionStatus.EXECUTED],
+            "remote_write_count": (
+                outcome_counts[ActionStatus.EXECUTED] if is_live else 0
+            ),
+            "guided_action_count": 0,
+            "skipped_action_count": outcome_counts[ActionStatus.SKIPPED],
+            "failed_action_count": outcome_counts[ActionStatus.FAILED],
+            "denied_action_count": sum(not item["allowed"] for item in decisions),
+        }
         migration.update(
             {
                 "status": (
@@ -1322,6 +1614,7 @@ class CuratorApplication:
                 "decisions": decisions,
                 "after": to_primitive(evaluation),
                 "receipt_id": receipt.id,
+                "execution_summary": execution_summary,
                 "journal_attempts": [
                     to_primitive(value)
                     for value in self.action_journal.list_remote_actions(
@@ -1349,24 +1642,163 @@ class CuratorApplication:
             "migration_finalization": dict(migration),
             "adapter_state_finalization": adapter_state_finalization,
         }
-        self._record(
-            kind="receipts",
-            aggregate_id=receipt.id,
-            aggregate_type="action_receipt",
-            event_type="receipt.issued",
-            projection=receipt_projection,
-            payload={
-                "migration_id": migration_id,
-                "platform": platform,
-                "outcome_count": len(receipt.outcomes),
-            },
-            actor_id=approved_by,
-            trace_id=trace_id,
-        )
+        try:
+            self._record(
+                kind="receipts",
+                aggregate_id=receipt.id,
+                aggregate_type="action_receipt",
+                event_type="receipt.issued",
+                projection=receipt_projection,
+                payload={
+                    "migration_id": migration_id,
+                    "platform": platform,
+                    "outcome_count": len(receipt.outcomes),
+                },
+                actor_id=approved_by,
+                trace_id=trace_id,
+                # Receipt identity is deterministic per migration and issuance
+                # is create-only. Two workers recovering after an expired
+                # migration claim therefore cannot both mint audit authority.
+                expected_projection_version=0,
+            )
+        except ConcurrencyConflict as exc:
+            installed = self._migration_receipt(migration, owner_id=approved_by)
+            if installed is None or installed.get("id") != receipt.id:
+                raise InvalidStateError(
+                    "migration receipt finalization was claimed by an incompatible record"
+                ) from exc
+            return self._finalize_migration_receipt(
+                migration,
+                installed,
+                actor_id=approved_by,
+            )
         return self._finalize_migration_receipt(
             migration,
             receipt_projection,
             actor_id=approved_by,
+        )
+
+    def _open_guided_handoff(
+        self,
+        *,
+        migration: Mapping[str, Any],
+        actions: tuple[Any, ...],
+        actor_id: str,
+    ) -> dict[str, Any]:
+        now = self._now()
+        plan = self._guided_translation_plan(migration, actions=actions)
+        session_id = self._guided_handoff_session_id(migration, plan.id)
+        try:
+            session = self.guided_handoffs.get(session_id, actor_id=actor_id)
+        except GuidedHandoffNotFound:
+            active_sessions = [
+                value
+                for value in self.projection_list("guided_handoffs")
+                if value.get("owner_id") == actor_id
+                and value.get("passport_id") == plan.passport_id
+                and value.get("state")
+                in {
+                    GuidedHandoffState.PREVIEWED.value,
+                    GuidedHandoffState.CONSENTED.value,
+                    GuidedHandoffState.AWAITING_HANDOFF.value,
+                    GuidedHandoffState.USER_RESOLVED.value,
+                }
+                and value.get("id") != session_id
+            ]
+            if active_sessions:
+                raise InvalidStateError(
+                    "an active guided handoff already exists for this Passport; "
+                    "resolve or skip every step and finalize its user-attested record "
+                    "before starting another"
+                )
+            session = self.guided_handoffs.preview(
+                session_id=session_id,
+                owner_id=actor_id,
+                platform=str(migration["platform"]),
+                plan=plan,
+                now=now,
+            )
+        else:
+            expected = GuidedHandoffSession.preview(
+                session_id=session_id,
+                owner_id=actor_id,
+                platform=str(migration["platform"]),
+                plan=plan,
+                now=now,
+            )
+            if (
+                session.owner_id != expected.owner_id
+                or session.platform != expected.platform
+                or session.plan_id != expected.plan_id
+                or session.passport_id != expected.passport_id
+                or session.passport_version != expected.passport_version
+                or session.steps_sha256 != expected.steps_sha256
+            ):
+                raise InvalidStateError(
+                    "existing guided handoff does not match the approved migration"
+                )
+        consent_reference = self._guided_handoff_consent_reference(
+            migration,
+            session.steps_sha256,
+        )
+        if session.state is GuidedHandoffState.PREVIEWED:
+            session = self.guided_handoffs.consent(
+                session.id,
+                actor_id=actor_id,
+                consent_reference=consent_reference,
+                expected_steps_sha256=session.steps_sha256,
+                now=self._now(),
+            )
+        if session.state is GuidedHandoffState.CONSENTED:
+            session = self.guided_handoffs.begin_handoff(
+                session.id,
+                actor_id=actor_id,
+                now=self._now(),
+            )
+        if session.state not in {
+            GuidedHandoffState.AWAITING_HANDOFF,
+            GuidedHandoffState.USER_RESOLVED,
+        }:
+            raise InvalidStateError(
+                "existing guided handoff cannot be attached from its current state"
+            )
+        return guided_handoff_to_record(session)
+
+    @staticmethod
+    def _guided_handoff_session_id(
+        migration: Mapping[str, Any],
+        plan_id: str,
+    ) -> str:
+        return "guided-handoff-" + sha256(
+            f"{migration['id']}:{plan_id}".encode("utf-8")
+        ).hexdigest()[:24]
+
+    @staticmethod
+    def _guided_handoff_consent_reference(
+        migration: Mapping[str, Any],
+        steps_sha256: str,
+    ) -> str:
+        return "migration-approval:" + sha256(
+            f"{migration['id']}:{steps_sha256}".encode("utf-8")
+        ).hexdigest()[:24]
+
+    @staticmethod
+    def _guided_translation_plan(
+        migration: Mapping[str, Any],
+        *,
+        actions: tuple[Any, ...],
+    ) -> TranslationPlan:
+        plan_value = migration["plan"]
+        return TranslationPlan(
+            id=str(plan_value["id"]),
+            passport_id=str(plan_value["passport_id"]),
+            passport_version=int(plan_value["passport_version"]),
+            destination_id=str(plan_value["destination_id"]),
+            capability_level=CapabilityLevel(str(plan_value["capability_level"])),
+            actions=actions,
+            losses=(),
+            created_at=parse_datetime(str(plan_value["created_at"])),
+            estimated_topic_distance=float(plan_value["estimated_topic_distance"]),
         )
 
     def _migration_receipt(
@@ -1396,6 +1828,37 @@ class CuratorApplication:
             raise InvalidStateError("migration receipt binding is invalid")
         return receipt
 
+    def recover_committed_migration(
+        self,
+        migration_id: str,
+        *,
+        actor_id: str,
+    ) -> dict[str, Any] | None:
+        """Finish local audit state only when an exact durable receipt exists.
+
+        This recovery path never prepares, applies, or rolls back a provider
+        action. It exists for the crash window after receipt issuance and
+        before the migration projection and overlay were finalized.
+        """
+
+        with self._execution_locks_guard:
+            lock = self._execution_locks.setdefault(migration_id, RLock())
+        with lock:
+            migration = self._projection("migrations", migration_id)
+            passport = self.get_passport(str(migration["passport_id"]))
+            if passport.owner_id != actor_id or migration.get("owner_id") != actor_id:
+                raise PermissionError(
+                    "only the Passport owner can recover a committed migration"
+                )
+            receipt = self._migration_receipt(migration, owner_id=actor_id)
+            if receipt is None:
+                return None
+            return self._finalize_migration_receipt(
+                migration,
+                receipt,
+                actor_id=actor_id,
+            )
+
     def _finalize_migration_receipt(
         self,
         migration: Mapping[str, Any],
@@ -1424,11 +1887,33 @@ class CuratorApplication:
             != int(receipt.get("passport_version", 0))
         ):
             raise InvalidStateError("receipt migration finalization binding is invalid")
+        immutable_finalization_fields = (
+            "plan",
+            "effective_passport_fingerprint",
+            "overlay_id",
+            "agent_live_commission_id",
+            "execution_authority",
+            "agent_live_commission_plan_fingerprint",
+            "trace_id",
+        )
+        if any(
+            to_primitive(finalization.get(field)) != to_primitive(migration.get(field))
+            for field in immutable_finalization_fields
+        ):
+            raise InvalidStateError(
+                "receipt migration finalization differs from the exact executed plan"
+            )
         trace_id = str(finalization.get("trace_id") or receipt.get("trace_id") or "")
         if not trace_id:
             raise InvalidStateError("receipt migration finalization is missing its trace")
 
         adapter = self._adapter(str(receipt["platform"]))
+        if self._is_live_adapter(adapter):
+            self._validate_live_receipt_journal_binding(
+                finalization,
+                receipt,
+                actor_id=actor_id,
+            )
         adapter_state = receipt.get("adapter_state_finalization")
         if adapter_state is not None:
             if not isinstance(adapter_state, Mapping) or not hasattr(adapter, "import_state"):
@@ -1462,6 +1947,92 @@ class CuratorApplication:
             current = finalization
         self._activate_overlay_once(current, receipt, actor_id=actor_id, trace_id=trace_id)
         return dict(current)
+
+    def _validate_live_receipt_journal_binding(
+        self,
+        migration: Mapping[str, Any],
+        receipt: Mapping[str, Any],
+        *,
+        actor_id: str,
+    ) -> None:
+        migration_id = str(migration["id"])
+        connection_id = str(migration["destination_account_id"])
+        platform = str(migration["platform"])
+        attempts = self.action_journal.list_remote_actions(
+            owner_id=actor_id,
+            migration_id=migration_id,
+            connection_id=connection_id,
+        )
+        outcomes = receipt.get("outcomes")
+        if not isinstance(outcomes, list) or len(outcomes) != len(attempts):
+            raise InvalidStateError(
+                "live receipt outcomes do not exactly match its durable action journal"
+            )
+        outcomes_by_action: dict[str, Mapping[str, Any]] = {}
+        for outcome in outcomes:
+            if not isinstance(outcome, Mapping) or not isinstance(
+                outcome.get("action"),
+                Mapping,
+            ):
+                raise InvalidStateError("live receipt contains an invalid outcome")
+            action_id = str(outcome["action"].get("id", ""))
+            if not action_id or action_id in outcomes_by_action:
+                raise InvalidStateError(
+                    "live receipt contains duplicate or missing action identities"
+                )
+            outcomes_by_action[action_id] = outcome
+        planned_actions: dict[str, Any] = {}
+        try:
+            for value in migration["plan"].get("actions", ()):
+                action = self._migration_scoped_action(
+                    migration_id,
+                    action_from_dict(value),
+                )
+                attempt_id = self._remote_attempt_id(
+                    migration_id,
+                    action.id,
+                    action.idempotency_key,
+                )
+                planned_actions[attempt_id] = action
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InvalidStateError("live receipt plan binding is invalid") from exc
+        for attempt in attempts:
+            action = planned_actions.get(attempt.id)
+            if action is None:
+                raise InvalidStateError(
+                    "live receipt journal contains an action outside the exact plan"
+                )
+            prepared = self._prepared_from_bound_attempt(
+                attempt,
+                attempt_id=attempt.id,
+                owner_id=actor_id,
+                connection_id=connection_id,
+                platform=platform,
+                migration_id=migration_id,
+                action=action,
+            )
+            outcome = outcomes_by_action.get(action.id)
+            expected_statuses = (
+                {ActionStatus.FAILED.value}
+                if attempt.state is RemoteActionState.FAILED_FINAL
+                else {ActionStatus.EXECUTED.value, ActionStatus.SKIPPED.value}
+                if attempt.state is RemoteActionState.SUCCEEDED
+                else set()
+            )
+            if (
+                outcome is None
+                or str(outcome.get("status", "")) not in expected_statuses
+                or to_primitive(outcome.get("action")) != to_primitive(prepared.action)
+                or to_primitive(outcome.get("before_state"))
+                != to_primitive(attempt.before_state)
+                or to_primitive(outcome.get("after_state"))
+                != to_primitive(attempt.after_state)
+                or outcome.get("platform_reference") != attempt.platform_reference
+                or outcome.get("error_code") != attempt.error_code
+            ):
+                raise InvalidStateError(
+                    "live receipt outcome failed its durable journal binding"
+                )
 
     def _activate_overlay_once(
         self,
@@ -1509,6 +2080,174 @@ class CuratorApplication:
             trace_id=trace_id,
         )
 
+    def get_guided_handoff(self, session_id: str, *, actor_id: str) -> dict[str, Any]:
+        try:
+            session = self.guided_handoffs.get(session_id, actor_id=actor_id)
+        except GuidedHandoffNotFound as error:
+            raise NotFoundError(f"guided_handoffs:{session_id}") from error
+        return guided_handoff_to_record(session)
+
+    def resolve_guided_handoff_step(
+        self,
+        session_id: str,
+        *,
+        step_id: str,
+        resolution: GuidedStepResolution | str,
+        actor_id: str,
+    ) -> dict[str, Any]:
+        try:
+            session = self.guided_handoffs.resolve_step(
+                session_id,
+                actor_id=actor_id,
+                step_id=step_id,
+                resolution=resolution,
+                now=self._now(),
+            )
+        except GuidedHandoffNotFound as error:
+            raise NotFoundError(f"guided_handoffs:{session_id}") from error
+        except PermissionError:
+            raise
+        except (GuidedHandoffError, ValueError) as error:
+            raise InvalidStateError(str(error)) from error
+        record = guided_handoff_to_record(session)
+        self._update_migration_handoff(
+            record,
+            actor_id=actor_id,
+            event_type="migration.guided_step_resolved",
+        )
+        return record
+
+    def finalize_guided_handoff(
+        self,
+        session_id: str,
+        *,
+        actor_id: str,
+    ) -> dict[str, Any]:
+        try:
+            session = self.guided_handoffs.finalize(
+                session_id,
+                actor_id=actor_id,
+                now=self._now(),
+            )
+        except GuidedHandoffNotFound as error:
+            raise NotFoundError(f"guided_handoffs:{session_id}") from error
+        except PermissionError:
+            raise
+        except (GuidedHandoffError, ValueError) as error:
+            raise InvalidStateError(str(error)) from error
+        record = guided_handoff_to_record(session)
+        self._update_migration_handoff(
+            record,
+            actor_id=actor_id,
+            event_type="migration.guided_handoff_finalized",
+        )
+        return record
+
+    def _update_migration_handoff(
+        self,
+        handoff: Mapping[str, Any],
+        *,
+        actor_id: str,
+        event_type: str,
+    ) -> None:
+        session_id = str(handoff["id"])
+        matches = [
+            value
+            for value in self.projection_list("migrations")
+            if value.get("guided_handoff_id") == session_id
+        ]
+        if len(matches) != 1:
+            raise InvalidStateError("guided handoff is not bound to exactly one migration")
+        migration_id = str(matches[0]["id"])
+        incoming = dict(handoff)
+        incoming_revision = int(incoming.get("revision", 0))
+        if incoming_revision < 1:
+            raise InvalidStateError("guided handoff revision is invalid")
+
+        # The handoff aggregate and migration audit view are separate durable
+        # projections. Resolve/finalize calls may finish out of order, so only a
+        # strictly newer handoff revision may advance the embedded audit view.
+        for _ in range(5):
+            stored = self.store.get_projection("migrations", migration_id)
+            if stored is None:
+                raise InvalidStateError("guided handoff migration disappeared")
+            migration_version, migration_value = stored
+            migration = dict(migration_value)
+            if migration.get("owner_id") != actor_id:
+                raise PermissionError("only the Passport owner can update this guided handoff")
+            if (
+                migration.get("passport_id") != handoff.get("passport_id")
+                or int(migration.get("passport_version", 0))
+                != int(handoff.get("passport_version", 0))
+                or migration.get("platform") != handoff.get("platform")
+                or migration.get("plan", {}).get("id") != handoff.get("plan_id")
+            ):
+                raise InvalidStateError("guided handoff migration binding is invalid")
+            current_handoff = migration.get("guided_handoff")
+            current_revision = (
+                int(current_handoff.get("revision", 0))
+                if isinstance(current_handoff, Mapping)
+                else 0
+            )
+            if current_revision > incoming_revision:
+                return
+            if current_revision == incoming_revision:
+                if current_handoff == incoming:
+                    return
+                raise InvalidStateError(
+                    "guided handoff revision conflicts with the migration audit view"
+                )
+
+            migration["guided_handoff"] = incoming
+            state = str(handoff["state"])
+            if state == "finalized":
+                receipt = handoff.get("receipt")
+                if not isinstance(receipt, Mapping):
+                    raise InvalidStateError("finalized guided handoff is missing its receipt")
+                migration["guided_receipt_id"] = receipt.get("id")
+                migration["guided_handoff_completed_at"] = handoff.get("finalized_at")
+                if not migration.get("receipt_id"):
+                    migration["status"] = "guided_recorded"
+                    migration["completion_stop_reason"] = StopReason.HUMAN_JUDGMENT.value
+                    migration["completed_at"] = handoff.get("finalized_at")
+            elif state == "user_resolved" and migration.get("status") == "awaiting_handoff":
+                migration["status"] = "handoff_resolved"
+
+            summary = (
+                handoff.get("receipt", {}).get("summary", {})
+                if handoff.get("receipt")
+                else {}
+            )
+            try:
+                self._record(
+                    kind="migrations",
+                    aggregate_id=migration_id,
+                    aggregate_type="migration",
+                    event_type=event_type,
+                    projection=migration,
+                    payload={
+                        "guided_handoff_id": session_id,
+                        "guided_handoff_state": state,
+                        "guided_handoff_revision": incoming_revision,
+                        "resolved_step_count": sum(
+                            1 for step in handoff.get("steps", ()) if step.get("resolution")
+                        ),
+                        "api_writes": int(summary.get("api_writes", 0)),
+                        "recommendation_outcomes_verified": int(
+                            summary.get("recommendation_outcomes_verified", 0)
+                        ),
+                    },
+                    actor_id=actor_id,
+                    trace_id=str(migration.get("trace_id") or self._id("trace")),
+                    expected_projection_version=migration_version,
+                )
+                return
+            except ConcurrencyConflict:
+                continue
+        raise InvalidStateError(
+            "guided handoff migration audit view changed too often to update safely"
+        )
+
     def reconcile_migration(
         self,
         migration_id: str,
@@ -1518,7 +2257,28 @@ class CuratorApplication:
     ) -> dict[str, Any]:
         """Resolve uncertain remote writes by observation without replaying them."""
 
-        migration = self._projection("migrations", migration_id)
+        with self._execution_locks_guard:
+            lock = self._execution_locks.setdefault(migration_id, RLock())
+        with lock:
+            return self._reconcile_migration_locked(
+                migration_id,
+                actor_id=actor_id,
+                respect_retry_schedule=respect_retry_schedule,
+            )
+
+    def _reconcile_migration_locked(
+        self,
+        migration_id: str,
+        *,
+        actor_id: str,
+        respect_retry_schedule: bool,
+    ) -> dict[str, Any]:
+
+        stored_migration = self.store.get_projection("migrations", migration_id)
+        if stored_migration is None:
+            raise NotFoundError(f"migrations:{migration_id}")
+        migration_version, migration_value = stored_migration
+        migration = dict(migration_value)
         passport = self.get_passport(str(migration["passport_id"]))
         if passport.owner_id != actor_id:
             raise PermissionError("only the Passport owner can reconcile a migration")
@@ -1528,12 +2288,34 @@ class CuratorApplication:
             "executing",
         }:
             raise InvalidStateError(f"migration cannot reconcile from {migration.get('status')}")
+        existing_receipt = self._migration_receipt(migration, owner_id=actor_id)
+        if existing_receipt is not None:
+            return self._finalize_migration_receipt(
+                migration,
+                existing_receipt,
+                actor_id=actor_id,
+            )
+        now = self._now()
+        if migration.get("status") == "executing":
+            claim_owner = migration.get("execution_claim_owner")
+            claim_expires_at = migration.get("execution_claim_expires_at")
+            if not isinstance(claim_owner, str) or not claim_owner:
+                raise InvalidStateError("executing migration is missing its durable execution claim")
+            if not isinstance(claim_expires_at, str):
+                raise InvalidStateError("executing migration is missing its execution claim expiry")
+            try:
+                claim_expiry = parse_datetime(claim_expires_at)
+            except (TypeError, ValueError) as exc:
+                raise InvalidStateError(
+                    "executing migration has an invalid execution claim expiry"
+                ) from exc
+            if claim_expiry > now:
+                raise InvalidStateError("migration execution is already claimed by another worker")
         platform = str(migration["platform"])
         connection_id = str(migration["destination_account_id"])
         adapter = self._adapter(platform)
         if not self._is_live_adapter(adapter):
             raise InvalidStateError("only a live transport migration has remote actions to reconcile")
-        now = self._now()
         attempts = list(
             self.action_journal.list_remote_actions(
                 owner_id=actor_id,
@@ -1543,28 +2325,111 @@ class CuratorApplication:
         )
         if not attempts:
             raise InvalidStateError("migration has no durable remote action reservations")
-        for attempt in attempts:
-            current = attempt
-            if (
-                current.state in {
+        had_reconcilable_evidence = any(
+            attempt.state is RemoteActionState.UNKNOWN
+            or (
+                attempt.state
+                in {
                     RemoteActionState.DISPATCHING,
                     RemoteActionState.RECONCILING,
                 }
+                and attempt.lease_expires_at is not None
+                and attempt.lease_expires_at <= now
+            )
+            for attempt in attempts
+        )
+        planned_actions: dict[str, Any] = {}
+        try:
+            for item in migration["plan"].get("actions", ()):
+                action = self._migration_scoped_action(
+                    migration_id,
+                    action_from_dict(item),
+                )
+                attempt_id = self._remote_attempt_id(
+                    migration_id,
+                    action.id,
+                    action.idempotency_key,
+                )
+                if attempt_id in planned_actions:
+                    raise InvalidStateError(
+                        "migration contains duplicate durable remote action identities"
+                    )
+                planned_actions[attempt_id] = action
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InvalidStateError("migration plan is invalid for reconciliation") from exc
+        prepared_attempts: dict[str, PreparedRemoteAction] = {}
+        for attempt in attempts:
+            action = planned_actions.get(attempt.id)
+            if action is None:
+                raise InvalidStateError(
+                    "durable remote action attempt is outside the exact migration plan"
+                )
+            prepared_attempts[attempt.id] = self._prepared_from_bound_attempt(
+                attempt,
+                attempt_id=attempt.id,
+                owner_id=actor_id,
+                connection_id=connection_id,
+                platform=platform,
+                migration_id=migration_id,
+                action=action,
+            )
+        if any(
+            attempt.state
+            in {
+                RemoteActionState.DISPATCHING,
+                RemoteActionState.RECONCILING,
+            }
+            and attempt.lease_expires_at is not None
+            and attempt.lease_expires_at > now
+            for attempt in attempts
+        ):
+            # Claiming a different UNKNOWN sibling while another worker owns
+            # an in-flight action can leave neither runtime able to checkpoint
+            # the whole migration. Treat any active sibling lease as a
+            # migration-wide reconciliation claim.
+            raise InvalidStateError("remote action recovery is already claimed by another worker")
+        for attempt in attempts:
+            # The initial list is only a scope snapshot. Another runtime may
+            # settle or claim a sibling while this worker is blocked observing
+            # an earlier action, so state must be refreshed before every CAS.
+            current = self.action_journal.get_remote_action(
+                attempt.id,
+                owner_id=actor_id,
+            )
+            if (
+                current.state is RemoteActionState.DISPATCHING
                 and current.lease_expires_at is not None
                 and current.lease_expires_at <= now
             ):
-                expired_state = current.state
-                current = self.action_journal.transition_remote_action(
-                    current.id,
-                    expected_state=expired_state,
-                    new_state=RemoteActionState.UNKNOWN,
-                    updated_at=now,
-                    error_code=(
-                        "dispatch_lease_expired"
-                        if expired_state is RemoteActionState.DISPATCHING
-                        else "reconciliation_lease_expired"
-                    ),
-                )
+                # The original provider call may still be in flight in a
+                # different process. Never turn an expired dispatch lease into
+                # an automatically retryable mutation.
+                try:
+                    self.action_journal.transition_remote_action(
+                        current.id,
+                        expected_state=RemoteActionState.DISPATCHING,
+                        new_state=RemoteActionState.NEEDS_HUMAN,
+                        updated_at=now,
+                        error_code="dispatch_lease_expired_outcome_unknown",
+                    )
+                except ConcurrencyConflict:
+                    pass
+                continue
+            if (
+                current.state is RemoteActionState.RECONCILING
+                and current.lease_expires_at is not None
+                and current.lease_expires_at <= now
+            ):
+                try:
+                    current = self.action_journal.transition_remote_action(
+                        current.id,
+                        expected_state=RemoteActionState.RECONCILING,
+                        new_state=RemoteActionState.UNKNOWN,
+                        updated_at=now,
+                        error_code="reconciliation_lease_expired",
+                    )
+                except ConcurrencyConflict:
+                    continue
             if current.state is not RemoteActionState.UNKNOWN:
                 continue
             if (
@@ -1585,15 +2450,18 @@ class CuratorApplication:
                     error_code="reconciliation_attempt_limit",
                 )
                 continue
-            current = self.action_journal.transition_remote_action(
-                current.id,
-                expected_state=RemoteActionState.UNKNOWN,
-                new_state=RemoteActionState.RECONCILING,
-                updated_at=now,
-                lease_owner=f"reconcile:{migration_id}",
-                lease_expires_at=now + timedelta(minutes=2),
-            )
-            prepared = self._prepared_from_attempt(current)
+            try:
+                current = self.action_journal.transition_remote_action(
+                    current.id,
+                    expected_state=RemoteActionState.UNKNOWN,
+                    new_state=RemoteActionState.RECONCILING,
+                    updated_at=now,
+                    lease_owner=f"reconcile:{migration_id}",
+                    lease_expires_at=now + timedelta(minutes=2),
+                )
+            except ConcurrencyConflict:
+                continue
+            prepared = prepared_attempts[current.id]
             try:
                 outcome = adapter.reconcile_remote_action(prepared, now=self._now())
             except RemoteOutcomeUnknown as exc:
@@ -1632,6 +2500,34 @@ class CuratorApplication:
             connection_id=connection_id,
         )
         states = {value.state for value in refreshed}
+        if any(
+            attempt.state
+            in {
+                RemoteActionState.DISPATCHING,
+                RemoteActionState.RECONCILING,
+            }
+            and attempt.lease_expires_at is not None
+            and attempt.lease_expires_at > now
+            for attempt in refreshed
+        ):
+            # A different runtime owns the only observation/write in flight.
+            # A no-work observer must not advance the migration projection and
+            # invalidate the lease holder's compare-and-swap checkpoint.
+            raise InvalidStateError("remote action recovery is already claimed by another worker")
+        if (
+            migration.get("status") == "executing"
+            and not had_reconcilable_evidence
+            and not states
+            & {
+                RemoteActionState.UNKNOWN,
+                RemoteActionState.RECONCILING,
+                RemoteActionState.DISPATCHING,
+                RemoteActionState.NEEDS_HUMAN,
+            }
+        ):
+            raise InvalidStateError(
+                "executing migration has no uncertain remote action to reconcile"
+            )
         if states & {
             RemoteActionState.UNKNOWN,
             RemoteActionState.RECONCILING,
@@ -1660,6 +2556,7 @@ class CuratorApplication:
             payload={"status": status, "attempt_count": len(refreshed)},
             actor_id=actor_id,
             trace_id=str(migration.get("trace_id") or self._id("trace")),
+            expected_projection_version=migration_version,
         )
         return migration
 
@@ -1679,31 +2576,6 @@ class CuratorApplication:
             ),
             updated_at=failed_at,
             error_code=("reconciliation_attempt_limit" if exhausted else error_code),
-            next_attempt_at=(
-                None
-                if exhausted
-                else failed_at + _remote_recovery_delay(attempt.attempt_count)
-            ),
-        )
-
-    def _defer_or_stop_rollback_recovery(
-        self,
-        attempt: RemoteActionAttempt,
-        *,
-        error_code: str,
-    ) -> RemoteActionAttempt:
-        failed_at = self._now()
-        exhausted = attempt.attempt_count >= _REMOTE_RECOVERY_MAX_ATTEMPTS
-        return self.action_journal.transition_remote_action(
-            attempt.id,
-            expected_state=RemoteActionState.ROLLBACK_PENDING,
-            new_state=(
-                RemoteActionState.NEEDS_HUMAN
-                if exhausted
-                else RemoteActionState.ROLLBACK_UNKNOWN
-            ),
-            updated_at=failed_at,
-            error_code=("rollback_attempt_limit" if exhausted else error_code),
             next_attempt_at=(
                 None
                 if exhausted
@@ -1948,14 +2820,14 @@ class CuratorApplication:
         if attempt.state is RemoteActionState.DISPATCHING:
             if attempt.lease_expires_at is None or attempt.lease_expires_at > now:
                 return None, "reconciliation_required"
-            attempt = self.action_journal.transition_remote_action(
+            self.action_journal.transition_remote_action(
                 attempt.id,
                 expected_state=RemoteActionState.DISPATCHING,
-                new_state=RemoteActionState.UNKNOWN,
+                new_state=RemoteActionState.NEEDS_HUMAN,
                 updated_at=now,
-                error_code="dispatch_lease_expired",
+                error_code="dispatch_lease_expired_outcome_unknown",
             )
-            return None, "reconciliation_required"
+            return None, "needs_human"
         previous_state = attempt.state
         attempt = self.action_journal.transition_remote_action(
             attempt.id,
@@ -2172,6 +3044,11 @@ class CuratorApplication:
         return f"remote-{digest[:48]}"
 
     @staticmethod
+    def _migration_receipt_id(migration_id: str) -> str:
+        digest = sha256(f"migration-receipt\0{migration_id}".encode("utf-8")).hexdigest()
+        return f"receipt-{digest[:48]}"
+
+    @staticmethod
     def _migration_scoped_action(migration_id: str, action: Any) -> Any:
         """Bind provider and journal idempotency to one approved migration.
 
@@ -2192,6 +3069,23 @@ class CuratorApplication:
         )
 
     def rollback_receipt(self, receipt_id: str, *, actor_id: str, platform: str) -> dict[str, Any]:
+        lock_key = f"rollback:{receipt_id}"
+        with self._execution_locks_guard:
+            lock = self._execution_locks.setdefault(lock_key, RLock())
+        with lock:
+            return self._rollback_receipt_locked(
+                receipt_id,
+                actor_id=actor_id,
+                platform=platform,
+            )
+
+    def _rollback_receipt_locked(
+        self,
+        receipt_id: str,
+        *,
+        actor_id: str,
+        platform: str,
+    ) -> dict[str, Any]:
         receipt_value = self._projection("receipts", receipt_id)
         receipt = receipt_from_dict(receipt_value)
         passport = self.get_passport(receipt.passport_id)
@@ -2202,7 +3096,7 @@ class CuratorApplication:
             raise InvalidStateError("receipt is missing its bound platform")
         if platform != receipt_platform:
             raise ValueError("rollback platform does not match the receipt's bound platform")
-        if receipt_value.get("status") == "rolled_back":
+        if receipt_value.get("status") in {"rolled_back", "rollback_needs_human"}:
             return receipt_value
         adapter = self._adapter(receipt_platform)
         live_attempts: tuple[RemoteActionAttempt, ...] = ()
@@ -2222,17 +3116,47 @@ class CuratorApplication:
                 for attempt in candidates
             ):
                 raise InvalidStateError("rollback is already in progress")
-            pending: list[RemoteActionAttempt] = []
             for attempt in candidates:
                 if attempt.state is RemoteActionState.ROLLBACK_PENDING:
-                    attempt = self.action_journal.transition_remote_action(
+                    self.action_journal.transition_remote_action(
                         attempt.id,
                         expected_state=RemoteActionState.ROLLBACK_PENDING,
-                        new_state=RemoteActionState.ROLLBACK_UNKNOWN,
+                        new_state=RemoteActionState.NEEDS_HUMAN,
                         updated_at=now,
-                        error_code="rollback_lease_expired",
-                        next_attempt_at=now,
+                        error_code="rollback_lease_expired_outcome_unknown",
                     )
+                elif attempt.state is RemoteActionState.ROLLBACK_UNKNOWN:
+                    # A legacy rollback_unknown record proves that a prior
+                    # provider call returned without a classified outcome.
+                    # There is no rollback-specific read-only reconciliation
+                    # contract, so replaying it could duplicate an inverse
+                    # mutation (for example an ATProto createRecord call).
+                    self.action_journal.transition_remote_action(
+                        attempt.id,
+                        expected_state=RemoteActionState.ROLLBACK_UNKNOWN,
+                        new_state=RemoteActionState.NEEDS_HUMAN,
+                        updated_at=now,
+                        error_code="rollback_outcome_unknown_requires_human",
+                    )
+            candidates = self.action_journal.list_remote_actions(
+                owner_id=actor_id,
+                migration_id=migration_id,
+                connection_id=receipt.destination_id,
+            )
+            if any(
+                attempt.state is RemoteActionState.NEEDS_HUMAN
+                for attempt in candidates
+            ):
+                return self._record_rollback_needs_human(
+                    receipt_id=receipt_id,
+                    receipt_value=receipt_value,
+                    receipt=receipt,
+                    attempts=candidates,
+                    actor_id=actor_id,
+                    at=now,
+                )
+            pending: list[RemoteActionAttempt] = []
+            for attempt in candidates:
                 if attempt.state is RemoteActionState.SUCCEEDED:
                     pending.append(
                         self.action_journal.transition_remote_action(
@@ -2244,28 +3168,25 @@ class CuratorApplication:
                             lease_expires_at=now + timedelta(minutes=2),
                         )
                     )
-                elif attempt.state is RemoteActionState.ROLLBACK_UNKNOWN:
-                    if attempt.next_attempt_at is not None and attempt.next_attempt_at > now:
-                        continue
-                    if attempt.attempt_count >= _REMOTE_RECOVERY_MAX_ATTEMPTS:
-                        self.action_journal.transition_remote_action(
-                            attempt.id,
-                            expected_state=RemoteActionState.ROLLBACK_UNKNOWN,
-                            new_state=RemoteActionState.NEEDS_HUMAN,
-                            updated_at=now,
-                            error_code="rollback_attempt_limit",
-                        )
-                        continue
-                    pending.append(
-                        self.action_journal.transition_remote_action(
-                            attempt.id,
-                            expected_state=RemoteActionState.ROLLBACK_UNKNOWN,
-                            new_state=RemoteActionState.ROLLBACK_PENDING,
-                            updated_at=now,
-                            lease_owner=f"rollback:{receipt_id}",
-                            lease_expires_at=now + timedelta(minutes=2),
-                        )
-                    )
+            candidates = self.action_journal.list_remote_actions(
+                owner_id=actor_id,
+                migration_id=migration_id,
+                connection_id=receipt.destination_id,
+            )
+            needs_human = tuple(
+                attempt
+                for attempt in candidates
+                if attempt.state is RemoteActionState.NEEDS_HUMAN
+            )
+            if needs_human:
+                return self._record_rollback_needs_human(
+                    receipt_id=receipt_id,
+                    receipt_value=receipt_value,
+                    receipt=receipt,
+                    attempts=candidates,
+                    actor_id=actor_id,
+                    at=now,
+                )
             live_attempts = tuple(pending)
             if not live_attempts and not all(
                 attempt.state is RemoteActionState.ROLLED_BACK for attempt in candidates
@@ -2306,49 +3227,31 @@ class CuratorApplication:
             for attempt in live_attempts:
                 current = self.action_journal.get_remote_action(attempt.id, owner_id=actor_id)
                 if current.state is RemoteActionState.ROLLBACK_PENDING:
-                    self._defer_or_stop_rollback_recovery(
-                        current,
-                        error_code="rollback_interrupted",
+                    # An untyped adapter exception does not prove whether the
+                    # provider accepted the inverse mutation. Never replay it
+                    # automatically without a rollback-specific observation
+                    # contract that can classify the remote state first.
+                    self.action_journal.transition_remote_action(
+                        current.id,
+                        expected_state=RemoteActionState.ROLLBACK_PENDING,
+                        new_state=RemoteActionState.NEEDS_HUMAN,
+                        updated_at=self._now(),
+                        error_code="rollback_interrupted_outcome_unknown",
                     )
             if not live_attempts:
                 raise
-            rollback_exhausted = any(
-                self.action_journal.get_remote_action(value.id, owner_id=actor_id).state
-                is RemoteActionState.NEEDS_HUMAN
-                for value in live_attempts
-            )
-            recovery_status = (
-                "rollback_needs_human"
-                if rollback_exhausted
-                else "rollback_reconciliation_required"
-            )
-            projection = {
-                **receipt_value,
-                "status": recovery_status,
-                "rollback": {
-                    "receipt_id": receipt_id,
-                    "destination_id": receipt.destination_id,
-                    "restored_actions": [],
-                    "failed_actions": [attempt.action_id for attempt in live_attempts],
-                    "completed_at": self._now().isoformat(),
-                    "caveats": [
-                        "Automatic rollback recovery stopped for human review."
-                        if rollback_exhausted
-                        else "Remote rollback outcome is unknown; reconcile before retrying."
-                    ],
-                },
-            }
-            self._record(
-                kind="receipts",
-                aggregate_id=receipt_id,
-                aggregate_type="action_receipt",
-                event_type=f"receipt.{recovery_status}",
-                projection=projection,
-                payload={"unknown": len(live_attempts)},
+            return self._record_rollback_needs_human(
+                receipt_id=receipt_id,
+                receipt_value=receipt_value,
+                receipt=receipt,
+                attempts=self.action_journal.list_remote_actions(
+                    owner_id=actor_id,
+                    migration_id=str(receipt_value.get("migration_id")),
+                    connection_id=receipt.destination_id,
+                ),
                 actor_id=actor_id,
-                trace_id=receipt.trace_id,
+                at=self._now(),
             )
-            return projection
         if live_attempts:
             restored_ids = set(outcome.restored_actions)
             unknown_codes = {"transport_interrupted", "platform_unavailable"}
@@ -2365,8 +3268,11 @@ class CuratorApplication:
                     target = RemoteActionState.ROLLED_BACK
                     error_code = None
                 elif attempt.action_id in unknown_ids:
-                    self._defer_or_stop_rollback_recovery(
-                        current,
+                    self.action_journal.transition_remote_action(
+                        current.id,
+                        expected_state=RemoteActionState.ROLLBACK_PENDING,
+                        new_state=RemoteActionState.NEEDS_HUMAN,
+                        updated_at=self._now(),
                         error_code="rollback_outcome_unknown",
                     )
                     continue
@@ -2380,23 +3286,25 @@ class CuratorApplication:
                     updated_at=self._now(),
                     error_code=error_code,
                 )
-        if outcome.failed_actions:
+        live_states = (
+            {
+                attempt.state
+                for attempt in self.action_journal.list_remote_actions(
+                    owner_id=actor_id,
+                    migration_id=str(receipt_value.get("migration_id")),
+                    connection_id=receipt.destination_id,
+                )
+            }
+            if self._is_live_adapter(adapter)
+            else set()
+        )
+        if RemoteActionState.NEEDS_HUMAN in live_states:
+            rollback_status = "rollback_needs_human"
+        elif RemoteActionState.ROLLBACK_UNKNOWN in live_states:
+            rollback_status = "rollback_reconciliation_required"
+        elif outcome.failed_actions:
             rollback_status = (
-                "rollback_needs_human"
-                if live_attempts
-                and any(
-                    self.action_journal.get_remote_action(value.id, owner_id=actor_id).state
-                    is RemoteActionState.NEEDS_HUMAN
-                    for value in live_attempts
-                )
-                else "rollback_reconciliation_required"
-                if live_attempts
-                and any(
-                    self.action_journal.get_remote_action(value.id, owner_id=actor_id).state
-                    is RemoteActionState.ROLLBACK_UNKNOWN
-                    for value in live_attempts
-                )
-                else "rollback_partial"
+                "rollback_partial"
                 if outcome.restored_actions
                 else "rollback_failed"
             )
@@ -2418,6 +3326,56 @@ class CuratorApplication:
             trace_id=receipt.trace_id,
         )
         self._persist_adapter_state(receipt_platform, receipt.destination_id, actor_id, receipt.trace_id)
+        return projection
+
+    def _record_rollback_needs_human(
+        self,
+        *,
+        receipt_id: str,
+        receipt_value: Mapping[str, Any],
+        receipt: Any,
+        attempts: Iterable[RemoteActionAttempt],
+        actor_id: str,
+        at: datetime,
+    ) -> dict[str, Any]:
+        attempt_values = tuple(attempts)
+        needs_human = tuple(
+            attempt
+            for attempt in attempt_values
+            if attempt.state is RemoteActionState.NEEDS_HUMAN
+        )
+        rollback = RollbackOutcome(
+            receipt_id=receipt.id,
+            destination_id=receipt.destination_id,
+            restored_actions=tuple(
+                attempt.action_id
+                for attempt in attempt_values
+                if attempt.state is RemoteActionState.ROLLED_BACK
+            ),
+            failed_actions=tuple(attempt.action_id for attempt in needs_human),
+            completed_at=at,
+            caveats=(
+                "Automatic rollback replay stopped because its remote outcome cannot be classified safely.",
+            ),
+        )
+        projection = {
+            **receipt_value,
+            "rollback": to_primitive(rollback),
+            "status": "rollback_needs_human",
+        }
+        self._record(
+            kind="receipts",
+            aggregate_id=receipt_id,
+            aggregate_type="action_receipt",
+            event_type="receipt.rollback_needs_human",
+            projection=projection,
+            payload={
+                "restored": len(rollback.restored_actions),
+                "failed": len(needs_human),
+            },
+            actor_id=actor_id,
+            trace_id=receipt.trace_id,
+        )
         return projection
 
     def drift_watch(
@@ -2650,6 +3608,335 @@ class CuratorApplication:
 
     def projection_list(self, kind: str) -> tuple[dict[str, Any], ...]:
         return tuple(value for _, _, value in self.store.list_projections(kind))
+
+    def migration_audit_projections(
+        self,
+        *,
+        owner_id: str | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return migration views repaired from authoritative guided handoffs.
+
+        Guided step resolution is committed to its own aggregate before the
+        denormalized migration audit projection is advanced. A process stop in
+        that narrow interval must not make the owner resume an older checklist
+        state, so reads overlay a newer authoritative handoff without creating
+        another event or receipt. Authenticated reads reconcile only their
+        owner's projections; the account-free local demo may reconcile all.
+        """
+
+        self._recover_interrupted_guided_handoffs(owner_id=owner_id)
+        handoffs = {
+            str(value["id"]): value
+            for value in self.projection_list("guided_handoffs")
+            if value.get("id")
+            and (owner_id is None or value.get("owner_id") == owner_id)
+        }
+        migrations: list[dict[str, Any]] = []
+        for stored in self.projection_list("migrations"):
+            if owner_id is not None and stored.get("owner_id") != owner_id:
+                continue
+            migration = dict(stored)
+            session_id = str(migration.get("guided_handoff_id") or "")
+            authoritative = handoffs.get(session_id)
+            if authoritative is not None:
+                migration = self._migration_with_authoritative_guided_handoff(
+                    migration,
+                    authoritative,
+                )
+            migrations.append(migration)
+        return tuple(migrations)
+
+    def _recover_interrupted_guided_handoffs(
+        self,
+        *,
+        owner_id: str | None = None,
+    ) -> None:
+        requested_owner_id = owner_id
+        active_states = {
+            GuidedHandoffState.PREVIEWED,
+            GuidedHandoffState.CONSENTED,
+            GuidedHandoffState.AWAITING_HANDOFF,
+            GuidedHandoffState.USER_RESOLVED,
+            GuidedHandoffState.FINALIZED,
+        }
+        for value in self.projection_list("guided_handoffs"):
+            if (
+                requested_owner_id is not None
+                and value.get("owner_id") != requested_owner_id
+            ):
+                continue
+            state = GuidedHandoffState(str(value["state"]))
+            if state not in active_states:
+                continue
+            matches = self._guided_handoff_migration_matches(value)
+            if len(matches) != 1:
+                raise InvalidStateError(
+                    "guided handoff is not uniquely bound to its approved migration"
+                )
+            migration = matches[0]
+            session_owner_id = str(value["owner_id"])
+            passport_id = str(value["passport_id"])
+            guided_scope_key = f"guided-handoff:{session_owner_id}:{passport_id}"
+            with self._execution_locks_guard:
+                guided_scope_lock = self._execution_locks.setdefault(
+                    guided_scope_key,
+                    RLock(),
+                )
+            with guided_scope_lock:
+                try:
+                    session = self.guided_handoffs.get(
+                        str(value["id"]),
+                        actor_id=session_owner_id,
+                    )
+                    self._validate_recoverable_guided_handoff(migration, session)
+                    if session.state is GuidedHandoffState.PREVIEWED:
+                        session = self.guided_handoffs.consent(
+                            session.id,
+                            actor_id=session_owner_id,
+                            consent_reference=self._guided_handoff_consent_reference(
+                                migration,
+                                session.steps_sha256,
+                            ),
+                            expected_steps_sha256=session.steps_sha256,
+                            now=self._now(),
+                        )
+                    if session.state is GuidedHandoffState.CONSENTED:
+                        session = self.guided_handoffs.begin_handoff(
+                            session.id,
+                            actor_id=session_owner_id,
+                            now=self._now(),
+                        )
+                except (GuidedHandoffError, GuidedHandoffNotFound, ValueError) as error:
+                    raise InvalidStateError(
+                        "interrupted guided handoff could not be recovered safely"
+                    ) from error
+
+                handoff = guided_handoff_to_record(session)
+                stored = self.store.get_projection("migrations", str(migration["id"]))
+                if stored is None:
+                    raise InvalidStateError("guided handoff migration disappeared")
+                current = stored[1]
+                attached_id = str(current.get("guided_handoff_id") or "")
+                if attached_id and attached_id != session.id:
+                    raise InvalidStateError(
+                        "migration is already bound to a different guided handoff"
+                    )
+                if not attached_id:
+                    self._attach_recovered_guided_handoff(
+                        migration_id=str(migration["id"]),
+                        handoff=handoff,
+                    )
+                    continue
+                embedded = current.get("guided_handoff")
+                embedded_revision = (
+                    int(embedded.get("revision", 0))
+                    if isinstance(embedded, Mapping)
+                    else 0
+                )
+                if embedded_revision < session.revision:
+                    self._update_migration_handoff(
+                        handoff,
+                        actor_id=session_owner_id,
+                        event_type="migration.guided_handoff_reconciled",
+                    )
+
+    def _guided_handoff_migration_matches(
+        self,
+        handoff: Mapping[str, Any],
+    ) -> list[dict[str, Any]]:
+        matches: list[dict[str, Any]] = []
+        for value in self.projection_list("migrations"):
+            plan = value.get("plan")
+            if not isinstance(plan, Mapping):
+                continue
+            if (
+                value.get("owner_id") != handoff.get("owner_id")
+                or value.get("passport_id") != handoff.get("passport_id")
+                or int(value.get("passport_version", 0))
+                != int(handoff.get("passport_version", 0))
+                or value.get("platform") != handoff.get("platform")
+                or plan.get("id") != handoff.get("plan_id")
+                or self._guided_handoff_session_id(value, str(plan["id"]))
+                != handoff.get("id")
+            ):
+                continue
+            matches.append(dict(value))
+        return matches
+
+    def _validate_recoverable_guided_handoff(
+        self,
+        migration: Mapping[str, Any],
+        session: GuidedHandoffSession,
+    ) -> None:
+        plan_actions = {
+            str(value["id"]): action_from_dict(value)
+            for value in migration["plan"]["actions"]
+        }
+        step_ids = tuple(step.id for step in session.steps)
+        if len(plan_actions) != len(migration["plan"]["actions"]) or any(
+            step_id not in plan_actions for step_id in step_ids
+        ):
+            raise InvalidStateError(
+                "guided handoff steps do not match the approved migration plan"
+            )
+        actions = tuple(plan_actions[step_id] for step_id in step_ids)
+        plan = self._guided_translation_plan(migration, actions=actions)
+        expected = GuidedHandoffSession.preview(
+            session_id=self._guided_handoff_session_id(migration, plan.id),
+            owner_id=str(migration["owner_id"]),
+            platform=str(migration["platform"]),
+            plan=plan,
+            now=session.created_at,
+        )
+        if (
+            session.id != expected.id
+            or session.owner_id != expected.owner_id
+            or session.platform != expected.platform
+            or session.plan_id != expected.plan_id
+            or session.passport_id != expected.passport_id
+            or session.passport_version != expected.passport_version
+            or session.steps_sha256 != expected.steps_sha256
+        ):
+            raise InvalidStateError(
+                "guided handoff does not match its approved migration plan"
+            )
+
+    def _attach_recovered_guided_handoff(
+        self,
+        *,
+        migration_id: str,
+        handoff: Mapping[str, Any],
+    ) -> None:
+        if handoff.get("state") not in {
+            GuidedHandoffState.AWAITING_HANDOFF.value,
+            GuidedHandoffState.USER_RESOLVED.value,
+        }:
+            raise InvalidStateError(
+                "only an active guided handoff can be recovered into a migration"
+            )
+        for _ in range(5):
+            stored = self.store.get_projection("migrations", migration_id)
+            if stored is None:
+                raise InvalidStateError("guided handoff migration disappeared")
+            migration_version, migration_value = stored
+            migration = dict(migration_value)
+            existing_id = str(migration.get("guided_handoff_id") or "")
+            if existing_id:
+                if existing_id != handoff.get("id"):
+                    raise InvalidStateError(
+                        "migration is already bound to a different guided handoff"
+                    )
+                self._update_migration_handoff(
+                    handoff,
+                    actor_id=str(handoff["owner_id"]),
+                    event_type="migration.guided_handoff_reconciled",
+                )
+                return
+            if migration.get("status") != "awaiting_approval":
+                raise InvalidStateError(
+                    "unattached guided handoff migration is not awaiting approval"
+                )
+            migration.update(
+                {
+                    "status": (
+                        "handoff_resolved"
+                        if handoff.get("state")
+                        == GuidedHandoffState.USER_RESOLVED.value
+                        else "awaiting_handoff"
+                    ),
+                    "approved_at": handoff.get("created_at"),
+                    "approved_by": handoff.get("owner_id"),
+                    "guided_handoff_id": handoff.get("id"),
+                    "guided_handoff": dict(handoff),
+                    "completion_stop_reason": StopReason.HUMAN_JUDGMENT.value,
+                    "execution_summary": {
+                        "mode": "guided_handoff_recovered",
+                        "executed_action_count": 0,
+                        "remote_write_count": 0,
+                        "guided_action_count": len(handoff.get("steps", ())),
+                        "skipped_action_count": 0,
+                        "failed_action_count": 0,
+                    },
+                    "execution_claim_owner": None,
+                    "execution_claim_expires_at": None,
+                }
+            )
+            try:
+                self._record(
+                    kind="migrations",
+                    aggregate_id=migration_id,
+                    aggregate_type="migration",
+                    event_type="migration.guided_handoff_recovered",
+                    projection=migration,
+                    payload={
+                        "guided_handoff_id": handoff.get("id"),
+                        "guided_handoff_state": handoff.get("state"),
+                        "guided_handoff_revision": int(handoff.get("revision", 0)),
+                        "guided_action_count": len(handoff.get("steps", ())),
+                        "api_writes": 0,
+                    },
+                    actor_id=str(handoff["owner_id"]),
+                    trace_id=f"guided-handoff-recovery:{handoff['id']}",
+                    expected_projection_version=migration_version,
+                )
+                return
+            except ConcurrencyConflict:
+                continue
+        raise InvalidStateError(
+            "guided handoff migration changed too often to recover safely"
+        )
+
+    @staticmethod
+    def _migration_with_authoritative_guided_handoff(
+        migration: Mapping[str, Any],
+        handoff: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        if (
+            migration.get("owner_id") != handoff.get("owner_id")
+            or migration.get("passport_id") != handoff.get("passport_id")
+            or int(migration.get("passport_version", 0))
+            != int(handoff.get("passport_version", 0))
+            or migration.get("platform") != handoff.get("platform")
+            or migration.get("plan", {}).get("id") != handoff.get("plan_id")
+        ):
+            raise InvalidStateError("guided handoff migration binding is invalid")
+
+        incoming = dict(handoff)
+        incoming_revision = int(incoming.get("revision", 0))
+        current = migration.get("guided_handoff")
+        current_revision = (
+            int(current.get("revision", 0)) if isinstance(current, Mapping) else 0
+        )
+        if incoming_revision < 1:
+            raise InvalidStateError("guided handoff revision is invalid")
+        if current_revision > incoming_revision:
+            raise InvalidStateError(
+                "migration audit view is newer than its authoritative guided handoff"
+            )
+        if current_revision == incoming_revision:
+            if current != incoming:
+                raise InvalidStateError(
+                    "guided handoff revision conflicts with the migration audit view"
+                )
+            return dict(migration)
+
+        repaired = dict(migration)
+        repaired["guided_handoff"] = incoming
+        state = str(incoming["state"])
+        if state == GuidedHandoffState.FINALIZED.value:
+            receipt = incoming.get("receipt")
+            if not isinstance(receipt, Mapping):
+                raise InvalidStateError("finalized guided handoff is missing its receipt")
+            repaired["guided_receipt_id"] = receipt.get("id")
+            repaired["guided_handoff_completed_at"] = incoming.get("finalized_at")
+            if not repaired.get("receipt_id"):
+                repaired["status"] = "guided_recorded"
+                repaired["completion_stop_reason"] = StopReason.HUMAN_JUDGMENT.value
+                repaired["completed_at"] = incoming.get("finalized_at")
+        elif state == GuidedHandoffState.USER_RESOLVED.value:
+            if repaired.get("status") == "awaiting_handoff":
+                repaired["status"] = "handoff_resolved"
+        return repaired
 
     def projection_get(self, kind: str, identifier: str) -> dict[str, Any]:
         return self._projection(kind, identifier)
@@ -3181,6 +4468,114 @@ class CuratorApplication:
             projection=projection,
         )
 
+    def _require_consumed_live_commission_consent(
+        self,
+        *,
+        migration: Mapping[str, Any],
+        commission_id: str,
+        actor_id: str,
+        max_total_actions: int | None,
+        allowed_action_types: frozenset[ActionType] | None,
+        consent_payload: Mapping[str, Any] | None,
+    ) -> None:
+        """Require proof that the exact current commission grant was consumed."""
+
+        if consent_payload is None:
+            raise InvalidStateError(
+                "live commission execution requires a consumed one-time approval"
+            )
+        required_fields = {
+            "version",
+            "jti",
+            "operation",
+            "resource_id",
+            "actor_id",
+            "max_total_actions",
+            "fingerprint",
+            "issued_at",
+            "expires_at",
+        }
+        if set(consent_payload) != required_fields:
+            raise InvalidStateError("live commission consent payload is malformed")
+        if (
+            consent_payload.get("version") != 1
+            or consent_payload.get("operation") != "execute_agent_live_commission"
+            or consent_payload.get("resource_id") != commission_id
+            or consent_payload.get("actor_id") != actor_id
+        ):
+            raise InvalidStateError("live commission consent does not match this execution")
+        expires_at = parse_datetime(str(consent_payload.get("expires_at", "")))
+        if self._now() >= expires_at:
+            raise InvalidStateError("live commission consent expired before execution")
+
+        stored = self.store.get_projection("agent_live_commissions", commission_id)
+        if stored is None:
+            raise InvalidStateError("live commission approval projection is missing")
+        commission = stored[1]
+        if commission.get("owner_id") != actor_id or commission.get("status") not in {
+            "awaiting_approval",
+            "failed_recoverable",
+        }:
+            raise InvalidStateError("live commission is not in an executable approved state")
+        scope = commission.get("approval_scope")
+        if not isinstance(scope, Mapping):
+            raise InvalidStateError("live commission approval scope is missing")
+        scope_fingerprint = sha256(
+            json.dumps(
+                to_primitive(scope),
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        if consent_payload.get("fingerprint") != scope_fingerprint:
+            raise InvalidStateError("live commission consent scope changed before execution")
+        approved_count = consent_payload.get("max_total_actions")
+        if (
+            isinstance(approved_count, bool)
+            or not isinstance(approved_count, int)
+            or approved_count != int(scope.get("max_total_actions", 0))
+            or max_total_actions != approved_count
+        ):
+            raise InvalidStateError("live commission consent action count does not match")
+        approved_types = frozenset(
+            ActionType(str(value)) for value in scope.get("allowed_action_types", ())
+        )
+        if allowed_action_types != approved_types:
+            raise InvalidStateError("live commission consent action families do not match")
+        plan_fingerprint = self._plan_fingerprint(migration.get("plan"))
+        if (
+            migration.get("agent_live_commission_plan_fingerprint") != plan_fingerprint
+            or scope.get("compiled_plan_fingerprint") != plan_fingerprint
+            or commission.get("sealed_plan_fingerprint") != plan_fingerprint
+        ):
+            raise InvalidStateError("live commission migration is not the sealed approved plan")
+
+        payload = dict(consent_payload)
+        payload_hash = sha256(
+            json.dumps(
+                to_primitive(payload),
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        jti = payload.get("jti")
+        if not isinstance(jti, str) or not jti or not self.store.has_idempotency_reservation(
+            f"consent:{jti}", payload_hash
+        ):
+            raise InvalidStateError(
+                "live commission approval was not consumed through the consent broker"
+            )
+
+    @staticmethod
+    def _plan_fingerprint(value: Any) -> str:
+        return sha256(
+            json.dumps(
+                to_primitive(value),
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+
     def _projection(self, kind: str, identifier: str) -> dict[str, Any]:
         value = self.store.get_projection(kind, identifier)
         if value is None:
@@ -3202,6 +4597,16 @@ class CuratorApplication:
                 "apply_prepared_action",
                 "reconcile_remote_action",
             )
+        )
+
+    def _requires_live_commission_consent(self, adapter: Any) -> bool:
+        """Fail closed except for an explicit in-memory recovery-test policy."""
+
+        if not self._is_live_adapter(adapter):
+            return False
+        return not (
+            self._allow_test_live_execution
+            and str(getattr(adapter, "platform", "")) == "live-test"
         )
 
     def _now(self) -> datetime:

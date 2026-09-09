@@ -55,10 +55,15 @@ class RedditLiveAdapter(CertifiedLivePlatformAdapter):
             **kwargs,
         )
 
-    def capabilities(self, account_id: str) -> PlatformCapabilityManifest:
+    def _capabilities_at(
+        self,
+        account_id: str,
+        *,
+        now: datetime,
+    ) -> PlatformCapabilityManifest:
         if not self._approval_verified:
             return super(CertifiedLivePlatformAdapter, self).capabilities(account_id)
-        return super().capabilities(account_id)
+        return super()._capabilities_at(account_id, now=now)
 
     def _joined_communities(
         self,

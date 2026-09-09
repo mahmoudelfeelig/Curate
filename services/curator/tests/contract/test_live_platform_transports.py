@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from feed_passport.adapters.platforms.base import UnsupportedPlatformAction
 from feed_passport.adapters.platforms.live.bluesky import (
     ATPROTO_SCOPE,
     LegacyBlueskyTokenTestAdapter,
@@ -120,6 +121,29 @@ class FakeCredentials:
         )
 
 
+@dataclass
+class MutableClock:
+    value: datetime
+
+    def __call__(self) -> datetime:
+        return self.value
+
+
+class ExpiringCredentials(FakeCredentials):
+    def __init__(self, clock: MutableClock, expires_at: datetime) -> None:
+        super().__init__()
+        self.clock = clock
+        self.expires_at = expires_at
+        self.expire_on_lease = False
+
+    def lease(self, *args, **kwargs) -> OAuthCredentialLease:
+        lease = super().lease(*args, **kwargs)
+        if self.expire_on_lease:
+            self.expire_on_lease = False
+            self.clock.value = self.expires_at
+        return lease
+
+
 class FailingCredentials:
     def __init__(self, error: Exception) -> None:
         self.error = error
@@ -132,6 +156,8 @@ def certification(platform: str, actions: frozenset[ActionType]) -> ValidatedLiv
     return ValidatedLiveCertification(
         platform=platform,
         certified_at=NOW,
+        expires_at=NOW + timedelta(days=14),
+        code_revision="a" * 40,
         execute=actions,
         observe=frozenset({"authorized_controls"}),
         verify=frozenset({"authorized_controls"}),
@@ -240,6 +266,49 @@ def test_youtube_subscription_prepare_apply_verify_and_inverse_rollback() -> Non
     assert http.calls[1]["json"]["snippet"]["resourceId"]["channelId"] == channel_id
     assert http.calls[4]["params"] == {"id": "subscription-one"}
     assert not http.responses
+
+
+def test_mutation_rechecks_certification_after_credential_refresh() -> None:
+    bound = FakeConnection(
+        id="connection:youtube:expiring",
+        owner_id="owner-one",
+        platform="youtube",
+        external_subject_id="youtube-owner",
+        granted_scopes=frozenset({YOUTUBE_SCOPE}),
+    )
+    validated = certification(
+        "youtube", frozenset({ActionType.SUBSCRIBE_CREATOR})
+    )
+    clock = MutableClock(NOW)
+    credentials = ExpiringCredentials(clock, validated.expires_at)
+    http = QueueHttpClient(
+        [
+            FakeResponse(200, {"items": []}),
+            FakeResponse(200, {"id": "must-not-be-written"}),
+        ]
+    )
+    adapter = YouTubeLiveAdapter(
+        connections={bound.id: bound},
+        credential_provider=credentials,
+        http_client=http,
+        certification=validated,
+        clock=clock,
+    )
+    prepared = adapter.prepare_remote_action(
+        bound.id,
+        action(
+            ActionType.SUBSCRIBE_CREATOR,
+            bound.id,
+            "UC12345678901234567890",
+        ),
+        now=NOW,
+    )
+
+    credentials.expire_on_lease = True
+    with pytest.raises(UnsupportedPlatformAction, match="current validated certification"):
+        adapter.apply_prepared_action(prepared, now=NOW)
+
+    assert [call["method"] for call in http.calls] == ["GET"]
 
 
 def test_youtube_observation_follows_pagination_without_exposing_token() -> None:

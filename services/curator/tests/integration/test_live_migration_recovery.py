@@ -8,7 +8,7 @@ import pytest
 from feed_passport.adapters.lab.adapter import LabAccountState, LabAdapter
 from feed_passport.application import CuratorApplication, InvalidStateError
 from feed_passport.application.model_io import action_from_dict
-from feed_passport.domain import ActionStatus
+from feed_passport.domain import ActionStatus, RollbackOutcome
 from feed_passport.infrastructure import AesGcmKeyring, EncryptedConnectionRegistry, SQLiteStore
 from feed_passport.ports.action_journal import RemoteActionState
 from feed_passport.ports.live_platform import (
@@ -88,6 +88,23 @@ class RecoverableLiveLabAdapter(LabAdapter):
         return super().rollback(account_id, receipt, now=now)
 
 
+class OutcomeUnknownRollbackLiveLabAdapter(RecoverableLiveLabAdapter):
+    def rollback(self, account_id, receipt, *, now):
+        self.rollback_calls += 1
+        action_ids = tuple(outcome.action.id for outcome in receipt.outcomes)
+        self.rollback_action_batches.append(action_ids)
+        return RollbackOutcome(
+            receipt_id=receipt.id,
+            destination_id=account_id,
+            restored_actions=(),
+            failed_actions=action_ids,
+            completed_at=now,
+            caveats=tuple(
+                f"{action_id}: transport_interrupted" for action_id in action_ids
+            ),
+        )
+
+
 class CurrentStatePreparingLiveLabAdapter(RecoverableLiveLabAdapter):
     """Prepare from current state, like a certified remote-state reader."""
 
@@ -140,6 +157,35 @@ class BlockingNonLiveLabAdapter(NonLiveCountingLabAdapter):
         return super().execute(account_id, action, now=now)
 
 
+def test_unmarked_remote_protocol_defaults_to_exact_commission_consent() -> None:
+    class UnmarkedRemoteProtocol:
+        prepare_remote_action = staticmethod(lambda *_args, **_kwargs: None)
+        apply_prepared_action = staticmethod(lambda *_args, **_kwargs: None)
+        reconcile_remote_action = staticmethod(lambda *_args, **_kwargs: None)
+
+    application = object.__new__(CuratorApplication)
+    application._allow_test_live_execution = False
+    assert application._requires_live_commission_consent(UnmarkedRemoteProtocol())
+
+
+def test_test_live_execution_policy_cannot_exempt_an_external_platform(tmp_path) -> None:
+    class UnmarkedRemoteProtocol:
+        prepare_remote_action = staticmethod(lambda *_args, **_kwargs: None)
+        apply_prepared_action = staticmethod(lambda *_args, **_kwargs: None)
+        reconcile_remote_action = staticmethod(lambda *_args, **_kwargs: None)
+
+    store = SQLiteStore(tmp_path / "invalid-test-exemption.db")
+    try:
+        with pytest.raises(ValueError, match="in-memory live-test transport"):
+            CuratorApplication(
+                store=store,
+                adapters={"youtube": UnmarkedRemoteProtocol()},
+                allow_test_live_execution=True,
+            )
+    finally:
+        store.close()
+
+
 def _build_live_migration(tmp_path, *, database_name, adapter=None, clock=None):
     store = SQLiteStore(tmp_path / database_name)
     connections = EncryptedConnectionRegistry(
@@ -167,6 +213,7 @@ def _build_live_migration(tmp_path, *, database_name, adapter=None, clock=None):
         action_journal=store,
         clock=clock or (lambda: NOW),
         id_factory=iter(str(index) for index in range(1000)).__next__,
+        allow_test_live_execution=True,
     )
     passport = application.create_passport(
         owner_id="owner-a",
@@ -278,6 +325,7 @@ def test_unknown_live_write_is_reconciled_without_duplicate_dispatch(tmp_path) -
         action_journal=store,
         clock=lambda: NOW,
         id_factory=iter(str(index) for index in range(1000)).__next__,
+        allow_test_live_execution=True,
     )
     passport = application.create_passport(
         owner_id="owner-a",
@@ -319,6 +367,120 @@ def test_unknown_live_write_is_reconciled_without_duplicate_dispatch(tmp_path) -
     )
     assert first_outcome["status"] in {ActionStatus.EXECUTED.value, ActionStatus.SKIPPED.value}
     store.close()
+
+
+def test_active_reconciliation_lease_preserves_lease_holders_migration_checkpoint(
+    tmp_path,
+) -> None:
+    entered = Event()
+    release = Event()
+    store, adapter, first, migration = _build_live_migration(
+        tmp_path,
+        database_name="active-reconciliation-checkpoint.db",
+    )
+    second = CuratorApplication(
+        store=store,
+        adapters={adapter.platform: adapter},
+        connections=first.connections,
+        action_journal=store,
+        clock=lambda: NOW,
+        id_factory=iter(f"second-{index}" for index in range(1000)).__next__,
+        allow_test_live_execution=True,
+    )
+    original_reconcile = adapter.reconcile_remote_action
+
+    def blocking_reconcile(prepared, *, now):
+        entered.set()
+        if not release.wait(timeout=5):
+            raise RuntimeError("test did not release reconciliation observation")
+        return original_reconcile(prepared, now=now)
+
+    adapter.reconcile_remote_action = blocking_reconcile
+    first_result: list[dict] = []
+    first_failure: list[BaseException] = []
+
+    def run_first() -> None:
+        try:
+            first_result.append(
+                first.reconcile_migration(migration["id"], actor_id="owner-a")
+            )
+        except BaseException as exc:
+            first_failure.append(exc)
+
+    worker: Thread | None = None
+    try:
+        paused = first.execute_migration(migration["id"], approved_by="owner-a")
+        assert paused["status"] == "reconciliation_required"
+        second_action = first._migration_scoped_action(
+            migration["id"],
+            action_from_dict(migration["plan"]["actions"][1]),
+        )
+        second_prepared = adapter.prepare_remote_action(
+            "connection-live-test",
+            second_action,
+            now=NOW,
+        )
+        adapter.apply_prepared_action(second_prepared, now=NOW)
+        second_attempt = store.reserve_remote_action(
+            attempt_id=first._remote_attempt_id(
+                migration["id"],
+                second_action.id,
+                second_action.idempotency_key,
+            ),
+            owner_id="owner-a",
+            connection_id="connection-live-test",
+            platform=adapter.platform,
+            migration_id=migration["id"],
+            action_id=second_action.id,
+            operation=second_action.action_type.value,
+            idempotency_key=second_action.idempotency_key,
+            request_fingerprint=second_prepared.idempotency_fingerprint,
+            action_payload=first._prepared_payload(second_prepared),
+            created_at=NOW,
+        )
+        second_dispatch = store.transition_remote_action(
+            second_attempt.id,
+            expected_state=RemoteActionState.PENDING,
+            new_state=RemoteActionState.DISPATCHING,
+            updated_at=NOW,
+            lease_owner="lost-second-response",
+            lease_expires_at=NOW + timedelta(minutes=2),
+        )
+        store.transition_remote_action(
+            second_dispatch.id,
+            expected_state=RemoteActionState.DISPATCHING,
+            new_state=RemoteActionState.UNKNOWN,
+            updated_at=NOW,
+            error_code="simulated_second_response_lost",
+        )
+        worker = Thread(target=run_first, daemon=True)
+        worker.start()
+        assert entered.wait(timeout=5)
+
+        with pytest.raises(InvalidStateError, match="recovery is already claimed"):
+            second.reconcile_migration(migration["id"], actor_id="owner-a")
+    finally:
+        release.set()
+        if worker is not None:
+            worker.join(timeout=5)
+
+    try:
+        assert worker is not None
+        assert not worker.is_alive()
+        assert first_failure == []
+        assert len(first_result) == 1
+        assert first_result[0]["status"] == "failed_recoverable"
+        assert first.projection_get("migrations", migration["id"])["status"] == (
+            "failed_recoverable"
+        )
+        attempts = store.list_remote_actions(
+            owner_id="owner-a",
+            migration_id=migration["id"],
+        )
+        assert {attempt.state for attempt in attempts} == {RemoteActionState.SUCCEEDED}
+        assert first.recover_uncertain_remote_actions(at=NOW) == ()
+    finally:
+        store.close()
 
 
 def test_runtime_recovery_observes_unknown_write_without_replaying_it(tmp_path) -> None:
@@ -466,6 +628,7 @@ def test_live_rollback_transitions_durable_attempts(tmp_path) -> None:
         action_journal=store,
         clock=lambda: NOW,
         id_factory=iter(str(index) for index in range(1000)).__next__,
+        allow_test_live_execution=True,
     )
     passport = application.create_passport(
         owner_id="owner-a",
@@ -859,21 +1022,222 @@ def test_cross_runtime_claim_prevents_concurrent_non_live_execution_and_duplicat
         verifier.close()
 
 
+def test_active_live_execution_claim_blocks_parallel_reconciliation_and_receipt_issuance(
+    tmp_path,
+) -> None:
+    entered = Event()
+    release = Event()
+    adapter = RecoverableLiveLabAdapter(interrupt_first_write=False)
+    store, adapter, first, migration = _build_live_migration(
+        tmp_path,
+        database_name="active-live-finalization-claim.db",
+        adapter=adapter,
+    )
+    second = CuratorApplication(
+        store=store,
+        adapters={adapter.platform: adapter},
+        connections=first.connections,
+        action_journal=store,
+        clock=lambda: NOW,
+        id_factory=iter(f"second-{index}" for index in range(1000)).__next__,
+        allow_test_live_execution=True,
+    )
+    original_sample = adapter.sample
+    block_first_sample = True
+
+    def blocking_sample(account_id, *, now, limit):
+        nonlocal block_first_sample
+        if block_first_sample:
+            block_first_sample = False
+            entered.set()
+            if not release.wait(timeout=5):
+                raise RuntimeError("test did not release blocked live finalization")
+        return original_sample(account_id, now=now, limit=limit)
+
+    adapter.sample = blocking_sample
+    first_result: list[dict] = []
+    first_failure: list[BaseException] = []
+
+    def run_first() -> None:
+        try:
+            first_result.append(
+                first.execute_migration(migration["id"], approved_by="owner-a")
+            )
+        except BaseException as exc:
+            first_failure.append(exc)
+
+    worker = Thread(target=run_first, daemon=True)
+    worker.start()
+    try:
+        assert entered.wait(timeout=5)
+        with pytest.raises(InvalidStateError, match="claimed by another worker"):
+            second.reconcile_migration(migration["id"], actor_id="owner-a")
+        with pytest.raises(InvalidStateError, match="claimed by another worker"):
+            second.execute_migration(migration["id"], approved_by="owner-a")
+    finally:
+        release.set()
+        worker.join(timeout=5)
+
+    try:
+        assert not worker.is_alive()
+        assert first_failure == []
+        assert len(first_result) == 1
+        receipts = first.projection_list("receipts")
+        assert len(receipts) == 1
+        assert receipts[0]["id"] == first_result[0]["receipt_id"]
+    finally:
+        store.close()
+
+
+def test_expired_live_execution_claim_has_single_create_only_receipt_winner(tmp_path) -> None:
+    current_time = [NOW]
+    entered = Event()
+    release = Event()
+    adapter = RecoverableLiveLabAdapter(interrupt_first_write=False)
+    store, adapter, first, migration = _build_live_migration(
+        tmp_path,
+        database_name="expired-live-finalization-claim.db",
+        adapter=adapter,
+        clock=lambda: current_time[0],
+    )
+    second = CuratorApplication(
+        store=store,
+        adapters={adapter.platform: adapter},
+        connections=first.connections,
+        action_journal=store,
+        clock=lambda: current_time[0],
+        id_factory=iter(f"second-{index}" for index in range(1000)).__next__,
+        allow_test_live_execution=True,
+    )
+    original_sample = adapter.sample
+    block_first_sample = True
+
+    def blocking_sample(account_id, *, now, limit):
+        nonlocal block_first_sample
+        if block_first_sample:
+            block_first_sample = False
+            entered.set()
+            if not release.wait(timeout=5):
+                raise RuntimeError("test did not release expired live finalization")
+        return original_sample(account_id, now=now, limit=limit)
+
+    adapter.sample = blocking_sample
+    first_result: list[dict] = []
+    first_failure: list[BaseException] = []
+
+    def run_first() -> None:
+        try:
+            first_result.append(
+                first.execute_migration(migration["id"], approved_by="owner-a")
+            )
+        except BaseException as exc:
+            first_failure.append(exc)
+
+    worker = Thread(target=run_first, daemon=True)
+    worker.start()
+    try:
+        assert entered.wait(timeout=5)
+        current_time[0] = NOW + timedelta(minutes=3)
+        with pytest.raises(InvalidStateError, match="no uncertain remote action"):
+            second.reconcile_migration(migration["id"], actor_id="owner-a")
+        second_result = second.execute_migration(
+            migration["id"],
+            approved_by="owner-a",
+        )
+    finally:
+        release.set()
+        worker.join(timeout=5)
+
+    try:
+        assert not worker.is_alive()
+        assert first_failure == []
+        assert len(first_result) == 1
+        assert first_result[0]["receipt_id"] == second_result["receipt_id"]
+        receipts = first.projection_list("receipts")
+        assert len(receipts) == 1
+        assert receipts[0]["id"] == second_result["receipt_id"]
+        assert all(count == 1 for count in adapter.apply_counts.values())
+    finally:
+        store.close()
+
+
+def test_expired_executing_unknown_is_observed_then_issues_one_receipt(tmp_path) -> None:
+    current_time = [NOW]
+    adapter = RecoverableLiveLabAdapter()
+    store, adapter, application, migration = _build_live_migration(
+        tmp_path,
+        database_name="expired-executing-unknown.db",
+        adapter=adapter,
+        clock=lambda: current_time[0],
+    )
+    original_record = application._record
+
+    def crash_before_pause_projection(**kwargs):
+        if kwargs.get("event_type") == "migration.reconciliation_required":
+            raise RuntimeError("simulated crash before reconciliation checkpoint")
+        return original_record(**kwargs)
+
+    application._record = crash_before_pause_projection
+    try:
+        with pytest.raises(RuntimeError, match="before reconciliation checkpoint"):
+            application.execute_migration(migration["id"], approved_by="owner-a")
+        application._record = original_record
+        stored = application.projection_get("migrations", migration["id"])
+        attempts = store.list_remote_actions(
+            owner_id="owner-a",
+            migration_id=migration["id"],
+        )
+        assert stored["status"] == "executing"
+        assert {attempt.state for attempt in attempts} == {RemoteActionState.UNKNOWN}
+        writes_before_recovery = dict(adapter.apply_counts)
+
+        current_time[0] = NOW + timedelta(minutes=3)
+        reconciled = application.reconcile_migration(
+            migration["id"],
+            actor_id="owner-a",
+        )
+        completed = application.execute_migration(
+            migration["id"],
+            approved_by="owner-a",
+        )
+
+        assert reconciled["status"] == "failed_recoverable"
+        assert completed["status"] in {"issued", "issued_with_drift"}
+        assert all(
+            adapter.apply_counts[action_id] == count
+            for action_id, count in writes_before_recovery.items()
+        )
+        assert all(count == 1 for count in adapter.apply_counts.values())
+        assert len(application.projection_list("receipts")) == 1
+    finally:
+        application._record = original_record
+        store.close()
+
+
 def test_execution_started_with_durable_dispatch_is_not_replayed(tmp_path) -> None:
+    current_time = [NOW]
     adapter = RecoverableLiveLabAdapter(interrupt_first_write=False)
     adapter.interrupt_before_reservation = True
     store, adapter, application, migration = _build_live_migration(
         tmp_path,
         database_name="execution-started-with-dispatch.db",
         adapter=adapter,
+        clock=lambda: current_time[0],
     )
     try:
         with pytest.raises(RuntimeError, match="before durable reservation"):
             application.execute_migration(migration["id"], approved_by="owner-a")
-        action = action_from_dict(migration["plan"]["actions"][0])
+        action = application._migration_scoped_action(
+            migration["id"],
+            action_from_dict(migration["plan"]["actions"][0]),
+        )
         prepared = adapter.prepare_remote_action("connection-live-test", action, now=NOW)
         reserved = store.reserve_remote_action(
-            attempt_id="possibly-dispatched-action",
+            attempt_id=application._remote_attempt_id(
+                migration["id"],
+                action.id,
+                action.idempotency_key,
+            ),
             owner_id="owner-a",
             connection_id="connection-live-test",
             platform=adapter.platform,
@@ -882,14 +1246,7 @@ def test_execution_started_with_durable_dispatch_is_not_replayed(tmp_path) -> No
             operation=action.action_type.value,
             idempotency_key=action.idempotency_key,
             request_fingerprint=prepared.idempotency_fingerprint,
-            action_payload={
-                "platform": prepared.platform,
-                "connection_id": prepared.connection_id,
-                "action": migration["plan"]["actions"][0],
-                "before_state": dict(prepared.before_state),
-                "desired_state": dict(prepared.desired_state),
-                "prepared_at": prepared.prepared_at.isoformat(),
-            },
+            action_payload=application._prepared_payload(prepared),
             created_at=NOW,
         )
         store.transition_remote_action(
@@ -906,11 +1263,23 @@ def test_execution_started_with_durable_dispatch_is_not_replayed(tmp_path) -> No
 
         assert adapter.apply_counts == {}
         assert store.get_remote_action(reserved.id, owner_id="owner-a").state is RemoteActionState.DISPATCHING
+
+        current_time[0] = NOW + timedelta(minutes=3)
+        reconciled = application.reconcile_migration(
+            migration["id"],
+            actor_id="owner-a",
+        )
+
+        assert reconciled["status"] == "needs_human"
+        assert adapter.apply_counts == {}
+        stopped = store.get_remote_action(reserved.id, owner_id="owner-a")
+        assert stopped.state is RemoteActionState.NEEDS_HUMAN
+        assert stopped.error_code == "dispatch_lease_expired_outcome_unknown"
     finally:
         store.close()
 
 
-def test_active_rollback_lease_is_not_replayed_but_expired_lease_is_reclaimed(tmp_path) -> None:
+def test_active_or_expired_rollback_lease_is_never_replayed_automatically(tmp_path) -> None:
     current_time = [NOW]
     adapter = RecoverableLiveLabAdapter(interrupt_first_write=False)
     store, adapter, application, migration = _build_live_migration(
@@ -924,16 +1293,17 @@ def test_active_rollback_lease_is_not_replayed_but_expired_lease_is_reclaimed(tm
         receipt_id = completed["receipt_id"]
         attempts = store.list_remote_actions(owner_id="owner-a", migration_id=migration["id"])
         assert attempts
-        for attempt in attempts:
+        for index, attempt in enumerate(attempts):
             assert attempt.state is RemoteActionState.SUCCEEDED
-            store.transition_remote_action(
-                attempt.id,
-                expected_state=RemoteActionState.SUCCEEDED,
-                new_state=RemoteActionState.ROLLBACK_PENDING,
-                updated_at=NOW + timedelta(seconds=1),
-                lease_owner="crashed-rollback-worker",
-                lease_expires_at=NOW + timedelta(minutes=2),
-            )
+            if index == 0:
+                store.transition_remote_action(
+                    attempt.id,
+                    expected_state=RemoteActionState.SUCCEEDED,
+                    new_state=RemoteActionState.ROLLBACK_PENDING,
+                    updated_at=NOW + timedelta(seconds=1),
+                    lease_owner="crashed-rollback-worker",
+                    lease_expires_at=NOW + timedelta(minutes=2),
+                )
 
         current_time[0] = NOW + timedelta(minutes=1)
         with pytest.raises(InvalidStateError, match="rollback is already in progress"):
@@ -945,26 +1315,31 @@ def test_active_rollback_lease_is_not_replayed_but_expired_lease_is_reclaimed(tm
         assert adapter.rollback_calls == 0
 
         current_time[0] = NOW + timedelta(minutes=3)
-        recovered = application.rollback_receipt(
+        stopped = application.rollback_receipt(
             receipt_id,
             actor_id="owner-a",
             platform="live-test",
         )
 
-        assert recovered["status"] == "rolled_back"
-        assert adapter.rollback_calls == 1
-        assert all(
-            attempt.state is RemoteActionState.ROLLED_BACK
+        assert stopped["status"] == "rollback_needs_human"
+        assert adapter.rollback_calls == 0
+        stopped_states = {
+            attempt.state
             for attempt in store.list_remote_actions(
                 owner_id="owner-a",
                 migration_id=migration["id"],
             )
-        )
+        }
+        assert stopped_states == {
+            RemoteActionState.NEEDS_HUMAN,
+            RemoteActionState.SUCCEEDED,
+        }
+        assert RemoteActionState.ROLLBACK_PENDING not in stopped_states
     finally:
         store.close()
 
 
-def test_runtime_recovery_resumes_only_an_expired_receipt_bound_rollback(tmp_path) -> None:
+def test_runtime_recovery_stops_an_expired_receipt_bound_rollback_for_human_review(tmp_path) -> None:
     current_time = [NOW]
     adapter = RecoverableLiveLabAdapter(interrupt_first_write=False)
     store, adapter, application, migration = _build_live_migration(
@@ -996,17 +1371,19 @@ def test_runtime_recovery_resumes_only_an_expired_receipt_bound_rollback(tmp_pat
             {
                 "migration_id": migration["id"],
                 "owner_id": "owner-a",
-                "status": "rolled_back",
+                "status": "rollback_needs_human",
                 "operation": "rollback",
             },
         )
-        assert application.projection_get("receipts", completed["receipt_id"])["status"] == "rolled_back"
-        assert adapter.rollback_calls == 1
+        assert application.projection_get("receipts", completed["receipt_id"])["status"] == (
+            "rollback_needs_human"
+        )
+        assert adapter.rollback_calls == 0
     finally:
         store.close()
 
 
-def test_runtime_rollback_recovery_backs_off_and_stops_before_unbounded_mutation(tmp_path) -> None:
+def test_untyped_rollback_interruption_is_terminal_and_never_replayed(tmp_path) -> None:
     current_time = [NOW]
     adapter = RecoverableLiveLabAdapter(interrupt_first_write=False)
     store, adapter, application, migration = _build_live_migration(
@@ -1024,29 +1401,107 @@ def test_runtime_rollback_recovery_backs_off_and_stops_before_unbounded_mutation
             platform="live-test",
         )
         attempts = store.list_remote_actions(owner_id="owner-a", migration_id=migration["id"])
-        assert first["status"] == "rollback_reconciliation_required"
+        assert first["status"] == "rollback_needs_human"
         assert adapter.rollback_calls == 1
-        assert {attempt.next_attempt_at for attempt in attempts} == {
-            NOW + timedelta(seconds=5)
-        }
-
-        current_time[0] = NOW + timedelta(seconds=4)
-        assert application.recover_uncertain_remote_actions(at=current_time[0]) == ()
-        assert adapter.rollback_calls == 1
-
-        final_recovery = ()
-        for due in (5, 15, 35):
-            current_time[0] = NOW + timedelta(seconds=due)
-            final_recovery = application.recover_uncertain_remote_actions(at=current_time[0])
-
-        terminal = store.list_remote_actions(owner_id="owner-a", migration_id=migration["id"])
-        assert final_recovery[0]["status"] == "rollback_needs_human"
-        assert all(value.state is RemoteActionState.NEEDS_HUMAN for value in terminal)
-        assert all(value.attempt_count == 5 for value in terminal)
-        assert adapter.rollback_calls == 4
+        assert all(value.state is RemoteActionState.NEEDS_HUMAN for value in attempts)
+        assert all(value.error_code == "rollback_interrupted_outcome_unknown" for value in attempts)
+        assert all(value.next_attempt_at is None for value in attempts)
 
         current_time[0] = NOW + timedelta(days=1)
         assert application.recover_uncertain_remote_actions(at=current_time[0]) == ()
-        assert adapter.rollback_calls == 4
+        repeated = application.rollback_receipt(
+            completed["receipt_id"],
+            actor_id="owner-a",
+            platform="live-test",
+        )
+        assert repeated["status"] == "rollback_needs_human"
+        assert adapter.rollback_calls == 1
+    finally:
+        store.close()
+
+
+def test_provider_outcome_unknown_rollback_is_terminal_and_never_replayed(tmp_path) -> None:
+    current_time = [NOW]
+    adapter = OutcomeUnknownRollbackLiveLabAdapter(interrupt_first_write=False)
+    store, adapter, application, migration = _build_live_migration(
+        tmp_path,
+        database_name="rollback-provider-outcome-unknown.db",
+        adapter=adapter,
+        clock=lambda: current_time[0],
+    )
+    try:
+        completed = application.execute_migration(migration["id"], approved_by="owner-a")
+
+        first = application.rollback_receipt(
+            completed["receipt_id"],
+            actor_id="owner-a",
+            platform="live-test",
+        )
+        attempts = store.list_remote_actions(owner_id="owner-a", migration_id=migration["id"])
+
+        assert first["status"] == "rollback_needs_human"
+        assert adapter.rollback_calls == 1
+        assert all(value.state is RemoteActionState.NEEDS_HUMAN for value in attempts)
+        assert all(value.error_code == "rollback_outcome_unknown" for value in attempts)
+
+        current_time[0] = NOW + timedelta(days=1)
+        assert application.recover_uncertain_remote_actions(at=current_time[0]) == ()
+        repeated = application.rollback_receipt(
+            completed["receipt_id"],
+            actor_id="owner-a",
+            platform="live-test",
+        )
+        assert repeated["status"] == "rollback_needs_human"
+        assert adapter.rollback_calls == 1
+    finally:
+        store.close()
+
+
+def test_legacy_unknown_rollback_stops_batch_before_claiming_siblings(tmp_path) -> None:
+    adapter = RecoverableLiveLabAdapter(interrupt_first_write=False)
+    store, adapter, application, migration = _build_live_migration(
+        tmp_path,
+        database_name="rollback-legacy-unknown.db",
+        adapter=adapter,
+    )
+    try:
+        completed = application.execute_migration(migration["id"], approved_by="owner-a")
+        attempts = store.list_remote_actions(owner_id="owner-a", migration_id=migration["id"])
+        assert len(attempts) >= 2
+        rollback_pending = store.transition_remote_action(
+            attempts[0].id,
+            expected_state=RemoteActionState.SUCCEEDED,
+            new_state=RemoteActionState.ROLLBACK_PENDING,
+            updated_at=NOW + timedelta(seconds=1),
+            lease_owner="legacy-rollback-worker",
+            lease_expires_at=NOW + timedelta(minutes=1),
+        )
+        store.transition_remote_action(
+            rollback_pending.id,
+            expected_state=RemoteActionState.ROLLBACK_PENDING,
+            new_state=RemoteActionState.ROLLBACK_UNKNOWN,
+            updated_at=NOW + timedelta(seconds=2),
+            error_code="legacy_outcome_unknown",
+        )
+
+        stopped = application.rollback_receipt(
+            completed["receipt_id"],
+            actor_id="owner-a",
+            platform="live-test",
+        )
+        final_attempts = store.list_remote_actions(
+            owner_id="owner-a",
+            migration_id=migration["id"],
+        )
+
+        assert stopped["status"] == "rollback_needs_human"
+        assert adapter.rollback_calls == 0
+        assert final_attempts[0].state is RemoteActionState.NEEDS_HUMAN
+        assert final_attempts[0].error_code == "rollback_outcome_unknown_requires_human"
+        assert all(
+            value.state in {RemoteActionState.NEEDS_HUMAN, RemoteActionState.SUCCEEDED}
+            for value in final_attempts
+        )
+        assert all(value.state is not RemoteActionState.ROLLBACK_PENDING for value in final_attempts)
     finally:
         store.close()

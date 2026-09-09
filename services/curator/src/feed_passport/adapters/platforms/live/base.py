@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, ClassVar
 
 import httpx
@@ -81,6 +81,7 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         observations: Mapping[str, AccountObservation] | None = None,
         request_user_agent: str = "feed-passport/0.1",
         mark_reauth_required: Callable[[ConnectedAccount, datetime], ConnectedAccount] | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(observations=observations)
         normalized_user_agent = request_user_agent.strip()
@@ -95,6 +96,7 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         self._certification = certification
         self._request_user_agent = normalized_user_agent
         self._mark_reauth_required = mark_reauth_required
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
         for connection_id, connection in self._connections.items():
             if connection.id != connection_id:
                 raise ValueError("connected account key must match its id")
@@ -120,6 +122,12 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         require_active_connection(connection, platform=self.platform)
         self._connections[connection.id] = connection
 
+    @property
+    def validated_live_certification(self) -> ValidatedLiveCertification | None:
+        """Expose only the already-validated, secret-free promotion receipt."""
+
+        return self._certification
+
     def unbind_connection(self, connection_id: str) -> None:
         """Forget in-memory routing metadata after revocation."""
 
@@ -141,8 +149,13 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         require_active_connection(connection, platform=self.platform)
         return connection
 
-    def _certified_actions_for(self, connection: ConnectedAccount) -> frozenset[ActionType]:
-        if self._certification is None:
+    def _certified_actions_for(
+        self,
+        connection: ConnectedAccount,
+        *,
+        now: datetime,
+    ) -> frozenset[ActionType]:
+        if not self._certification_is_active(now):
             return frozenset()
         granted = frozenset(connection.granted_scopes)
         return frozenset(
@@ -151,12 +164,22 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
             if self.ACTION_SCOPES.get(action, frozenset()) <= granted
         )
 
-    def capabilities(self, account_id: str) -> PlatformCapabilityManifest:
+    def _capabilities_at(
+        self,
+        account_id: str,
+        *,
+        now: datetime,
+    ) -> PlatformCapabilityManifest:
+        self._require_aware_now(now)
         connection = self._connections.get(account_id)
-        if connection is None or self._certification is None or connection.status != "active":
+        if (
+            connection is None
+            or not self._certification_is_active(now)
+            or connection.status != "active"
+        ):
             return super().capabilities(account_id)
         require_active_connection(connection, platform=self.platform)
-        execute = self._certified_actions_for(connection)
+        execute = self._certified_actions_for(connection, now=now)
         if not execute:
             return super().capabilities(account_id)
         observe = (
@@ -177,10 +200,13 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
             certified_at=self._certification.certified_at,
         )
 
+    def capabilities(self, account_id: str) -> PlatformCapabilityManifest:
+        return self._capabilities_at(account_id, now=self._now())
+
     def observe(self, account_id: str, *, now: datetime, sample_size: int = 24) -> AccountObservation:
         if sample_size < 1:
             raise ValueError("sample size must be positive")
-        manifest = self.capabilities(account_id)
+        manifest = self._capabilities_at(account_id, now=self._now())
         if manifest.level is CapabilityLevel.GUIDED or not manifest.observe:
             return super().observe(account_id, now=now, sample_size=sample_size)
         return self._observe_controls(self._connection(account_id), now=now, sample_size=sample_size)
@@ -188,12 +214,15 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
     def sample(self, account_id: str, *, now: datetime, limit: int = 24) -> FeedSample:
         if limit < 1:
             raise ValueError("sample limit must be positive")
-        if self.capabilities(account_id).level is CapabilityLevel.GUIDED:
+        if self._capabilities_at(account_id, now=self._now()).level is CapabilityLevel.GUIDED:
             return super().sample(account_id, now=now, limit=limit)
         return FeedSample(platform=self.platform, account_id=account_id, items=(), sampled_at=now)
 
     def execute(self, account_id: str, action: ProposedAction, *, now: datetime) -> ActionOutcome:
-        if action.action_type not in self.capabilities(account_id).execute:
+        if action.action_type not in self._capabilities_at(
+            account_id,
+            now=self._now(),
+        ).execute:
             return super().execute(account_id, action, now=now)
         prepared = self.prepare_remote_action(account_id, action, now=now)
         return self.apply_prepared_action(prepared, now=now)
@@ -205,8 +234,10 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         *,
         now: datetime,
     ) -> PreparedRemoteAction:
+        authority_now = self._now()
+        self._require_active_certification(authority_now)
         connection = self._connection(account_id)
-        manifest = self.capabilities(account_id)
+        manifest = self._capabilities_at(account_id, now=authority_now)
         if action.destination_id != account_id:
             raise ValueError("action destination does not match connected account")
         if action.action_type not in manifest.execute:
@@ -242,7 +273,7 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         *,
         now: datetime,
     ) -> ActionOutcome:
-        self._validate_prepared(prepared)
+        self._validate_prepared(prepared, now=now, require_current_certification=True)
         connection = self._connection(prepared.connection_id)
         if self._state_matches(prepared.before_state, prepared.desired_state):
             return ActionOutcome(
@@ -253,6 +284,11 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
                 executed_at=now,
                 platform_reference=self._state_reference(prepared.before_state),
             )
+        # Certification is authority to mutate, not merely to prepare. Recheck
+        # against the adapter's own clock at the last boundary before the
+        # provider write so an expiry between validation and mutation fails
+        # closed.
+        self._require_active_certification(self._now())
         reference = self._mutate_to_state(
             connection,
             prepared.action,
@@ -294,7 +330,10 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         *,
         now: datetime,
     ) -> ActionOutcome:
-        self._validate_prepared(prepared)
+        # Reconciliation only observes an already-reserved action. It remains
+        # available after certification expiry so an uncertain write can be
+        # classified without authorizing another mutation.
+        self._validate_prepared(prepared, now=now, require_current_certification=False)
         connection = self._connection(prepared.connection_id)
         observed = self._read_action_state(connection, prepared.action, now=now)
         if self._state_matches(observed, prepared.desired_state):
@@ -324,10 +363,12 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         )
 
     def rollback(self, account_id: str, receipt: ActionReceipt, *, now: datetime) -> RollbackOutcome:
+        authority_now = self._now()
+        self._require_active_certification(authority_now)
         connection = self._connection(account_id)
         if receipt.destination_id != account_id:
             raise ValueError("receipt destination does not match connected account")
-        manifest = self.capabilities(account_id)
+        manifest = self._capabilities_at(account_id, now=authority_now)
         restored: list[str] = []
         failed: list[str] = []
         caveats: list[str] = []
@@ -338,9 +379,16 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
             if action.action_type not in manifest.rollback:
                 failed.append(action.id)
                 continue
+            # A multi-action rollback cannot carry an expired authority window
+            # forward from its first item into later provider writes.
+            self._require_active_certification(self._now())
             try:
                 current = self._read_action_state(connection, action, now=now)
                 if not self._state_matches(current, outcome.before_state):
+                    # Reads may block long enough for the certification window
+                    # to expire. Never carry the earlier authorization across
+                    # that observation into a provider write.
+                    self._require_active_certification(self._now())
                     self._mutate_to_state(
                         connection,
                         action,
@@ -368,6 +416,17 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
     def health(self, *, now: datetime) -> AdapterHealth:
         if self._certification is None:
             return super().health(now=now)
+        if not self._certification_is_active(now):
+            return AdapterHealth(
+                platform=self.platform,
+                healthy=False,
+                mode="live_certification_expired",
+                checked_at=now,
+                detail=(
+                    f"Live certification {self._certification.receipt_ref} expired; "
+                    "the adapter is fail-closed to guided mode."
+                ),
+            )
         active = sum(connection.status == "active" for connection in self._connections.values())
         return AdapterHealth(
             platform=self.platform,
@@ -380,17 +439,71 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
             ),
         )
 
-    def _validate_prepared(self, prepared: PreparedRemoteAction) -> None:
+    def _validate_prepared(
+        self,
+        prepared: PreparedRemoteAction,
+        *,
+        now: datetime,
+        require_current_certification: bool,
+    ) -> None:
+        self._require_aware_now(now)
         if prepared.platform != self.platform:
             raise ValueError("prepared action belongs to a different platform")
-        manifest = self.capabilities(prepared.connection_id)
-        if prepared.action.action_type not in manifest.execute:
+        connection = self._connection(prepared.connection_id)
+        if require_current_certification:
+            authority_now = self._now()
+            self._require_active_certification(authority_now)
+            admitted = self._capabilities_at(
+                prepared.connection_id,
+                now=authority_now,
+            ).execute
+        else:
+            admitted = (
+                self._certification.execute
+                if self._certification is not None
+                and self.ACTION_SCOPES.get(prepared.action.action_type, frozenset())
+                <= frozenset(connection.granted_scopes)
+                else frozenset()
+            )
+        if prepared.action.action_type not in admitted:
             raise UnsupportedPlatformAction(
                 self.platform,
                 prepared.action.action_type,
                 "live_capability_unavailable",
                 "Prepared action is outside the current certified capability subset.",
             )
+
+    def _certification_is_active(self, now: datetime) -> bool:
+        self._require_aware_now(now)
+        return (
+            self._certification is not None
+            and self._certification.certified_at <= now < self._certification.expires_at
+        )
+
+    def _require_active_certification(self, now: datetime) -> None:
+        if self._certification_is_active(now):
+            return
+        code = (
+            "live_certification_missing"
+            if self._certification is None
+            else "live_certification_expired"
+        )
+        raise UnsupportedPlatformAction(
+            self.platform,
+            min(self._candidate_actions(), key=lambda action: action.value),
+            code,
+            "The live transport requires a current validated certification before mutation.",
+        )
+
+    def _now(self) -> datetime:
+        value = self._clock()
+        self._require_aware_now(value)
+        return value
+
+    @staticmethod
+    def _require_aware_now(now: datetime) -> None:
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("live transport current time must be timezone-aware")
 
     def _lease(
         self,
@@ -491,6 +604,11 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
                 **lease.authorization_headers(method=method, url=url),
             }
             try:
+                if mutation:
+                    # Credential acquisition may refresh or create a DPoP proof.
+                    # Recheck after that work, at the final boundary before the
+                    # provider request that can change account state.
+                    self._require_active_certification(self._now())
                 response = self._http.request(
                     method,
                     url,

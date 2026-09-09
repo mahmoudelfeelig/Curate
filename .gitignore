@@ -70,6 +70,11 @@ htmlcov/
 /browser-data/
 /downloads/
 /exports/
+following.json
+accounts-center.zip
+accounts-center-*.zip
+instagram-*.zip
+instagram-*.json
 trace.zip
 *.webm
 *.har

@@ -38,7 +38,9 @@ class APITests(unittest.TestCase):
             agent_service=CuratorAgentService(application, broker),
         )
         self.passport_id = passport.id
-        self.client_context = TestClient(create_app(self.bundle))
+        self.client_context = TestClient(
+            create_app(self.bundle), client=("127.0.0.1", 45123)
+        )
         self.client = self.client_context.__enter__()
 
     def tearDown(self) -> None:

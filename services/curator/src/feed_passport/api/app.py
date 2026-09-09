@@ -20,14 +20,17 @@ from feed_passport.agent import (
     CompanionStrategy,
     FeatureIntentPlannerError,
     FeatureIntentResult,
+    LiveCommissionPlannerError,
     MissionPlannerError,
     SafeFeatureCatalog,
     TemporaryVisaMode,
 )
 from feed_passport.application.oauth import OAuthFlowError
 from feed_passport.application.curator import InvalidStateError, NotFoundError
+from feed_passport.application.instagram_import_sessions import InstagramImportSessionError
 from feed_passport.domain import ActionType, AgentMissionAcceptance, AgentMissionBudget, OverlayMode
 from feed_passport.infrastructure import ConcurrencyConflict
+from feed_passport.infrastructure.platform_imports import InstagramExportError
 from feed_passport.infrastructure.serialization import to_primitive
 from feed_passport.ports.credentials import CredentialScopeDenied, CredentialUnavailable
 from feed_passport.runtime import DueJobRunner, ServiceBundle, build_service_bundle
@@ -40,6 +43,7 @@ from .auth import (
     parse_bearer_header,
     require_claimed_actor,
 )
+from .disposable_qa import load_disposable_qa_target
 
 from .models import (
     AccountCapture,
@@ -55,6 +59,8 @@ from .models import (
     DriftMonitorCreate,
     DriftRequest,
     FeatureIntentPlan,
+    GuidedStepResolve,
+    InstagramImportApply,
     MigrationExecute,
     MigrationPrepare,
     OAuthCallback,
@@ -157,12 +163,18 @@ def create_app(
     *,
     auth_mode: str | None = None,
     bearer_verifier: BearerTokenVerifier | None = None,
+    local_import_enabled: bool | None = None,
 ) -> FastAPI:
     owned_bundle = bundle is None
     resolved_auth_mode = (auth_mode or os.getenv("FEED_PASSPORT_AUTH_MODE", "demo")).strip().lower()
     if resolved_auth_mode not in {"demo", "oidc"}:
         raise ValueError("FEED_PASSPORT_AUTH_MODE must be 'demo' or 'oidc'")
     service = bundle or build_service_bundle(seed_demo=resolved_auth_mode == "demo")
+    resolved_local_import_enabled = (
+        local_import_enabled
+        if local_import_enabled is not None
+        else os.getenv("FEED_PASSPORT_ENABLE_LOCAL_IMPORT", "0").strip() == "1"
+    )
     allowed_origins = tuple(
         item.strip()
         for item in os.getenv(
@@ -170,6 +182,35 @@ def create_app(
             "http://localhost:5173,http://127.0.0.1:5173",
         ).split(",")
         if item.strip()
+    )
+    bind_host = os.getenv("FEED_PASSPORT_BIND_HOST", "127.0.0.1").strip()
+    if resolved_auth_mode == "demo" and (
+        not _is_loopback_host(bind_host)
+        or not allowed_origins
+        or not all(_is_loopback_origin(origin) for origin in allowed_origins)
+    ):
+        raise ValueError(
+            "demo authentication requires a loopback FEED_PASSPORT_BIND_HOST and "
+            "loopback-only FEED_PASSPORT_ALLOWED_ORIGINS; use OIDC for any public, "
+            "proxied, LAN, or hosted deployment"
+        )
+    if resolved_local_import_enabled and (
+        not _is_loopback_host(bind_host)
+        or not allowed_origins
+        or not all(_is_loopback_origin(origin) for origin in allowed_origins)
+    ):
+        raise ValueError(
+            "local Instagram import requires a loopback FEED_PASSPORT_BIND_HOST "
+            "and loopback-only FEED_PASSPORT_ALLOWED_ORIGINS; do not expose it through a proxy"
+        )
+    disposable_qa_target = load_disposable_qa_target(
+        auth_mode=resolved_auth_mode,
+        loopback_only=(
+            _is_loopback_host(bind_host)
+            and bool(allowed_origins)
+            and all(_is_loopback_origin(origin) for origin in allowed_origins)
+        ),
+        owned_bundle=owned_bundle,
     )
     credentialed_surfaces = bool(
         service.connection_registry is not None
@@ -182,7 +223,6 @@ def create_app(
         os.getenv("FEED_PASSPORT_ALLOW_INSECURE_LOOPBACK_OAUTH", "0").strip() == "1"
     )
     if credentialed_surfaces and resolved_auth_mode != "oidc":
-        bind_host = os.getenv("FEED_PASSPORT_BIND_HOST", "127.0.0.1").strip()
         if not unsafe_loopback_oauth:
             raise ValueError(
                 "credentialed OAuth or live transports require FEED_PASSPORT_AUTH_MODE=oidc; "
@@ -206,6 +246,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         scheduler_task: asyncio.Task[None] | None = None
+        import_cleanup_task: asyncio.Task[None] | None = None
         if scheduler_enabled:
             def process_runtime_tick() -> None:
                 service.application.process_due_jobs()
@@ -213,9 +254,23 @@ def create_app(
 
             runner = DueJobRunner(process_runtime_tick, scheduler_interval)
             scheduler_task = asyncio.create_task(runner.run(), name="feed-passport-due-jobs")
+        if resolved_local_import_enabled:
+            async def purge_expired_imports() -> None:
+                while True:
+                    await asyncio.sleep(30)
+                    service.instagram_import_sessions.purge_expired()
+
+            import_cleanup_task = asyncio.create_task(
+                purge_expired_imports(),
+                name="feed-passport-instagram-import-cleanup",
+            )
         try:
             yield
         finally:
+            if import_cleanup_task is not None:
+                import_cleanup_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await import_cleanup_task
             if scheduler_task is not None:
                 scheduler_task.cancel()
                 with suppress(asyncio.CancelledError):
@@ -232,16 +287,32 @@ def create_app(
     app.state.bundle = service
     app.state.auth_mode = resolved_auth_mode
     app.state.unsafe_loopback_oauth = unsafe_loopback_oauth and credentialed_surfaces
+    app.state.local_import_enabled = resolved_local_import_enabled
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(allowed_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH"],
-        allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key",
+            "X-Feed-Passport-Local-Import",
+        ],
     )
 
     @app.middleware("http")
     async def bind_authenticated_principal(request: Request, call_next):
+        if resolved_auth_mode == "demo":
+            client_host = request.client.host if request.client is not None else ""
+            if not _is_loopback_host(client_host):
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": "demo_loopback_required",
+                        "detail": "Demo mode accepts loopback clients only; use OIDC beyond this machine.",
+                    },
+                )
         if app.state.unsafe_loopback_oauth:
             client_host = request.client.host if request.client is not None else ""
             if not _is_loopback_host(client_host):
@@ -313,6 +384,27 @@ def create_app(
         if passport.owner_id != actor_id:
             raise NotFoundError(passport_id)
 
+    def require_local_import(request: Request) -> None:
+        if not app.state.local_import_enabled:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Local Instagram import is disabled; set "
+                    "FEED_PASSPORT_ENABLE_LOCAL_IMPORT=1 on a loopback-bound Curator"
+                ),
+            )
+        client_host = request.client.host if request.client is not None else ""
+        if not _is_loopback_host(client_host):
+            raise HTTPException(
+                status_code=403,
+                detail="Instagram export intake is restricted to a loopback client",
+            )
+        if request.headers.get("x-feed-passport-local-import") != "1":
+            raise HTTPException(
+                status_code=403,
+                detail="Instagram export intake requires the local-import request marker",
+            )
+
     def projection_visible(kind: str, value: dict[str, Any], actor_id: str | None) -> bool:
         if actor_id is None:
             return True
@@ -341,9 +433,14 @@ def create_app(
 
     def visible_projections(kind: str, request: Request) -> list[dict[str, Any]]:
         actor_id = current_actor(request)
+        projections = (
+            service.application.migration_audit_projections(owner_id=actor_id)
+            if kind == "migrations"
+            else service.application.projection_list(kind)
+        )
         return [
             value
-            for value in service.application.projection_list(kind)
+            for value in projections
             if projection_visible(kind, value, actor_id)
         ]
 
@@ -365,11 +462,40 @@ def create_app(
     async def invalid_handler(_: Request, exc: ValueError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"error": "invalid_request", "detail": str(exc)})
 
+    @app.exception_handler(InstagramExportError)
+    async def instagram_export_error_handler(
+        _: Request,
+        exc: InstagramExportError,
+    ) -> JSONResponse:
+        status_code = 413 if exc.code in {"input_too_large", "json_too_large"} else 422
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": exc.code, "detail": str(exc)},
+        )
+
+    @app.exception_handler(InstagramImportSessionError)
+    async def instagram_import_session_error_handler(
+        _: Request,
+        exc: InstagramImportSessionError,
+    ) -> JSONResponse:
+        status_code = {
+            "session_unavailable": 404,
+            "session_expired": 410,
+            "session_busy": 409,
+            "session_capacity": 429,
+            "apply_callback_failed": 409,
+        }.get(exc.code, 422)
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": exc.code, "detail": str(exc)},
+        )
+
     @app.exception_handler(MissionPlannerError)
+    @app.exception_handler(LiveCommissionPlannerError)
     @app.exception_handler(FeatureIntentPlannerError)
     async def planner_error_handler(
         _: Request,
-        exc: MissionPlannerError | FeatureIntentPlannerError,
+        exc: MissionPlannerError | LiveCommissionPlannerError | FeatureIntentPlannerError,
     ) -> JSONResponse:
         return JSONResponse(
             status_code=502,
@@ -410,7 +536,7 @@ def create_app(
 
     @app.get("/health")
     def health() -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "status": "healthy",
             "service": "feed-passport-curator",
             "platform_count": len(service.application.list_platforms()),
@@ -427,6 +553,9 @@ def create_app(
                 else "local_keys_required"
             ),
         }
+        if disposable_qa_target is not None:
+            result["qa_disposable_target"] = disposable_qa_target
+        return result
 
     def require_connection_registry():
         if service.connection_registry is None:
@@ -692,6 +821,139 @@ def create_app(
             service.application.revise_passport(passport_id, actor_id=body.actor_id, changes=body.changes)
         )
 
+    @app.post("/api/platform-imports/instagram/preview", status_code=201)
+    async def preview_instagram_import(
+        request: Request,
+        actor_id: str = Query(min_length=1, max_length=160),
+        passport_id: str = Query(min_length=1, max_length=160),
+        filename: str = Query(min_length=1, max_length=255),
+    ) -> dict[str, Any]:
+        require_local_import(request)
+        if request.headers.get("content-type", "").strip().lower() != "application/octet-stream":
+            raise HTTPException(
+                status_code=415,
+                detail="Instagram export intake requires application/octet-stream",
+            )
+        if (
+            filename != filename.strip()
+            or any(ord(character) < 32 or ord(character) == 127 for character in filename)
+            or "/" in filename
+            or "\\" in filename
+            or not filename.lower().endswith((".json", ".zip"))
+        ):
+            raise ValueError("Instagram import filename must be a plain .json or .zip name")
+        passport = service.application.get_passport(passport_id)
+        if passport.owner_id != actor_id:
+            raise PermissionError("only the Passport owner can preview an Instagram import")
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                announced_size = int(content_length)
+            except ValueError:
+                raise ValueError("Instagram import Content-Length must be an integer") from None
+            if announced_size < 1 or announced_size > 64 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Instagram export input must be between 1 byte and 64 MiB",
+                )
+        chunks: list[bytes] = []
+        received = 0
+        async for chunk in request.stream():
+            received += len(chunk)
+            if received > 64 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Instagram export input exceeds 64 MiB",
+                )
+            chunks.append(chunk)
+        preview = service.instagram_import_sessions.create_preview(
+            owner_id=actor_id,
+            passport_id=passport.id,
+            passport_version=passport.version,
+            source=b"".join(chunks),
+        )
+        return {
+            **to_primitive(preview),
+            "selection_limit": max(0, 500 - len(passport.creator_preferences)),
+            "raw_source_retained": False,
+            "platform_account_accessed": False,
+        }
+
+    @app.post("/api/platform-imports/instagram/{session_id}/apply")
+    def apply_instagram_import(
+        session_id: str,
+        body: InstagramImportApply,
+        request: Request,
+    ) -> dict[str, Any]:
+        require_local_import(request)
+        preview = service.instagram_import_sessions.get_preview(
+            session_id=session_id,
+            owner_id=body.actor_id,
+        )
+        passport = service.application.get_passport(body.passport_id)
+        if passport.owner_id != body.actor_id:
+            raise PermissionError("only the Passport owner can apply an Instagram import")
+        if (
+            preview.passport_id != body.passport_id
+            or preview.passport_version != body.expected_passport_version
+        ):
+            raise InvalidStateError(
+                "Instagram import preview belongs to a different Passport revision"
+            )
+        if passport.version != body.expected_passport_version:
+            raise InvalidStateError(
+                "Passport changed after the import preview; review the selection again"
+            )
+        existing_selected = len(
+            set(body.selected_handles) & set(passport.creator_preferences)
+        )
+        remaining_capacity = 500 - len(passport.creator_preferences) + existing_selected
+        result: dict[str, Any] = {}
+
+        def apply_selection(handles: tuple[str, ...]) -> None:
+            result["passport"] = service.application.apply_instagram_creator_import(
+                body.passport_id,
+                actor_id=body.actor_id,
+                expected_passport_version=body.expected_passport_version,
+                selected_handles=handles,
+                source_sha256=preview.source_sha256,
+                parser_id=preview.parser_id,
+            )
+
+        summary = service.instagram_import_sessions.apply(
+            session_id=session_id,
+            owner_id=body.actor_id,
+            passport_id=body.passport_id,
+            expected_passport_version=body.expected_passport_version,
+            selected_handles=body.selected_handles,
+            remaining_capacity=remaining_capacity,
+            apply_callback=apply_selection,
+        )
+        revised = result.get("passport")
+        if revised is None:
+            raise InvalidStateError("Instagram import did not produce a revised Passport")
+        return {
+            "import": to_primitive(summary),
+            "passport": to_primitive(revised),
+            "applied_count": summary.selected_relationship_count,
+            "new_creator_count": len(revised.creator_preferences)
+            - len(passport.creator_preferences),
+            "platform_account_changed": False,
+        }
+
+    @app.post("/api/platform-imports/instagram/{session_id}/discard")
+    def discard_instagram_import(
+        session_id: str,
+        body: ActorRequest,
+        request: Request,
+    ) -> dict[str, Any]:
+        require_local_import(request)
+        summary = service.instagram_import_sessions.discard(
+            session_id=session_id,
+            owner_id=body.actor_id,
+        )
+        return {**to_primitive(summary), "private_preview_retained": False}
+
     @app.get("/api/passports/{passport_id}/export")
     def export_passport(passport_id: str, request: Request) -> dict[str, Any]:
         require_owned_passport(request, passport_id)
@@ -848,6 +1110,40 @@ def create_app(
     def reconcile_migration(migration_id: str, body: ActorRequest) -> dict[str, Any]:
         return service.application.reconcile_migration(
             migration_id,
+            actor_id=body.actor_id,
+        )
+
+    @app.get("/api/guided-handoffs/{session_id}")
+    def get_guided_handoff(
+        session_id: str,
+        request: Request,
+        actor_id: str = Query(min_length=1, max_length=160),
+    ) -> dict[str, Any]:
+        principal_actor = current_actor(request)
+        if principal_actor is not None and principal_actor != actor_id:
+            raise PermissionError("guided handoff actor does not match the authenticated owner")
+        return service.application.get_guided_handoff(session_id, actor_id=actor_id)
+
+    @app.post("/api/guided-handoffs/{session_id}/steps/{step_id}/resolve")
+    def resolve_guided_handoff_step(
+        session_id: str,
+        step_id: str,
+        body: GuidedStepResolve,
+    ) -> dict[str, Any]:
+        return service.application.resolve_guided_handoff_step(
+            session_id,
+            step_id=step_id,
+            resolution=body.resolution,
+            actor_id=body.actor_id,
+        )
+
+    @app.post("/api/guided-handoffs/{session_id}/finalize")
+    def finalize_guided_handoff(
+        session_id: str,
+        body: ActorRequest,
+    ) -> dict[str, Any]:
+        return service.application.finalize_guided_handoff(
+            session_id,
             actor_id=body.actor_id,
         )
 

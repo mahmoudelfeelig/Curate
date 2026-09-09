@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -27,6 +27,20 @@ class PassportCreate(StrictModel):
 class PassportRevision(StrictModel):
     actor_id: str = Field(min_length=1)
     changes: dict[str, Any]
+
+
+class InstagramImportApply(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=160)
+    passport_id: str = Field(min_length=1, max_length=160)
+    expected_passport_version: int = Field(ge=1)
+    selected_handles: list[str] = Field(min_length=1, max_length=500)
+
+    @field_validator("selected_handles")
+    @classmethod
+    def require_unique_handles(cls, value: list[str]) -> list[str]:
+        if len(value) != len(set(value)):
+            raise ValueError("selected Instagram handles must be unique")
+        return value
 
 
 class PassportImport(StrictModel):
@@ -177,6 +191,15 @@ class MigrationExecute(StrictModel):
     approval_token: str = Field(min_length=20)
 
 
+class GuidedStepResolve(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=160)
+    resolution: Literal[
+        "completed_by_user",
+        "skipped_by_user",
+        "control_not_found",
+    ]
+
+
 class RollbackApprovalCreate(StrictModel):
     actor_id: str = Field(min_length=1)
     platform: str = Field(min_length=1)
@@ -285,6 +308,29 @@ class AgentMissionApprovalCreate(StrictModel):
 
 
 class AgentMissionExecute(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    approval_token: str = Field(min_length=20)
+
+
+class AgentLiveCommissionPreview(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    priority_mode: Literal[
+        "balanced",
+        "protective_controls_first",
+        "creator_continuity_first",
+    ] = "balanced"
+    passport_id: str = Field(min_length=1, max_length=160)
+    platform: Literal["youtube", "bluesky"]
+    destination_connection_id: str = Field(min_length=1, max_length=160)
+    max_total_actions: int = Field(default=8, ge=1, le=20)
+
+
+class AgentLiveCommissionApprovalCreate(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    ttl_seconds: int = Field(default=600, ge=1, le=900)
+
+
+class AgentLiveCommissionExecute(StrictModel):
     actor_id: str = Field(min_length=1, max_length=120)
     approval_token: str = Field(min_length=20)
 

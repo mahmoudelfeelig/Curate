@@ -407,7 +407,9 @@ class AgentMissionAPITests(unittest.TestCase):
             agent_service=CuratorAgentService(application, broker),
         )
         self.passport_id = passport.id
-        self.context = TestClient(create_app(self.bundle))
+        self.context = TestClient(
+            create_app(self.bundle), client=("127.0.0.1", 45123)
+        )
         self.client = self.context.__enter__()
 
     def tearDown(self) -> None:

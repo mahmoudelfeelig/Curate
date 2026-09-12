@@ -482,6 +482,103 @@ class LiveCommissionService:
             expected_projection_version=commission_version,
         )
 
+    def cancel(self, commission_id: str, *, actor_id: str) -> dict[str, Any]:
+        commission_version, commission = self._get_versioned(
+            commission_id,
+            actor_id=actor_id,
+        )
+        if commission.get("status") == "cancelled":
+            return commission
+        cancellable = {
+            "planning",
+            "planning_failed",
+            "awaiting_approval",
+            "needs_human",
+            "stale",
+        }
+        if commission.get("status") not in cancellable:
+            raise InvalidStateError(
+                f"live commission cannot be cancelled from {commission.get('status')}"
+            )
+        if commission.get("receipt_id"):
+            raise InvalidStateError(
+                "a live commission with an execution receipt must use rollback"
+            )
+        now = self._now()
+        cancelled = dict(commission)
+        cancelled.update(
+            {
+                "status": "cancelled",
+                "stop_reason": "cancelled_by_owner",
+                "cancelled_at": now.isoformat(),
+                "updated_at": now.isoformat(),
+            }
+        )
+        self._record(
+            commission_id,
+            cancelled,
+            event_type="agent_live_commission.cancelled",
+            actor_id=actor_id,
+            payload={"status": "cancelled", "stop_reason": "cancelled_by_owner"},
+            expected_projection_version=commission_version,
+        )
+        return cancelled
+
+    def rollback(
+        self,
+        commission_id: str,
+        *,
+        actor_id: str,
+        approval_token: str,
+    ) -> dict[str, Any]:
+        commission_version, commission = self._get_versioned(
+            commission_id,
+            actor_id=actor_id,
+        )
+        if commission.get("status") == "rolled_back":
+            return commission
+        receipt_id = str(commission.get("receipt_id") or "")
+        if not receipt_id:
+            raise InvalidStateError("live commission has no execution receipt to roll back")
+        if self.consent_broker is None:
+            raise InvalidStateError(
+                "live commission rollback requires a configured consent broker"
+            )
+        self.consent_broker.consume(
+            approval_token,
+            operation="rollback_receipt",
+            resource_id=receipt_id,
+            actor_id=actor_id,
+        )
+        receipt = self.application.rollback_receipt(
+            receipt_id,
+            actor_id=actor_id,
+            platform=str(commission["platform"]),
+        )
+        rollback_status = str(receipt.get("status", "rollback_partial"))
+        status = "rolled_back" if rollback_status == "rolled_back" else "rollback_partial"
+        now = self._now()
+        rolled_back = dict(commission)
+        rolled_back.update(
+            {
+                "status": status,
+                "stop_reason": status,
+                "rollback_available": status != "rolled_back",
+                "rollback": receipt.get("rollback"),
+                "updated_at": now.isoformat(),
+                "rolled_back_at": now.isoformat() if status == "rolled_back" else None,
+            }
+        )
+        self._record(
+            commission_id,
+            rolled_back,
+            event_type=f"agent_live_commission.{status}",
+            actor_id=actor_id,
+            payload={"receipt_id": receipt_id, "receipt_status": rollback_status},
+            expected_projection_version=commission_version,
+        )
+        return {**rolled_back, "receipt": receipt}
+
     def get(self, commission_id: str, *, actor_id: str | None = None) -> dict[str, Any]:
         return self._get_versioned(commission_id, actor_id=actor_id)[1]
 

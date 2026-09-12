@@ -148,6 +148,25 @@ class APITests(unittest.TestCase):
         self.assertEqual(model_preview.status_code, 503)
         self.assertIn("no external or paid provider fallback", model_preview.json()["detail"])
 
+        live_list = self.client.get(
+            "/api/agent/live-commissions",
+            params={"actor_id": "person-a"},
+        )
+        self.assertEqual(live_list.status_code, 503)
+        live_preview = self.client.post(
+            "/api/agent/live-commissions/preview",
+            json={
+                "actor_id": "person-a",
+                "passport_id": self.passport_id,
+                "priority_mode": "balanced",
+                "platform": "youtube",
+                "destination_connection_id": "not-connected",
+                "max_total_actions": 1,
+            },
+        )
+        self.assertEqual(live_preview.status_code, 503)
+        self.assertIn("no external or paid fallback", live_preview.json()["detail"])
+
     def test_seeded_lab_account_can_be_captured_as_a_new_passport(self) -> None:
         captured = self.client.post(
             "/api/passports/capture",

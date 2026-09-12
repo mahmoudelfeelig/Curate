@@ -347,6 +347,59 @@ def issue_live_grant(harness: Harness, commission_id: str) -> str:
     return grant.token
 
 
+def test_owner_can_cancel_exact_preview_before_any_provider_write(
+    harness: Harness,
+) -> None:
+    commission = finalize_commission(harness)
+
+    cancelled = harness.service.cancel(commission["id"], actor_id=OWNER_ID)
+
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["stop_reason"] == "cancelled_by_owner"
+    assert harness.adapter.apply_calls == 0
+    with pytest.raises(InvalidStateError, match="cannot execute"):
+        harness.service.execute(
+            commission["id"],
+            actor_id=OWNER_ID,
+            approval_token="unused-token-that-is-long-enough",
+        )
+
+
+def test_live_commission_rollback_consumes_receipt_bound_approval(
+    harness: Harness,
+) -> None:
+    commission = finalize_commission(harness)
+    executed = harness.service.execute(
+        commission["id"],
+        actor_id=OWNER_ID,
+        approval_token=issue_live_grant(harness, commission["id"]),
+    )
+    rollback_grant = harness.broker.issue_for_rollback(
+        executed["receipt_id"],
+        actor_id=OWNER_ID,
+        platform="youtube",
+    )
+
+    rolled_back = harness.service.rollback(
+        commission["id"],
+        actor_id=OWNER_ID,
+        approval_token=rollback_grant.token,
+    )
+
+    assert rolled_back["status"] == "rolled_back"
+    assert rolled_back["receipt"]["status"] == "rolled_back"
+    assert rolled_back["rollback_available"] is False
+    assert POSITIVE_CREATOR not in harness.adapter._accounts[CONNECTION_ID].following
+    apply_calls = harness.adapter.apply_calls
+    repeated = harness.service.rollback(
+        commission["id"],
+        actor_id=OWNER_ID,
+        approval_token=rollback_grant.token,
+    )
+    assert repeated["status"] == "rolled_back"
+    assert harness.adapter.apply_calls == apply_calls
+
+
 def test_model_sees_only_redacted_precompiled_families_then_exact_plan_executes(
     harness: Harness,
 ) -> None:

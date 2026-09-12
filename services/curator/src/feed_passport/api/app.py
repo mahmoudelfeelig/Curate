@@ -51,6 +51,9 @@ from .models import (
     AgentMissionApprovalCreate,
     AgentMissionExecute,
     AgentMissionPreview,
+    AgentLiveCommissionApprovalCreate,
+    AgentLiveCommissionExecute,
+    AgentLiveCommissionPreview,
     ApprovalCreate,
     CheckpointCreate,
     CompanionCreate,
@@ -1321,6 +1324,132 @@ def create_app(
         return service.agent_service.mission_runner.rollback(
             mission_id,
             actor_id=body.actor_id,
+        )
+
+    @app.get("/api/agent/live-commissions")
+    def list_agent_live_commissions(
+        actor_id: str = Query(min_length=1, max_length=120),
+    ) -> list[dict[str, Any]]:
+        if service.live_commission_service is None:
+            raise HTTPException(status_code=503, detail="Live commissions are not configured.")
+        return list(service.live_commission_service.list(actor_id=actor_id))
+
+    @app.post("/api/agent/live-commissions/preview", status_code=201)
+    async def preview_agent_live_commission(
+        body: AgentLiveCommissionPreview,
+    ) -> dict[str, Any]:
+        if service.live_commission_planner is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "The local live-commission planner is disabled. Configure the explicit "
+                    "loopback-only model; no external or paid fallback is permitted."
+                ),
+            )
+        return await service.live_commission_planner.preview(
+            actor_id=body.actor_id,
+            priority_mode=body.priority_mode,
+            passport_id=body.passport_id,
+            platform=body.platform,
+            destination_connection_id=body.destination_connection_id,
+            max_total_actions=body.max_total_actions,
+        )
+
+    @app.get("/api/agent/live-commissions/{commission_id}")
+    def get_agent_live_commission(
+        commission_id: str,
+        actor_id: str = Query(min_length=1, max_length=120),
+    ) -> dict[str, Any]:
+        if service.live_commission_service is None:
+            raise HTTPException(status_code=503, detail="Live commissions are not configured.")
+        return service.live_commission_service.get(commission_id, actor_id=actor_id)
+
+    @app.post("/api/agent/live-commissions/{commission_id}/approval")
+    def approve_agent_live_commission(
+        commission_id: str,
+        body: AgentLiveCommissionApprovalCreate,
+    ) -> dict[str, Any]:
+        if service.live_commission_service is None:
+            raise HTTPException(status_code=503, detail="Live commissions are not configured.")
+        return to_primitive(
+            service.broker.issue_for_live_commission(
+                commission_id,
+                actor_id=body.actor_id,
+                ttl=timedelta(seconds=body.ttl_seconds),
+            )
+        )
+
+    @app.post("/api/agent/live-commissions/{commission_id}/execute")
+    def execute_agent_live_commission(
+        commission_id: str,
+        body: AgentLiveCommissionExecute,
+    ) -> dict[str, Any]:
+        if service.live_commission_service is None:
+            raise HTTPException(status_code=503, detail="Live commissions are not configured.")
+        return service.live_commission_service.execute(
+            commission_id,
+            actor_id=body.actor_id,
+            approval_token=body.approval_token,
+        )
+
+    @app.post("/api/agent/live-commissions/{commission_id}/reconcile")
+    def reconcile_agent_live_commission(
+        commission_id: str,
+        body: ActorRequest,
+    ) -> dict[str, Any]:
+        if service.live_commission_service is None:
+            raise HTTPException(status_code=503, detail="Live commissions are not configured.")
+        return service.live_commission_service.reconcile(
+            commission_id,
+            actor_id=body.actor_id,
+        )
+
+    @app.post("/api/agent/live-commissions/{commission_id}/cancel")
+    def cancel_agent_live_commission(
+        commission_id: str,
+        body: ActorRequest,
+    ) -> dict[str, Any]:
+        if service.live_commission_service is None:
+            raise HTTPException(status_code=503, detail="Live commissions are not configured.")
+        return service.live_commission_service.cancel(
+            commission_id,
+            actor_id=body.actor_id,
+        )
+
+    @app.post("/api/agent/live-commissions/{commission_id}/rollback/approval")
+    def approve_agent_live_commission_rollback(
+        commission_id: str,
+        body: AgentLiveCommissionApprovalCreate,
+    ) -> dict[str, Any]:
+        if service.live_commission_service is None:
+            raise HTTPException(status_code=503, detail="Live commissions are not configured.")
+        commission = service.live_commission_service.get(
+            commission_id,
+            actor_id=body.actor_id,
+        )
+        receipt_id = str(commission.get("receipt_id") or "")
+        if not receipt_id:
+            raise InvalidStateError("live commission has no execution receipt to roll back")
+        return to_primitive(
+            service.broker.issue_for_rollback(
+                receipt_id,
+                actor_id=body.actor_id,
+                platform=str(commission["platform"]),
+                ttl=timedelta(seconds=body.ttl_seconds),
+            )
+        )
+
+    @app.post("/api/agent/live-commissions/{commission_id}/rollback")
+    def rollback_agent_live_commission(
+        commission_id: str,
+        body: AgentLiveCommissionExecute,
+    ) -> dict[str, Any]:
+        if service.live_commission_service is None:
+            raise HTTPException(status_code=503, detail="Live commissions are not configured.")
+        return service.live_commission_service.rollback(
+            commission_id,
+            actor_id=body.actor_id,
+            approval_token=body.approval_token,
         )
 
     @app.post("/api/drift")

@@ -148,6 +148,11 @@ test("defines an explicit presentation for every live commission stop state", ()
     issued_partial: "terminal",
     stale: "repreview",
     needs_human: "terminal",
+    planning: "pending",
+    planning_failed: "repreview",
+    cancelled: "terminal",
+    rolled_back: "terminal",
+    rollback_partial: "terminal",
   };
 
   for (const [status, action] of Object.entries(expected)) {

@@ -882,6 +882,87 @@ test("connected account IDs become the live execution address and OAuth remains 
   }
 });
 
+test("connected commissions use only the owner-bound service lifecycle with no fixture fallback", async () => {
+  const previousBase = globalThis.__CURATOR_API_URL__;
+  const previousFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.__CURATOR_API_URL__ = "http://curator.test/api";
+  const previewed = {
+    id: "live-commission-one",
+    owner_id: "demo-owner",
+    status: "awaiting_approval",
+    updated_at: "2026-09-12T12:00:00Z",
+  };
+  globalThis.fetch = async (input, options = {}) => {
+    const url = new URL(String(input));
+    const body = options.body ? JSON.parse(options.body) : null;
+    requests.push({ method: options.method || "GET", path: url.pathname, body });
+    if (url.pathname === "/health") return jsonResponse({ status: "healthy" });
+    if (url.pathname === "/api/demo") {
+      return jsonResponse({ passports: [demoPassport], migrations: [], overlays: [], companions: [], receipts: [] });
+    }
+    if (url.pathname === "/api/agent/live-commissions" && options.method !== "POST") {
+      return jsonResponse([previewed]);
+    }
+    if (url.pathname === "/api/agent/live-commissions/preview") {
+      assert.deepEqual(body, {
+        actor_id: "demo-owner",
+        passport_id: "passport-demo",
+        priority_mode: "balanced",
+        platform: "youtube",
+        destination_connection_id: "youtube-owner-connection",
+        max_total_actions: 1,
+      });
+      return jsonResponse(previewed, 201);
+    }
+    if (url.pathname.endsWith("/approval")) {
+      return jsonResponse({ token: "single-use-owner-bound-approval-token" });
+    }
+    if (url.pathname.endsWith("/execute")) {
+      assert.equal(body.approval_token, "single-use-owner-bound-approval-token");
+      return jsonResponse({ ...previewed, status: "issued", receipt_id: "receipt-one" });
+    }
+    if (url.pathname.endsWith("/reconcile")) {
+      return jsonResponse({ ...previewed, status: "issued", receipt_id: "receipt-one" });
+    }
+    if (url.pathname.endsWith("/cancel")) {
+      return jsonResponse({ ...previewed, status: "cancelled" });
+    }
+    if (url.pathname.endsWith("/rollback")) {
+      assert.equal(body.approval_token, "single-use-owner-bound-approval-token");
+      return jsonResponse({ ...previewed, status: "rolled_back", receipt_id: "receipt-one" });
+    }
+    return jsonResponse({ detail: `Unexpected request: ${options.method || "GET"} ${url.pathname}` }, 500);
+  };
+
+  try {
+    const { feedPassportApi } = await import(`./apiClient.js?live-commission=${Date.now()}`);
+    await feedPassportApi.loadPassport();
+    const listed = await feedPassportApi.listLiveCommissions();
+    const preview = await feedPassportApi.previewLiveCommission({
+      priorityMode: "balanced",
+      platform: "youtube",
+      connectionId: "youtube-owner-connection",
+      maxTotalActions: 1,
+    });
+    const executed = await feedPassportApi.runLiveCommission(preview.data.id);
+    const reconciled = await feedPassportApi.reconcileLiveCommission(preview.data.id);
+    const cancelled = await feedPassportApi.cancelLiveCommission(preview.data.id);
+    const rolledBack = await feedPassportApi.rollbackLiveCommission(preview.data.id);
+
+    assert.equal(listed.source, "service");
+    assert.equal(executed.data.status, "issued");
+    assert.equal(reconciled.data.status, "issued");
+    assert.equal(cancelled.data.status, "cancelled");
+    assert.equal(rolledBack.data.status, "rolled_back");
+    assert.equal(requests.filter((item) => item.path.includes("live-commissions")).length, 8);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
+    else globalThis.__CURATOR_API_URL__ = previousBase;
+  }
+});
+
 test("continuous companion invitation survives service refresh and still requires a second local principal", async () => {
   const previousBase = globalThis.__CURATOR_API_URL__;
   const previousFetch = globalThis.fetch;

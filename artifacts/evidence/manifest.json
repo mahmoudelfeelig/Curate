@@ -1,20 +1,20 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-09T01:52:51.5462857Z",
+  "generated_at": "2026-09-12T21:05:07.9752100Z",
   "source": {
     "branch": "main",
-    "commit_count": 50,
+    "commit_count": 60,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
-    "snapshot_file_count": 349,
+    "snapshot_file_count": 351,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "971b2c89f4224a7c75c7a292571354f9dbb3f09fef526c299c3dcc5b2d870a3b",
+    "snapshot_sha256": "4357f290e2919ea7e20479cc67bdf49fda8299d65057a64e271b613005b03fd0",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,
     "history_rewritten_to_logical_commits": true,
     "sanitized_baseline_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
     "sanitized_baseline_commit_count": 40,
-    "append_only_commits_after_sanitized_baseline": 10
+    "append_only_commits_after_sanitized_baseline": 20
   },
   "environment": {
     "operating_system": "win32-x64",
@@ -31,7 +31,7 @@
   },
   "external_state": {
     "real_social_accounts_used": 0,
-    "dummy_social_accounts_used": 0,
+    "dummy_social_accounts_used": 1,
     "external_model_calls": 0,
     "paid_model_calls": 0,
     "competition_credits_used": 0,
@@ -40,7 +40,7 @@
     "oauth_authorizations": 0,
     "platform_api_requests": 0,
     "git_remotes_configured": 1,
-    "git_pushes_before_this_manifest_release": 1
+    "git_pushes_before_this_manifest_release": 2
   },
   "model_provenance": {
     "repository": "Qwen/Qwen3-1.7B-GGUF",
@@ -72,16 +72,16 @@
       "gate": "python",
       "command": ".\\services\\curator\\.venv\\Scripts\\python.exe -m pytest services/curator/tests -o addopts= -q -p no:cacheprovider",
       "status": "passed",
-      "tests": 519,
+      "tests": 524,
       "subtests": 155,
-      "warnings": 2,
-      "warning_scope": "upstream dependency deprecations"
+      "warnings": 3,
+      "warning_scope": "upstream dependency deprecations and a denied pytest cache write"
     },
     {
       "gate": "node",
       "command": "npm test",
       "status": "passed",
-      "tests": 76
+      "tests": 78
     },
     {
       "gate": "independent_live_recovery_security_focus",
@@ -94,14 +94,14 @@
       "gate": "atproto_sidecar",
       "command": "npm test and node --check src/*.mjs in services/atproto-oauth",
       "status": "passed",
-      "tests": 52,
+      "tests": 58,
       "all_source_modules_syntax_checked": true
     },
     {
       "gate": "production_build",
       "command": "npm run build",
       "status": "passed",
-      "transformed_modules": 48,
+      "transformed_modules": 50,
       "sites_artifacts_prepared": true
     },
     {
@@ -142,10 +142,10 @@
       "command": "npm run test:evidence",
       "status": "passed",
       "artifacts": 13,
-      "source_files": 349,
+      "source_files": 351,
       "tracked_tree_clean": true,
       "byte_source": "git-index-blobs",
-      "commit_count": 50
+      "commit_count": 60
     },
     {
       "gate": "deterministic_evaluation",

@@ -44,6 +44,22 @@ def relationship(
     }
 
 
+def compact_relationship(
+    handle: str = "paper.lab",
+    *,
+    href: str | None = None,
+) -> dict[str, object]:
+    return {
+        "title": handle,
+        "string_list_data": [
+            {
+                "href": href or f"https://www.instagram.com/{handle}/",
+                "timestamp": 1_724_889_600,
+            }
+        ],
+    }
+
+
 def following_json(*items: object, extra: dict[str, object] | None = None) -> bytes:
     document: dict[str, object] = {"relationships_following": list(items)}
     document.update(extra or {})
@@ -113,6 +129,35 @@ def test_raw_following_json_normalizes_only_creator_relationship_evidence() -> N
     assert snapshot.credentials_included is False
     with pytest.raises(FrozenInstanceError):
         snapshot.source_format = "zip"  # type: ignore[misc]
+
+
+def test_current_compact_export_uses_title_only_when_profile_url_agrees() -> None:
+    snapshot = parse_instagram_accounts_center_export(
+        following_json(compact_relationship("paper.lab"))
+    )
+
+    assert snapshot.followed_handles == ("paper.lab",)
+    assert snapshot.accepted_relationship_count == 1
+
+    redirect_snapshot = parse_instagram_accounts_center_export(
+        following_json(
+            compact_relationship(
+                "paper.lab",
+                href="https://www.instagram.com/_u/paper.lab/",
+            )
+        )
+    )
+    assert redirect_snapshot.followed_handles == ("paper.lab",)
+
+    assert_error(
+        "no_valid_following_records",
+        following_json(
+            compact_relationship(
+                "paper.lab",
+                href="https://www.instagram.com/different.account/",
+            )
+        ),
+    )
 
 
 def test_zip_reads_one_recognized_member_without_extracting_or_retaining_ignored_content(

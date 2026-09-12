@@ -504,7 +504,13 @@ def _parse_relationship(
     item = string_data[0]
     if not isinstance(item, Mapping):
         return None
-    raw_handle = item.get("value")
+    nested_handle = item.get("value")
+    title = value.get("title")
+    # Accounts Center currently emits both the older nested `value` shape and
+    # a compact shape where the relationship title is the only explicit
+    # handle. In either form the normalized handle must agree with the HTTPS
+    # Instagram profile URL before it is accepted.
+    raw_handle = nested_handle if nested_handle is not None else title
     href = item.get("href")
     if not isinstance(raw_handle, str) or not isinstance(href, str):
         return None
@@ -514,7 +520,6 @@ def _parse_relationship(
     href_handle = _handle_from_instagram_url(href)
     if handle is None or href_handle is None or handle != href_handle:
         return None
-    title = value.get("title")
     if title is not None and title != "":
         if (
             not isinstance(title, str)
@@ -557,7 +562,10 @@ def _handle_from_instagram_url(value: str) -> str | None:
         or "%" in parsed.path
     ):
         return None
-    path_match = re.fullmatch(r"/([^/]+)/?", parsed.path)
+    # Meta exports may encode the same profile as either `/handle/` or the
+    # Accounts Center redirect form `/_u/handle/`. Both remain constrained to
+    # one canonical handle on the exact Instagram host.
+    path_match = re.fullmatch(r"/(?:_u/)?([^/]+)/?", parsed.path)
     if path_match is None:
         return None
     return _canonical_handle(path_match.group(1))

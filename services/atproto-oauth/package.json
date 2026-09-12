@@ -10,8 +10,9 @@
   "exports": "./src/index.mjs",
   "scripts": {
     "start": "node src/server.mjs",
+    "start:public-gateway": "node src/public-gateway.mjs",
     "test": "node --test",
-    "check": "node --check src/index.mjs && node --check src/config.mjs && node --check src/durable-store.mjs && node --check src/official-client.mjs && node --check src/official-executor.mjs && node --check src/server.mjs"
+    "check": "node --check src/index.mjs && node --check src/config.mjs && node --check src/durable-store.mjs && node --check src/official-client.mjs && node --check src/official-executor.mjs && node --check src/server.mjs && node --check src/public-gateway.mjs"
   },
   "dependencies": {
     "@atproto/api": "0.20.42",

@@ -36,6 +36,14 @@ The browser never talks directly to the private sidecar endpoints. Feed Passport
 authenticates the signed-in user, then calls the sidecar over a private interface
 with an internal service credential and the canonical owner ID.
 
+For a temporary development tunnel, `src/public-gateway.mjs` provides a second,
+loopback-only listener. It proxies exactly the four public GET routes listed
+below to the sidecar, rejects every private or unknown path before proxying, and
+constructs a fresh upstream request without incoming authorization, cookie,
+DPoP, owner, forwarding, or other caller headers. Only an allowlist of public
+response headers can cross back. Point a tunnel at this gateway, never at the
+private sidecar listener.
+
 During connection, Feed Passport creates an application state and passes it as
 `appState` to `NodeOAuthClient.authorize`. The official client independently
 generates the OAuth protocol state. Its injected state-store seam atomically
@@ -234,6 +242,22 @@ Performing a live OAuth callback remains a separate explicit gate. It requires a
 public HTTPS metadata/JWKS/callback origin, the externally generated client key,
 an authorized dummy account, and approval to contact that account's PDS. None of
 the local tests make network or account calls.
+
+For an ephemeral tunnel, start the public gateway on loopback after the sidecar
+configuration has been bound to the tunnel's assigned HTTPS origin:
+
+```sh
+npm run start:public-gateway
+cloudflared tunnel --url http://127.0.0.1:4311
+```
+
+The default gateway listener is `127.0.0.1:4311` and its default upstream is
+`http://127.0.0.1:4310`. Strict loopback-only overrides are available as
+`FEED_PASSPORT_ATPROTO_PUBLIC_GATEWAY_HOST`,
+`FEED_PASSPORT_ATPROTO_PUBLIC_GATEWAY_PORT`, and
+`FEED_PASSPORT_ATPROTO_PUBLIC_GATEWAY_UPSTREAM`. An ephemeral hostname changes
+the OAuth client ID and redirect URI, so the sidecar must be restarted with the
+new `FEED_PASSPORT_ATPROTO_PUBLIC_ORIGIN` before starting an authorization.
 
 There are two explicit crash boundaries. If the process dies after the official
 callback persists a session but before the atomic connection/receipt commit, the

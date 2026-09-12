@@ -20,6 +20,8 @@ import {
 import { FeatureClerkSpread } from "./features/FeatureClerkSpread.jsx";
 import { mapFeatureProposalToDesk } from "./features/featureClerk.js";
 import { AgentSpread, DEFAULT_AGENT_MISSION_FORM } from "./features/agent/AgentSpread.jsx";
+import { ConnectedAgentDesk } from "./features/agent/ConnectedAgentDesk.jsx";
+import { DEFAULT_CONNECTED_AGENT_FORM } from "./features/agent/connectedAgentDesk.js";
 import { CreatorSpread, DriftSpread, HistorySpread, TemplatesSpread } from "./features/operations/OperationsSpreads.jsx";
 import { ConstitutionSpread, OverviewSpread, VisaSpread } from "./features/passport/PassportSpreads.jsx";
 import { CompanionSpread, MigrationSpread, TemporarySpread } from "./features/workflows/WorkflowSpreads.jsx";
@@ -136,6 +138,9 @@ export function App() {
   const [agentMissionForm, setAgentMissionForm] = useState(clone(DEFAULT_AGENT_MISSION_FORM));
   const [agentMission, setAgentMission] = useState(null);
   const [agentMissionApproved, setAgentMissionApproved] = useState(false);
+  const [connectedAgentForm, setConnectedAgentForm] = useState(clone(DEFAULT_CONNECTED_AGENT_FORM));
+  const [liveCommission, setLiveCommission] = useState(null);
+  const [liveCommissionApproved, setLiveCommissionApproved] = useState(false);
   const [featureClerkRequest, setFeatureClerkRequest] = useState("Give me a reversible research-focused feed for exactly 9 hours, then return to my base Passport.");
   const [featureClerkResult, setFeatureClerkResult] = useState(null);
   const [featureDeskPrefills, setFeatureDeskPrefills] = useState({ migration: null, temporary: null, companion: null });
@@ -224,6 +229,9 @@ export function App() {
     setAgentMissionForm(clone(DEFAULT_AGENT_MISSION_FORM));
     setAgentMission(null);
     setAgentMissionApproved(false);
+    setConnectedAgentForm(clone(DEFAULT_CONNECTED_AGENT_FORM));
+    setLiveCommission(null);
+    setLiveCommissionApproved(false);
     setFeatureClerkResult(null);
     setFeatureDeskPrefills({ migration: null, temporary: null, companion: null });
     setConnectionNotice("");
@@ -422,6 +430,17 @@ export function App() {
             model_id: null,
             reason: `Local model status unavailable: ${error.message}`,
           });
+        }
+      }
+      try {
+        const commissions = await feedPassportApi.listLiveCommissions();
+        if (active && hydrationRevision === identityRevisionRef.current) {
+          const latest = [...commissions.data].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))[0] || null;
+          setLiveCommission(latest);
+        }
+      } catch (error) {
+        if (active && hydrationRevision === identityRevisionRef.current) {
+          setConnectionNotice((current) => current || `Connected commission history is unavailable: ${error.message}`);
         }
       }
       const state = await feedPassportApi.listState();
@@ -1260,6 +1279,51 @@ export function App() {
     }, "Mission rollback failed");
   };
 
+  const handleLiveCommissionPreview = (event) => {
+    event.preventDefault();
+    if (!connectedAgentForm.connectionId || rejectWhileBusy()) return;
+    return runBusy("live-commission-preview", async () => {
+      const result = await feedPassportApi.previewLiveCommission(connectedAgentForm);
+      setLiveCommission(result.data);
+      setLiveCommissionApproved(false);
+      addActivity(`Connected commission ${result.data.id} sealed an exact one-shot plan and stopped for owner approval.`, "Plan only", "Local model clerk");
+    }, "Connected commission preview failed");
+  };
+  const handleLiveCommissionRun = () => {
+    if (!liveCommission?.id || !liveCommissionApproved || rejectWhileBusy()) return;
+    return runBusy("live-commission-run", async () => {
+      const result = await feedPassportApi.runLiveCommission(liveCommission.id);
+      setLiveCommission(result.data);
+      setLiveCommissionApproved(false);
+      addActivity(`Connected commission ${result.data.id} completed its single approved provider pass and recorded the outcome.`, "Receipt recorded", "You");
+    }, "Connected commission execution stopped");
+  };
+  const handleLiveCommissionReconcile = () => {
+    if (!liveCommission?.id || rejectWhileBusy()) return;
+    return runBusy("live-commission-reconcile", async () => {
+      const result = await feedPassportApi.reconcileLiveCommission(liveCommission.id);
+      setLiveCommission(result.data);
+      addActivity(`Connected commission ${result.data.id} reconciled only its durable provider attempts.`, "Boundary checked");
+    }, "Connected commission reconciliation failed");
+  };
+  const handleLiveCommissionCancel = () => {
+    if (!liveCommission?.id || rejectWhileBusy()) return;
+    return runBusy("live-commission-cancel", async () => {
+      const result = await feedPassportApi.cancelLiveCommission(liveCommission.id);
+      setLiveCommission(result.data);
+      setLiveCommissionApproved(false);
+      addActivity(`Connected commission ${result.data.id} was cancelled before provider execution.`, "Boundary kept", "You");
+    }, "Connected commission cancellation failed");
+  };
+  const handleLiveCommissionRollback = () => {
+    if (!liveCommission?.id || rejectWhileBusy()) return;
+    return runBusy("live-commission-rollback", async () => {
+      const result = await feedPassportApi.rollbackLiveCommission(liveCommission.id);
+      setLiveCommission(result.data);
+      addActivity(`Connected commission ${result.data.id} attempted the separately approved inverse controls from its receipt.`, result.data.status === "rolled_back" ? "Restored" : "Needs attention", "You");
+    }, "Connected commission rollback failed");
+  };
+
   const handleFeatureClerkPlan = () => {
     if (!featureClerkRequest.trim() || rejectWhileBusy()) return;
     return runBusy("feature-clerk-plan", async () => {
@@ -1356,6 +1420,7 @@ export function App() {
     case "history": content = <HistorySpread receipts={receipts} selectedReceipt={selectedReceipt} setSelectedReceipt={setSelectedReceipt} onRollback={handleRollback} checkpoints={checkpoints} onCheckpoint={handleCheckpoint} onRestore={handleRestoreCheckpoint} onExport={handleExportPassport} onImport={handleImportPassport} portabilityNotice={portabilityNotice} busyAction={busyAction} />; break;
     case "clerk": content = <FeatureClerkSpread request={featureClerkRequest} setRequest={setFeatureClerkRequest} result={featureClerkResult} ready={featureClerkReady} readinessReason={featureClerkReadinessReason} busy={busyAction === "feature-clerk-plan"} onPlan={handleFeatureClerkPlan} onApply={handleFeatureClerkApply} />; break;
     case "agent": content = <AgentSpread form={agentMissionForm} setForm={setAgentMissionForm} mission={agentMission} approvalChecked={agentMissionApproved} setApprovalChecked={setAgentMissionApproved} onPreview={handleMissionPreview} onModelPreview={handleModelMissionPreview} onRun={handleMissionRun} onCancel={handleMissionCancel} onRollback={handleMissionRollback} busyAction={busyAction} webmcp={webmcp} apiMode={apiMode} schedulerStatus={schedulerStatus} modelStatus={modelStatus} activity={activity} />; break;
+    case "connected-agent": content = <ConnectedAgentDesk form={connectedAgentForm} setForm={setConnectedAgentForm} eligibleConnections={accountConnections} commission={liveCommission} approvalChecked={liveCommissionApproved} setApprovalChecked={setLiveCommissionApproved} onPreview={handleLiveCommissionPreview} onRun={handleLiveCommissionRun} onReconcile={handleLiveCommissionReconcile} onRollback={handleLiveCommissionRollback} onCancel={handleLiveCommissionCancel} busyAction={busyAction} modelStatus={modelStatus} apiMode={apiMode} />; break;
     default: content = <OverviewSpread constitution={constitution} connectedIds={connectedIds} onNavigate={navigate} onToggleDestination={toggleDestination} consent={consent} setConsent={setConsent} expiry={expiry} setExpiry={setExpiry} onIssue={handleIssue} busy={busyAction === "issue"} issued={issued} latestReceipt={latestReceipt} passportId={passportId} />;
   }
   if (authState.required && !authState.authenticated) {

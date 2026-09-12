@@ -170,6 +170,24 @@ const STATUS_VIEWS = Object.freeze({
     detail: "No executable commission was created. Review the request and preview again.",
     action: "repreview",
   },
+  cancelled: {
+    label: "Commission cancelled",
+    tone: "purple",
+    detail: "The owner cancelled this commission before any provider execution.",
+    action: "terminal",
+  },
+  rolled_back: {
+    label: "Receipt rolled back",
+    tone: "green",
+    detail: "The separately approved inverse controls completed and the receipt is closed.",
+    action: "terminal",
+  },
+  rollback_partial: {
+    label: "Rollback needs attention",
+    tone: "orange",
+    detail: "At least one inverse control could not be verified. Inspect the receipt before another action.",
+    action: "terminal",
+  },
 });
 
 export function commissionStatusView(status) {

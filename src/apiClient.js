@@ -83,6 +83,7 @@ const runtime = {
   driftMonitors: new Map(),
   creatorLinks: new Map(),
   agentMissions: new Map(),
+  liveCommissions: new Map(),
   lastDrift: null,
   fixturePassportId: "FP-74128",
   fixtureOwnerId: "fixture-owner",
@@ -286,6 +287,7 @@ function resetPassportRuntime() {
   runtime.driftMonitors.clear();
   runtime.creatorLinks.clear();
   runtime.agentMissions.clear();
+  runtime.liveCommissions.clear();
   runtime.lastDrift = null;
   runtime.fixtureCheckpoints.clear();
 }
@@ -2110,6 +2112,107 @@ export const feedPassportApi = {
     });
     runtime.agentMissions.set(mission.id, mission);
     return { source: "service", data: mission };
+  },
+
+  async listLiveCommissions() {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(
+        503,
+        "Connected commissions require the local Curator service; no fixture fallback exists.",
+        { fallback_permitted: false },
+      );
+    }
+    await ensureServiceContext();
+    const commissions = await requestJson(
+      `/api/agent/live-commissions?actor_id=${encodeURIComponent(runtime.actorId)}`,
+      { method: "GET" },
+    );
+    runtime.liveCommissions.clear();
+    for (const commission of commissions) runtime.liveCommissions.set(commission.id, commission);
+    return { source: "service", data: commissions };
+  },
+
+  async previewLiveCommission(spec) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(
+        503,
+        "A genuine connected commission requires the local Curator service and local model; no fixture fallback exists.",
+        { fallback_permitted: false },
+      );
+    }
+    await ensureServiceContext();
+    const commission = await requestJson("/api/agent/live-commissions/preview", {
+      method: "POST",
+      timeoutMs: 150_000,
+      body: JSON.stringify({
+        actor_id: runtime.actorId,
+        passport_id: runtime.passportId,
+        priority_mode: spec.priorityMode,
+        platform: spec.platform,
+        destination_connection_id: spec.connectionId,
+        max_total_actions: Number(spec.maxTotalActions),
+      }),
+    });
+    runtime.liveCommissions.set(commission.id, commission);
+    return { source: "service", data: commission };
+  },
+
+  async runLiveCommission(commissionId) {
+    if (!serviceAvailable) throw new CuratorApiError(503, "The connected service is unavailable.", null);
+    await ensureServiceContext();
+    const approval = await requestJson(`/api/agent/live-commissions/${encodeURIComponent(commissionId)}/approval`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: runtime.actorId, ttl_seconds: 600 }),
+    });
+    const commission = await requestJson(`/api/agent/live-commissions/${encodeURIComponent(commissionId)}/execute`, {
+      method: "POST",
+      body: JSON.stringify({
+        actor_id: runtime.actorId,
+        approval_token: approval.approval_token || approval.token,
+      }),
+    });
+    runtime.liveCommissions.set(commission.id, commission);
+    return { source: "service", data: commission };
+  },
+
+  async reconcileLiveCommission(commissionId) {
+    if (!serviceAvailable) throw new CuratorApiError(503, "The connected service is unavailable.", null);
+    await ensureServiceContext();
+    const commission = await requestJson(`/api/agent/live-commissions/${encodeURIComponent(commissionId)}/reconcile`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: runtime.actorId }),
+    });
+    runtime.liveCommissions.set(commission.id, commission);
+    return { source: "service", data: commission };
+  },
+
+  async cancelLiveCommission(commissionId) {
+    if (!serviceAvailable) throw new CuratorApiError(503, "The connected service is unavailable.", null);
+    await ensureServiceContext();
+    const commission = await requestJson(`/api/agent/live-commissions/${encodeURIComponent(commissionId)}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: runtime.actorId }),
+    });
+    runtime.liveCommissions.set(commission.id, commission);
+    return { source: "service", data: commission };
+  },
+
+  async rollbackLiveCommission(commissionId) {
+    if (!serviceAvailable) throw new CuratorApiError(503, "The connected service is unavailable.", null);
+    await ensureServiceContext();
+    const approval = await requestJson(`/api/agent/live-commissions/${encodeURIComponent(commissionId)}/rollback/approval`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: runtime.actorId, ttl_seconds: 600 }),
+    });
+    const commission = await requestJson(`/api/agent/live-commissions/${encodeURIComponent(commissionId)}/rollback`, {
+      method: "POST",
+      body: JSON.stringify({
+        actor_id: runtime.actorId,
+        approval_token: approval.approval_token || approval.token,
+      }),
+    });
+    runtime.liveCommissions.set(commission.id, commission);
+    return { source: "service", data: commission };
   },
 
   getAgentMission(missionId) {

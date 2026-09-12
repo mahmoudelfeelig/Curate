@@ -18,7 +18,6 @@ export function OverviewSpread({
   latestReceipt,
   passportId,
 }) {
-  const [blueskyHandle, setBlueskyHandle] = useState("");
   const featured = DESTINATIONS.filter((destination) =>
     ["lab", "bluesky", "youtube", "instagram"].includes(destination.id),
   );
@@ -157,6 +156,7 @@ export function VisaSpread({
   onInstagramImportDiscard,
   serviceAvailable = false,
 }) {
+  const [blueskyHandle, setBlueskyHandle] = useState("");
   const destination = DESTINATIONS.find((item) => item.id === selectedVisa) || DESTINATIONS[0];
   const platformKey = destination.id === "lab" ? "feed_passport_lab" : destination.id;
   const profile = platformProfiles.find((item) => item.platform === platformKey) || null;

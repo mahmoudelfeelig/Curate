@@ -13,7 +13,7 @@ const viewports = [
   { name: "compact-desktop", width: 1024, height: 768 },
   { name: "tablet", width: 768, height: 1024 },
   { name: "mobile", width: 390, height: 844 },
-  { name: "mobile-200-percent-reflow", width: 195, height: 422, sections: ["overview", "agent"] },
+  { name: "mobile-200-percent-reflow", width: 195, height: 422, sections: ["overview", "agent", "connected-agent"] },
 ];
 
 const sections = [
@@ -29,6 +29,7 @@ const sections = [
   { id: "history", heading: "Action Archive" },
   { id: "clerk", heading: "Feature Clerk" },
   { id: "agent", heading: "Set the Mission" },
+  { id: "connected-agent", heading: "Commission One Exact Trip" },
 ];
 
 async function loadPlaywright() {

@@ -1,20 +1,20 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-12T21:05:07.9752100Z",
+  "generated_at": "2026-09-12T22:57:34.9976364Z",
   "source": {
     "branch": "main",
-    "commit_count": 60,
+    "commit_count": 61,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
     "snapshot_file_count": 351,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "4357f290e2919ea7e20479cc67bdf49fda8299d65057a64e271b613005b03fd0",
+    "snapshot_sha256": "fd6a514c344817af323ce8c181ddcf9c34870d73a932468f75ad537f7f12213c",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,
     "history_rewritten_to_logical_commits": true,
     "sanitized_baseline_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
     "sanitized_baseline_commit_count": 40,
-    "append_only_commits_after_sanitized_baseline": 20
+    "append_only_commits_after_sanitized_baseline": 21
   },
   "environment": {
     "operating_system": "win32-x64",
@@ -145,7 +145,7 @@
       "source_files": 351,
       "tracked_tree_clean": true,
       "byte_source": "git-index-blobs",
-      "commit_count": 60
+      "commit_count": 61
     },
     {
       "gate": "deterministic_evaluation",

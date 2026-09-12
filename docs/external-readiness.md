@@ -2,7 +2,7 @@
 
 Feed Passport can be built, tested, and demonstrated account-free. External account control is a separate evidence gate. This page identifies what is complete locally, what only the account owner or platform can create, and what cannot be attempted while the requirement is zero spend.
 
-No passing local test promotes a named platform. An unprefixed platform remains **Guided** until a fresh, signed conformance receipt proves an explicitly authorized dummy-account action against the exact Git revision being run. Even with such a receipt, generic migrations cannot execute a live adapter; the separately bound owner-authenticated live-commission lifecycle is the only implemented live execution authority, and it has no public routes.
+No passing local test promotes a named platform. An unprefixed platform remains **Guided** until a fresh, signed conformance receipt proves an explicitly authorized dummy-account action against the exact Git revision being run. Even with such a receipt, generic migrations cannot execute a live adapter; the separately bound owner-authenticated Connected Agent API and desk are the only implemented live execution authority, and they fail closed without a certified adapter, sealed plan, and one-time owner approval.
 
 The public repository is anchored by the 40-commit baseline at `d6727618fbe9339d1c95281806498002096dbdbd`. Integration work after that point is append-only. The committed evidence manifest is a historical source snapshot for that baseline, not a live publication ledger; its recorded zero pushes must not be used to describe the current public repository. Regenerate evidence only from the final clean committed revision.
 

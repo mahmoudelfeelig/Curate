@@ -185,7 +185,7 @@ The separate one-shot YouTube/Bluesky commission planner is source- and test-lev
 
 Its model context contains only privacy-reduced Passport-derived demand buckets, the names and counts of every certified action family in an already compiled plan, and the locked action budget. Exact targets remain in deterministic application code. The only accepted model result is a unique complete permutation of all supplied families. There is no model field for a goal, rationale, target, approval, authority claim, executable action, or revised budget.
 
-Deterministic code uses the permutation to order the withheld exact actions, truncates that sequence under the fixed budget, and seals the resulting plan. The later commission boundary revalidates the owner connection, Passport version, effective-policy fingerprint, compiled plan, certification, and one-time exact-plan consent. Generic migration authority cannot execute a live adapter. No owner-authenticated API route or browser workflow currently exposes commission preview, approval, execution, reconciliation, or rollback, and no live account has been validated.
+Deterministic code uses the permutation to order the withheld exact actions, truncates that sequence under the fixed budget, and seals the resulting plan. The later commission boundary revalidates the owner connection, Passport version, effective-policy fingerprint, compiled plan, certification, and one-time exact-plan consent. Generic migration authority cannot execute a live adapter. The Connected Agent desk and owner-authenticated API expose commission preview, approval, execution, reconciliation, cancellation, and rollback, but no live account has yet been validated and execution remains certification-gated.
 
 ## API behavior
 

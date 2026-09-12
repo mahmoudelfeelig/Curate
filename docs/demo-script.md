@@ -60,7 +60,7 @@ Use only fresh, legible evidence:
 - The curated `artifacts/evidence/` reports after `manifest.json` binds their hashes to the tested source revision
 - Omit AgentCore deployment entirely unless the entrant separately approves it and supplies a real deployment URL plus invocation/trace receipt
 
-This script uses no external accounts. A seeded twin account is deterministic local state, not a dummy account on a social platform. Do not show a dummy social account, a selected destination card, a local export fixture, a Guided user-attestation receipt, or a twin run as proof that an external platform was accessed. The internal YouTube/Bluesky commission service has no public API route and must not be presented as an operable live agent. The Instagram import is local portability intake, not account observation or mutation.
+This script uses no external accounts. A seeded twin account is deterministic local state, not a dummy account on a social platform. Do not show a dummy social account, a selected destination card, a local export fixture, a Guided user-attestation receipt, or a twin run as proof that an external platform was accessed. The owner-authenticated YouTube/Bluesky Connected Agent routes must not be presented as live-account evidence until a fresh authorized-dummy-account certification is loaded for the exact running revision. The Instagram import is local portability intake, not account observation or mutation.
 
 ## Final upload check
 

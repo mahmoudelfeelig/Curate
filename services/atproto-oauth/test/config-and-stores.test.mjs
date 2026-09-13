@@ -96,9 +96,28 @@ test('official Agent bridge uses raw generated APIs and guards preference replac
           },
         },
       }
+      this.follow = async (actor) => ({
+        uri: `at://did:plc:alice/app.bsky.graph.follow/follow-test`,
+        cid: 'bafy-follow-test',
+        commit: { cid: 'must-not-cross' },
+        validationStatus: 'valid',
+        actor,
+      })
     }
   }
   const executor = await createOfficialAgentExecutor({ AgentClass: FakeAgent })
+  assert.deepEqual(
+    await executor.execute({
+      session: { did: 'did:plc:alice' },
+      did: 'did:plc:alice',
+      operation: 'graph.follow',
+      input: { actor: 'did:plc:bob' },
+    }),
+    {
+      uri: 'at://did:plc:alice/app.bsky.graph.follow/follow-test',
+      cid: 'bafy-follow-test',
+    },
+  )
   const observed = await executor.execute({
     session: { did: 'did:plc:alice' },
     did: 'did:plc:alice',

@@ -27,8 +27,10 @@ export async function createOfficialAgentExecutor({ AgentClass } = {}) {
           const { actor: _actor, ...pagination } = input
           return responseData(await agent.app.bsky.graph.getMutes(pagination))
         }
-        case 'graph.follow':
-          return responseData(await agent.follow(input.actor))
+        case 'graph.follow': {
+          const result = responseData(await agent.follow(input.actor))
+          return { uri: result?.uri, cid: result?.cid }
+        }
         case 'graph.delete_follow':
           await agent.deleteFollow(input.uri)
           return { deleted: true, uri: input.uri }

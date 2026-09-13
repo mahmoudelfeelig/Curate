@@ -377,7 +377,7 @@ try {
   await page.getByTestId("feed-after").waitFor({ timeout: 15_000 });
   await center(page.getByTestId("feed-after"), 7_000);
   visibleEvidence.curated_feed_cards = await page.getByTestId("feed-after").locator("article").count();
-  await page.getByRole("button", { name: "Open passport overview" }).click();
+  await page.getByRole("button", { name: "Open Curate passport" }).click();
   await pause(4_500);
 } finally {
   await page.close();

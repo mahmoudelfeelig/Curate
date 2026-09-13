@@ -11,6 +11,7 @@ const baseUrl = process.env.FEED_PASSPORT_BASE_URL || "http://127.0.0.1:5173";
 const apiUrl = process.env.FEED_PASSPORT_API_URL || "http://127.0.0.1:8000";
 const acknowledgement = process.env.FEED_PASSPORT_DEMO_RECORDING_ACK || "";
 const pace = Number(process.env.FEED_PASSPORT_DEMO_PACE_SCALE || "1");
+const localModelWaitMs = 310_000;
 const runName = `silent-demo-${new Date().toISOString().replaceAll(/[:.]/g, "-")}`;
 const outputRoot = process.env.FEED_PASSPORT_DEMO_OUTPUT_DIR || path.join(
   os.tmpdir(),
@@ -154,7 +155,7 @@ try {
   await pause(9_000);
 
   await page.getByRole("button", { name: "ASK LOCAL STRANDS AGENT" }).click();
-  await page.getByText("STRANDS AGENT PROPOSAL").waitFor({ timeout: 150_000 });
+  await page.getByText("STRANDS AGENT PROPOSAL").waitFor({ timeout: localModelWaitMs });
   await pause(10_000);
   await page.getByRole("checkbox", { name: /I reviewed this versioned Passport proposal/ }).check();
   await pause(3_000);
@@ -170,7 +171,7 @@ try {
   );
   await page.getByRole("button", { name: "ASK LOCAL MODEL TO PLAN" }).click();
   await page.locator('.mission-ledger[data-mission-status="awaiting_approval"]').waitFor({
-    timeout: 150_000,
+    timeout: localModelWaitMs,
   });
   await page.getByRole("region", { name: "Local model planner evidence" }).waitFor();
   missionProof.planned_with_local_model = true;

@@ -55,6 +55,7 @@ const CREATOR_DIRECTORY_MAP = {
   "studio-a-x": { source: "studio-a", destination: "x" },
 };
 const env = import.meta.env || {};
+export const LOCAL_MODEL_REQUEST_TIMEOUT_MS = 300_000;
 const configuredApiBase =
   env.VITE_CURATOR_API_URL ||
   env.VITE_FEED_PASSPORT_API_BASE ||
@@ -2091,7 +2092,7 @@ export const feedPassportApi = {
         passport_id: runtime.passportId,
         request: safeRequest,
       }),
-      timeoutMs: 150_000,
+      timeoutMs: LOCAL_MODEL_REQUEST_TIMEOUT_MS,
     });
     return { source: "service", data: proposal, platforms };
   },
@@ -2170,7 +2171,7 @@ export const feedPassportApi = {
           actor_id: runtime.actorId,
           expected_passport_version: Number(expectedPassportVersion),
         }),
-        timeoutMs: 150_000,
+        timeoutMs: LOCAL_MODEL_REQUEST_TIMEOUT_MS,
       },
     );
     return { source: "service", data: result };
@@ -2188,7 +2189,7 @@ export const feedPassportApi = {
     const mission = await requestJson("/api/agent/missions/plan", {
       method: "POST",
       body: JSON.stringify(agentMissionRequestBody(spec)),
-      timeoutMs: 150_000,
+      timeoutMs: LOCAL_MODEL_REQUEST_TIMEOUT_MS,
     });
     runtime.agentMissions.set(mission.id, mission);
     return { source: "service", data: mission };
@@ -2223,7 +2224,7 @@ export const feedPassportApi = {
     await ensureServiceContext();
     const commission = await requestJson("/api/agent/live-commissions/preview", {
       method: "POST",
-      timeoutMs: 150_000,
+      timeoutMs: LOCAL_MODEL_REQUEST_TIMEOUT_MS,
       body: JSON.stringify({
         actor_id: runtime.actorId,
         passport_id: runtime.passportId,

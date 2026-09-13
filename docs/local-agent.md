@@ -168,6 +168,8 @@ The agent does not receive approval, execution, cancellation, rollback, credenti
 
 The provider uses temperature `0`, seed `42`, a maximum of `600` tokens per model response, prompt caching, and `parallel_tool_calls: false`. The Strands invocation is bounded to three turns, `1,800` output tokens, `16,000` total tokens, and the configured timeout. The timeout must be between 1 and 300 seconds.
 
+Browser calls that invoke this loopback model allow up to five minutes for the complete bounded tool loop. This is a client deadline, not additional model authority: the planner retains the same tool, turn, token, action, and consent limits. The longer deadline accommodates CPU-only inference and a valid final retry turn without converting a healthy in-progress proposal into an unknown-outcome browser timeout.
+
 After the proposal passes its schema and sequence checks, deterministic code intersects its requested action families with the selected twin's available reversible families. The server, not the model, locks:
 
 - actor and Passport ownership;

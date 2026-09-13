@@ -9,7 +9,10 @@ import {
   migrationPreviewForUi,
   resumableGuidedMigrationForUi,
 } from "./api/clientProjections.js";
-import { summarizeMigrationExecution } from "./apiClient.js";
+import {
+  LOCAL_MODEL_REQUEST_TIMEOUT_MS,
+  summarizeMigrationExecution,
+} from "./apiClient.js";
 import {
   ACTIVE_GUIDED_HANDOFF_NOTICE,
   GUIDED_PREVIEW_DISCLOSURE,
@@ -47,6 +50,10 @@ const PLATFORM_PROFILE_FILES = [
   "x",
   "youtube",
 ];
+
+test("local-model requests allow a complete bounded tool loop on CPU", () => {
+  assert.equal(LOCAL_MODEL_REQUEST_TIMEOUT_MS, 300_000);
+});
 
 test("Instagram import transport never includes the private local filename", () => {
   assert.equal(

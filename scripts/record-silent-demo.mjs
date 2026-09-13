@@ -211,8 +211,20 @@ async function condenseWaitingTime(executablePath, sourcePath, destinationPath, 
     });
     video.src = URL.createObjectURL(document.querySelector("#source").files[0]);
     await loaded;
+    let durationSeconds = video.duration;
+    if (!Number.isFinite(durationSeconds)) {
+      durationSeconds = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("The condensed WebM duration could not be recovered.")), 10_000);
+        video.addEventListener("timeupdate", () => {
+          clearTimeout(timeout);
+          resolve(Number.isFinite(video.duration) ? video.duration : video.currentTime);
+        }, { once: true });
+        video.currentTime = Number.MAX_SAFE_INTEGER;
+      });
+      video.currentTime = 0;
+    }
     return {
-      durationMs: Math.round(video.duration * 1000),
+      durationMs: Math.round(durationSeconds * 1000),
       width: video.videoWidth,
       height: video.videoHeight,
     };

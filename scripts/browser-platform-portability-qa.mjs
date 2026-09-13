@@ -127,7 +127,9 @@ async function executeGuidedMigration(page) {
     return response.request().method() === "POST"
       && /^\/api\/migrations\/[^/]+\/execute$/.test(parsed.pathname);
   });
-  await page.getByRole("button", { name: "APPROVE AND APPLY" }).click();
+  await page.getByRole("button", {
+    name: /^(?:PREPARE GUIDED HANDOFF|APPLY TRANSLATED PLAN)$/,
+  }).click();
   const response = await responsePromise;
   assert(response.ok(), `Migration execution returned HTTP ${response.status()}`);
   return response.json();
@@ -274,7 +276,10 @@ try {
   report.assertions.push("The upload transport replaced the private local filename with a generic parser hint.");
 
   await page.locator(".instagram-handle-manifest label").filter({ hasText: "@paper.lab" }).click();
-  await page.locator(".instagram-import-consent input").check();
+  assert(
+    await page.locator(".instagram-import-consent input").count() === 0,
+    "The import flow reintroduced a redundant confirmation checkbox",
+  );
   await page.getByRole("button", { name: "ADD SELECTED TO PASSPORT" }).click();
   await waitIdle(page);
   await page.locator(".instagram-import-desk").getByText("CONSUMED", { exact: true }).waitFor();
@@ -283,6 +288,7 @@ try {
     "Consumed import retained the private handle-selection surface",
   );
   report.assertions.push("One selected creator revised the Passport and consumed the private session.");
+  report.assertions.push("The selected import applied directly without a redundant confirmation checkbox.");
 
   await page.setViewportSize({ width: 390, height: 844 });
   const bodyWidth = await page.evaluate(() => ({

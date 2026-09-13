@@ -217,7 +217,16 @@ try {
   apiLog = collectLog(api);
   frontend = spawnOwned(
     process.execPath,
-    [viteExecutable, "--host", "127.0.0.1", "--port", String(frontendPort), "--strictPort"],
+    [
+      viteExecutable,
+      "--configLoader",
+      "runner",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(frontendPort),
+      "--strictPort",
+    ],
     {
       cwd: projectRoot,
       env: {

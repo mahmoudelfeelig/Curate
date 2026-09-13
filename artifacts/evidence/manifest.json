@@ -1,20 +1,20 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-13T16:00:49Z",
+  "generated_at": "2026-09-13T16:32:08Z",
   "source": {
     "branch": "main",
-    "commit_count": 84,
+    "commit_count": 86,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
     "snapshot_file_count": 368,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "e5b0016b67cfc5ab2f65df66e010b20471d566f54052dbdac00e1732e92fb9ec",
+    "snapshot_sha256": "08aa2b757b30484b1d1f6152256c885dd49462e7136bddbe0803a028571799de",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,
     "history_rewritten_to_logical_commits": true,
     "sanitized_baseline_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
     "sanitized_baseline_commit_count": 40,
-    "append_only_commits_after_sanitized_baseline": 44
+    "append_only_commits_after_sanitized_baseline": 46
   },
   "environment": {
     "operating_system": "win32-x64",
@@ -83,7 +83,7 @@
       "gate": "node",
       "command": "npm test",
       "status": "passed",
-      "tests": 89
+      "tests": 90
     },
     {
       "gate": "independent_live_recovery_security_focus",
@@ -153,8 +153,10 @@
       "gate": "silent_end_to_end_demo",
       "command": "node scripts/record-silent-demo.mjs",
       "status": "passed",
-      "duration_ms": 146377,
-      "video_sha256": "375071b98f52c06c4fd0ec6a468cb70c27db0059416b0ff22de4cf849e8251bd",
+      "duration_ms": 310961,
+      "video_sha256": "460658a9f89533f00aa12a01fd430148161cc57550185785c4b8e98482e7f310",
+      "artifact_scope": "local ignored submission artifact",
+      "artifact_path": "artifacts/local/submission/feed-passport-silent-demo.webm",
       "planned_with_local_model": true,
       "executed_on_local_twin": true,
       "rollback_state_verified": true,
@@ -171,7 +173,7 @@
       "source_files": 368,
       "tracked_tree_clean": true,
       "byte_source": "git-index-blobs",
-      "commit_count": 84
+      "commit_count": 86
     },
     {
       "gate": "deterministic_evaluation",

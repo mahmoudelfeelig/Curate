@@ -16,6 +16,7 @@ import { opaqueReference, stateDigest } from './stores.mjs'
 import {
   equalOpaque,
   requireDid,
+  requireOAuthProtocolState,
   requireOpaqueReference,
   requireOwnerId,
 } from './validation.mjs'
@@ -561,7 +562,7 @@ export class DurableOwnerStateStore {
 
   async bindOfficialState(appState, protocolState, officialState) {
     const app = requireOpaqueReference(appState, 'oauth_app_state')
-    const protocol = requireOpaqueReference(protocolState, 'oauth_protocol_state')
+    const protocol = requireOAuthProtocolState(protocolState)
     const safeOfficialState = clonePersistable(officialState)
     if (!equalOpaque(safeOfficialState?.appState, app)) {
       throw new SidecarError(
@@ -680,7 +681,7 @@ export class DurableOwnerStateStore {
   }
 
   async consume(state, { ownerId, now }) {
-    const digest = stateDigest(state)
+    const digest = stateDigest(requireOAuthProtocolState(state))
     const owner = requireOwnerId(ownerId)
     const currentTime = requireFiniteNumber(now, 'current time')
     const result = await this.database.mutate('owner_state', (records) => {
@@ -730,7 +731,7 @@ export class DurableOwnerStateStore {
   }
 
   async claim(state, { ownerId, now }) {
-    const digest = stateDigest(state)
+    const digest = stateDigest(requireOAuthProtocolState(state))
     const owner = requireOwnerId(ownerId)
     const currentTime = requireFiniteNumber(now, 'current time')
     const result = await this.database.mutate('owner_state', (records) => {
@@ -787,7 +788,7 @@ export class DurableOwnerStateStore {
   }
 
   async finish(state, { ownerId }) {
-    const digest = stateDigest(state)
+    const digest = stateDigest(requireOAuthProtocolState(state))
     const owner = requireOwnerId(ownerId)
     return this.database.mutate('owner_state', (records) => {
       const record = records.get(digest)
@@ -803,7 +804,10 @@ export class DurableOwnerStateStore {
   }
 
   async delete(state) {
-    return this.database.del('owner_state', stateDigest(state))
+    return this.database.del(
+      'owner_state',
+      stateDigest(requireOAuthProtocolState(state)),
+    )
   }
 
   get size() {
@@ -1595,7 +1599,7 @@ function pruneExpired(snapshot, now, { includeLeases = false } = {}) {
   for (const [key, record] of snapshot.namespaces.get('owner_state')) {
     if (!isOwnerStateRecord(key, record) || record.expiresAt <= now) {
       snapshot.namespaces.get('owner_state').delete(key)
-      if (isOpaqueReferenceValue(record?.protocolState)) {
+      if (isOAuthProtocolStateValue(record?.protocolState)) {
         snapshot.namespaces.get('oauth_state').delete(record.protocolState)
       }
       removed += 1
@@ -1644,7 +1648,7 @@ function isOwnerStateRecord(key, record) {
   }
   if (!['pending', 'processing'].includes(record.status)) return false
   return (
-    isOpaqueReferenceValue(record.protocolState) &&
+    isOAuthProtocolStateValue(record.protocolState) &&
     key === stateDigest(record.protocolState)
   )
 }
@@ -1653,6 +1657,15 @@ function isOpaqueReferenceValue(value) {
   return (
     typeof value === 'string' &&
     value.length >= 32 &&
+    value.length <= 256 &&
+    /^[A-Za-z0-9_-]+$/.test(value)
+  )
+}
+
+function isOAuthProtocolStateValue(value) {
+  return (
+    typeof value === 'string' &&
+    value.length >= 20 &&
     value.length <= 256 &&
     /^[A-Za-z0-9_-]+$/.test(value)
   )

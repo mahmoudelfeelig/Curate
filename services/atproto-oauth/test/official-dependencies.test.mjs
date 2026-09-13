@@ -70,7 +70,6 @@ test('pinned official packages construct the confidential DPoP client without ne
   assert.equal(lockCalls, 0)
 
   const appState = 'a'.repeat(43)
-  const protocolState = 'p'.repeat(43)
   await ownerStates.create(appState, {
     ownerId: 'user:owner-a',
     expiresAt: Date.now() + 60_000,
@@ -92,8 +91,9 @@ test('pinned official packages construct the confidential DPoP client without ne
       scopes_supported: ['atproto', 'transition:generic'],
     },
   })
-  client.runtime.generateNonce = async () => protocolState
   const authorization = await client.authorize('alice.bsky.social', { state: appState })
+  const protocolState = authorization.searchParams.get('state')
+  assert.match(protocolState, /^[A-Za-z0-9_-]{20,256}$/)
   assert.equal(authorization.searchParams.get('state'), protocolState)
   assert.notEqual(authorization.searchParams.get('state'), appState)
   assert.equal((await stateStore.get(protocolState)).appState, appState)

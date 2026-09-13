@@ -1,5 +1,9 @@
 import { SidecarError } from './errors.mjs'
-import { requireDid, requireOpaqueReference } from './validation.mjs'
+import {
+  requireDid,
+  requireOAuthProtocolState,
+  requireOpaqueReference,
+} from './validation.mjs'
 
 export async function createOfficialOAuthClient({
   client,
@@ -63,7 +67,7 @@ export async function createOfficialOAuthClient({
 
   const ownerBoundStateStore = {
     async set(protocolState, value) {
-      const protocol = requireOpaqueReference(protocolState, 'oauth_protocol_state')
+      const protocol = requireOAuthProtocolState(protocolState)
       const appState = requireOpaqueReference(value?.appState, 'oauth_app_state')
       if (typeof ownerStates.bindOfficialState === 'function') {
         await ownerStates.bindOfficialState(appState, protocol, value)

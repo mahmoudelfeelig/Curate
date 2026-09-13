@@ -4,6 +4,7 @@ import { SidecarError } from './errors.mjs'
 import {
   equalOpaque,
   requireDid,
+  requireOAuthProtocolState,
   requireOpaqueReference,
   requireOwnerId,
 } from './validation.mjs'
@@ -75,7 +76,7 @@ export class InMemoryOwnerStateStore {
 
   async bindProtocolState(appState, protocolState) {
     const app = requireOpaqueReference(appState, 'oauth_app_state')
-    const protocol = requireOpaqueReference(protocolState, 'oauth_protocol_state')
+    const protocol = requireOAuthProtocolState(protocolState)
     const appDigest = stateDigest(app)
     const protocolDigest = stateDigest(protocol)
     const record = this.#records.get(appDigest)
@@ -128,7 +129,7 @@ export class InMemoryOwnerStateStore {
   }
 
   async consume(state, { ownerId, now }) {
-    const digest = stateDigest(state)
+    const digest = stateDigest(requireOAuthProtocolState(state))
     const record = this.#records.get(digest)
     if (!record) {
       throw new SidecarError(
@@ -167,7 +168,7 @@ export class InMemoryOwnerStateStore {
   }
 
   async claim(state, { ownerId, now }) {
-    const digest = stateDigest(state)
+    const digest = stateDigest(requireOAuthProtocolState(state))
     const record = this.#records.get(digest)
     const owner = requireOwnerId(ownerId)
     if (!record) {
@@ -214,7 +215,7 @@ export class InMemoryOwnerStateStore {
   }
 
   async finish(state, { ownerId }) {
-    const digest = stateDigest(state)
+    const digest = stateDigest(requireOAuthProtocolState(state))
     const record = this.#records.get(digest)
     if (record && record.ownerId !== requireOwnerId(ownerId)) {
       throw new SidecarError(
@@ -227,7 +228,7 @@ export class InMemoryOwnerStateStore {
   }
 
   async delete(state) {
-    this.#records.delete(stateDigest(state))
+    this.#records.delete(stateDigest(requireOAuthProtocolState(state)))
   }
 
   get size() {

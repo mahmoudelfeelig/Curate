@@ -57,6 +57,21 @@ export function requireOpaqueReference(value, field = 'reference') {
   return value
 }
 
+export function requireOAuthProtocolState(value) {
+  if (
+    typeof value !== 'string' ||
+    value.length < 20 ||
+    value.length > 256 ||
+    !/^[A-Za-z0-9_-]+$/.test(value)
+  ) {
+    throw new SidecarError(
+      'oauth_protocol_state_invalid',
+      'The oauth protocol state is invalid.',
+    )
+  }
+  return value
+}
+
 export function requireSingleParam(params, name, { optional = false } = {}) {
   const values = params.getAll(name)
   if (values.length === 0 && optional) return undefined

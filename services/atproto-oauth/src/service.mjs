@@ -6,6 +6,7 @@ import {
   equalOpaque,
   requireDid,
   requireHandle,
+  requireOAuthProtocolState,
   requireOpaqueReference,
   requireOwnerId,
   requireSingleParam,
@@ -160,7 +161,7 @@ export class AtprotoOAuthService {
   async callback({ ownerId, query }) {
     const owner = requireOwnerId(ownerId)
     const params = callbackParams(query)
-    const protocolState = requireSingleParam(params, 'state')
+    const protocolState = requireOAuthProtocolState(requireSingleParam(params, 'state'))
     return this.lifecycle.run(async () => {
       const now = this.now()
       const receipt = await this.connections.callbackResult(protocolState, {

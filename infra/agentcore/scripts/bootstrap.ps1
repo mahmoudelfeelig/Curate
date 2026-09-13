@@ -28,7 +28,19 @@ if (-not (Test-Path -LiteralPath $cdkCliPath -PathType Leaf)) {
     throw "The project-pinned AWS CDK CLI is unavailable. Install the locked AgentCore dependencies first."
 }
 
-$temporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("feed-passport-cdk-bootstrap-" + [guid]::NewGuid().ToString("N"))
+$temporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+)
+$temporaryDirectory = [System.IO.Path]::GetFullPath(
+    (Join-Path $temporaryRoot ("feed-passport-cdk-bootstrap-" + [guid]::NewGuid().ToString("N")))
+)
+if (-not $temporaryDirectory.StartsWith(
+    $temporaryRoot + [System.IO.Path]::DirectorySeparatorChar,
+    [System.StringComparison]::OrdinalIgnoreCase
+)) {
+    throw "The isolated CDK bootstrap directory escaped the system temporary directory."
+}
 $null = New-Item -ItemType Directory -Path $temporaryDirectory
 Push-Location $temporaryDirectory
 try {
@@ -42,6 +54,8 @@ try {
 }
 finally {
     Pop-Location
-    Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force
+    if (Test-Path -LiteralPath $temporaryDirectory -PathType Container) {
+        Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force
+    }
 }
 Write-Host "CDK bootstrap completed. The shared CDKToolkit stack is intentionally not removed by Feed Passport teardown."

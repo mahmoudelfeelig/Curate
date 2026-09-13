@@ -29,6 +29,7 @@ test("the AgentCore bootstrap cannot execute the deployment application", async 
 
   assert.match(script, /node_modules\\aws-cdk\\bin\\cdk/);
   assert.match(script, /feed-passport-cdk-bootstrap-/);
+  assert.match(script, /StartsWith\([\s\S]*\$temporaryRoot/);
   assert.match(script, /Push-Location \$temporaryDirectory/);
   assert.doesNotMatch(script, /Push-Location \$infraRoot/);
   assert.doesNotMatch(script, /& npx cdk bootstrap/);

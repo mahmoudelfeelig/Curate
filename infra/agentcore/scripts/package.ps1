@@ -1,11 +1,13 @@
 [CmdletBinding()]
 param(
-    [string]$OutputPath = "artifacts/feed-passport-agentcore.zip"
+    [string]$OutputPath = "artifacts/feed-passport-agentcore.zip",
+    [ValidateSet("PipCrossPlatform", "Docker")][string]$PackagingBackend = "PipCrossPlatform"
 )
 
 $ErrorActionPreference = "Stop"
 $infraRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $infraRoot "..\..")).Path
+$constraints = Join-Path $infraRoot "packaging\constraints.txt"
 $output = [System.IO.Path]::GetFullPath((Join-Path $infraRoot $OutputPath))
 $allowedPrefix = $infraRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
 if (-not $output.StartsWith($allowedPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -24,8 +26,12 @@ if (-not [string]::IsNullOrWhiteSpace(($dirty -join "`n"))) {
     throw "AgentCore packaging requires a clean source worktree"
 }
 
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    throw "Docker is required to resolve Python 3.13 Linux ARM64 dependencies without using AWS"
+$python = Join-Path $repoRoot "services\curator\.venv\Scripts\python.exe"
+if (-not (Test-Path -LiteralPath $python)) {
+    $python = (Get-Command python -ErrorAction Stop).Source
+}
+if ($PackagingBackend -eq "Docker" -and -not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    throw "Docker packaging was selected, but the Docker CLI is unavailable"
 }
 
 $stage = Join-Path $infraRoot ".package-stage"
@@ -39,18 +45,53 @@ if (Test-Path -LiteralPath $resolvedStage) {
 New-Item -ItemType Directory -Path $resolvedStage | Out-Null
 
 try {
-    $dockerArgs = @(
-        "run", "--rm", "--platform", "linux/arm64",
-        "-v", "${repoRoot}:/repo:ro",
-        "-v", "${resolvedStage}:/stage",
-        "python:3.13-slim",
-        "python", "-m", "pip", "install",
-        "--disable-pip-version-check", "--no-compile", "--target", "/stage",
-        "/repo/services/curator"
-    )
-    & docker @dockerArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "Linux ARM64 dependency packaging failed with exit code $LASTEXITCODE"
+    if ($PackagingBackend -eq "Docker") {
+        $dockerArgs = @(
+            "run", "--rm", "--platform", "linux/arm64",
+            "-v", "${repoRoot}:/repo:ro",
+            "-v", "${resolvedStage}:/stage",
+            "python:3.13-slim",
+            "python", "-m", "pip", "install",
+            "--disable-pip-version-check", "--no-compile",
+            "--constraint", "/repo/infra/agentcore/packaging/constraints.txt",
+            "--target", "/stage",
+            "/repo/services/curator"
+        )
+        & docker @dockerArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "Docker Linux ARM64 dependency packaging failed with exit code $LASTEXITCODE"
+        }
+    }
+    else {
+        & $python -m pip install `
+            --disable-pip-version-check `
+            --no-compile `
+            --no-deps `
+            --only-binary=:all: `
+            --platform manylinux2014_aarch64 `
+            --implementation cp `
+            --python-version 3.13 `
+            --abi cp313 `
+            --requirement $constraints `
+            --target $resolvedStage
+        if ($LASTEXITCODE -ne 0) {
+            throw "Cross-platform Linux ARM64 dependency packaging failed with exit code $LASTEXITCODE"
+        }
+        & $python -m pip install `
+            --disable-pip-version-check `
+            --no-compile `
+            --no-deps `
+            --target $resolvedStage `
+            (Join-Path $repoRoot "services\curator")
+        if ($LASTEXITCODE -ne 0) {
+            throw "Local Feed Passport wheel packaging failed with exit code $LASTEXITCODE"
+        }
+        foreach ($launcherDirectoryName in @("bin", "Scripts")) {
+            $launcherDirectory = Join-Path $resolvedStage $launcherDirectoryName
+            if (Test-Path -LiteralPath $launcherDirectory) {
+                Remove-Item -LiteralPath $launcherDirectory -Recurse -Force
+            }
+        }
     }
 
     Copy-Item -LiteralPath (Join-Path $infraRoot "packaging\agentcore_main.py") -Destination $resolvedStage
@@ -61,12 +102,9 @@ try {
         python_runtime = "PYTHON_3_13"
         architecture = "linux_arm64"
         entrypoint = "agentcore_main.py"
+        packaging_backend = $PackagingBackend
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $resolvedStage "package-manifest.json") -Encoding utf8NoBOM
 
-    $python = Join-Path $repoRoot "services\curator\.venv\Scripts\python.exe"
-    if (-not (Test-Path -LiteralPath $python)) {
-        $python = (Get-Command python -ErrorAction Stop).Source
-    }
     & $python (Join-Path $PSScriptRoot "build_zip.py") $resolvedStage $output
     if ($LASTEXITCODE -ne 0) {
         throw "Deterministic archive creation failed with exit code $LASTEXITCODE"

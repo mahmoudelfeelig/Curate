@@ -80,11 +80,13 @@ The cross-platform deterministic template gate uses placeholder account/model id
 npm run validate:template
 ```
 
-Build the deployable Linux ARM64 zip as an additional local check. Packaging fails unless every tracked and untracked file is committed or removed, and the embedded manifest is bound to the exact clean `HEAD`. Docker may download the mutable `python:3.13-slim` image and the version-ranged Python dependencies, so the dependency bytes are not reproducible until those inputs are digest- and lock-pinned; only the archive serialization is deterministic. This still makes no AWS call:
+Build the deployable Linux ARM64 zip as an additional local check. Packaging fails unless every tracked and untracked file is committed or removed, and the embedded manifest is bound to the exact clean `HEAD`. The default `PipCrossPlatform` backend accepts binary wheels only for CPython 3.13 on manylinux ARM64, then the package validator rejects Windows binaries and every non-ARM64 ELF shared object. `-PackagingBackend Docker` remains available for a healthy Docker engine. Both paths use the same reviewed runtime-version constraints. Dependency bytes are not independently reproducible until every wheel is hash-pinned; archive serialization itself is deterministic. Neither path calls AWS:
 
 ```powershell
 ./scripts/local-dry-run.ps1 -IncludeLinuxArm64Package
 ```
+
+To require the container path explicitly, add `-PackagingBackend Docker`. The cross-platform wheel backend removes host-generated console-launcher shims, which are not used by the direct-code Runtime, before validating every remaining native binary. It exists so a broken local container engine does not weaken the architecture check or block a clean, source-bound package.
 
 Create a full local CDK plan with explicit placeholders matching the intended account and model. Planning also fails on a dirty tree. A plan may use `-SkipPackage` to check an existing archive's shape and self-declared manifest against the exact clean `HEAD`, but that is not independent proof of the archive's source bytes. The normal path runs tests, rebuilds packaging from the checkout, synthesizes, and runs the deterministic template validator:
 

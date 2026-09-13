@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$IncludeLinuxArm64Package
+    [switch]$IncludeLinuxArm64Package,
+    [ValidateSet("PipCrossPlatform", "Docker")][string]$PackagingBackend = "PipCrossPlatform"
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,7 +27,7 @@ try {
     Invoke-ProjectNpm -CommandArguments @("test")
     if ($LASTEXITCODE -ne 0) { throw "AgentCore CDK tests failed with exit code $LASTEXITCODE" }
     if ($IncludeLinuxArm64Package) {
-        & (Join-Path $PSScriptRoot "package.ps1")
+        & (Join-Path $PSScriptRoot "package.ps1") -PackagingBackend $PackagingBackend
     }
 }
 finally {

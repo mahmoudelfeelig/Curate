@@ -10,6 +10,7 @@ param(
     [string[]]$CallbackUrls = @("http://127.0.0.1:5173/auth/callback"),
     [string[]]$LogoutUrls = @("http://127.0.0.1:5173/"),
     [string]$ArtifactPath = "artifacts/feed-passport-agentcore.zip",
+    [ValidateSet("PipCrossPlatform", "Docker")][string]$PackagingBackend = "PipCrossPlatform",
     [switch]$SkipPackage,
     [switch]$SkipNpmInstall,
     [AllowEmptyString()][string]$ApplyAcknowledgement = "",
@@ -31,6 +32,7 @@ $planArguments = @{
     CallbackUrls = $CallbackUrls
     LogoutUrls = $LogoutUrls
     ArtifactPath = $ArtifactPath
+    PackagingBackend = $PackagingBackend
     SkipPackage = $SkipPackage
     SkipNpmInstall = $SkipNpmInstall
 }

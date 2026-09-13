@@ -8,6 +8,7 @@ param(
     [string[]]$LogoutUrls = @("http://127.0.0.1:5173/"),
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-z0-9-]{1,63}$")][string]$CognitoDomainPrefix,
     [string]$ArtifactPath = "artifacts/feed-passport-agentcore.zip",
+    [ValidateSet("PipCrossPlatform", "Docker")][string]$PackagingBackend = "PipCrossPlatform",
     [switch]$SkipPackage,
     [switch]$SkipNpmInstall
 )
@@ -55,7 +56,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "CDK assertion tests failed with exit code $LASTEXITCODE" }
 
     if (-not $SkipPackage) {
-        & (Join-Path $PSScriptRoot "package.ps1") -OutputPath $ArtifactPath
+        & (Join-Path $PSScriptRoot "package.ps1") -OutputPath $ArtifactPath -PackagingBackend $PackagingBackend
     }
     if (-not (Test-Path -LiteralPath $artifact)) {
         throw "AgentCore artifact does not exist: $artifact"

@@ -55,3 +55,24 @@ test("AgentCore scripts use only the active Node npm and project-pinned CDK", as
   assert.match(deploy, /Invoke-ProjectCdk/);
   assert.match(dryRun, /Invoke-ProjectNpm/);
 });
+
+test("AgentCore packaging supports validated Linux ARM64 wheels without Docker", async () => {
+  const packageScript = await fs.readFile(
+    path.join(projectRoot, "infra", "agentcore", "scripts", "package.ps1"),
+    "utf8",
+  );
+  const preflight = await fs.readFile(
+    path.join(projectRoot, "infra", "agentcore", "scripts", "preflight.ps1"),
+    "utf8",
+  );
+
+  assert.match(packageScript, /PackagingBackend = "PipCrossPlatform"/);
+  assert.match(packageScript, /--only-binary=:all:/);
+  assert.match(packageScript, /--no-deps/);
+  assert.match(packageScript, /--platform manylinux2014_aarch64/);
+  assert.match(packageScript, /--python-version 3\.13/);
+  assert.match(packageScript, /--abi cp313/);
+  assert.match(packageScript, /packaging\\constraints\.txt/);
+  assert.match(packageScript, /@\("bin", "Scripts"\)/);
+  assert.doesNotMatch(preflight, /@\("node", "npm", "docker", "aws"\)/);
+});

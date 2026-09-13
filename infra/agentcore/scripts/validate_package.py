@@ -78,7 +78,16 @@ def validate_archive(archive_path: Path, *, expected_source_commit: str) -> dict
             "architecture": "linux_arm64",
             "entrypoint": "agentcore_main.py",
         }
-        if not isinstance(manifest, dict) or manifest != expected_manifest:
+        packaging_backend = manifest.get("packaging_backend") if isinstance(manifest, dict) else None
+        manifest_without_backend = (
+            {key: value for key, value in manifest.items() if key != "packaging_backend"}
+            if isinstance(manifest, dict)
+            else None
+        )
+        if (
+            packaging_backend not in {"PipCrossPlatform", "Docker"}
+            or manifest_without_backend != expected_manifest
+        ):
             raise SystemExit(
                 "AgentCore package manifest must bind a clean exact source commit and runtime"
             )
@@ -94,6 +103,7 @@ def validate_archive(archive_path: Path, *, expected_source_commit: str) -> dict
         "architecture": "linux_arm64",
         "source_commit": expected_source_commit,
         "source_worktree_dirty": False,
+        "packaging_backend": packaging_backend,
     }
 
 

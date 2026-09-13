@@ -25,7 +25,12 @@ REQUIRED_MEMBERS = {
 }
 
 
-def manifest(*, revision: str = REVISION, dirty: bool = False) -> dict[str, object]:
+def manifest(
+    *,
+    revision: str = REVISION,
+    dirty: bool = False,
+    packaging_backend: str = "PipCrossPlatform",
+) -> dict[str, object]:
     return {
         "format": "feed-passport-agentcore-package/v1",
         "source_commit": revision,
@@ -33,6 +38,7 @@ def manifest(*, revision: str = REVISION, dirty: bool = False) -> dict[str, obje
         "python_runtime": "PYTHON_3_13",
         "architecture": "linux_arm64",
         "entrypoint": "agentcore_main.py",
+        "packaging_backend": packaging_backend,
     }
 
 
@@ -65,12 +71,14 @@ class PackageValidationTests(unittest.TestCase):
         self.assertEqual(evidence["source_commit"], REVISION)
         self.assertIs(evidence["source_worktree_dirty"], False)
         self.assertEqual(evidence["architecture"], "linux_arm64")
+        self.assertEqual(evidence["packaging_backend"], "PipCrossPlatform")
 
     def test_rejects_missing_dirty_and_stale_manifests(self) -> None:
         for package_manifest, expected in (
             (None, "missing"),
             (manifest(dirty=True), "clean exact source commit"),
             (manifest(revision="b" * 40), "clean exact source commit"),
+            (manifest(packaging_backend="Unknown"), "clean exact source commit"),
         ):
             with self.subTest(expected=expected, package_manifest=package_manifest):
                 self.write_archive(package_manifest)

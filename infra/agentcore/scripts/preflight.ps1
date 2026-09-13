@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
-foreach ($command in @("node", "npm", "docker", "aws")) {
+foreach ($command in @("node", "npm", "aws")) {
     if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
         throw "Required local command is unavailable: $command"
     }

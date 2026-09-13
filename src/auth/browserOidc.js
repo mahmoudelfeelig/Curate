@@ -8,6 +8,23 @@ function base64Url(bytes) {
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
+function decodeJwtPayload(token) {
+  const segments = String(token || "").split(".");
+  if (segments.length !== 3 || segments.some((segment) => !/^[A-Za-z0-9_-]+$/.test(segment))) {
+    throw new Error("The identity provider returned an invalid access token");
+  }
+  try {
+    const encoded = segments[1].replaceAll("-", "+").replaceAll("_", "/");
+    const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, "=");
+    const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+    const claims = JSON.parse(new TextDecoder().decode(bytes));
+    if (!claims || typeof claims !== "object" || Array.isArray(claims)) throw new Error();
+    return claims;
+  } catch {
+    throw new Error("The identity provider returned an invalid access token");
+  }
+}
+
 function safeUrl(value, label, { allowLoopbackHttp = false } = {}) {
   let url;
   try {
@@ -33,9 +50,21 @@ function exactCallbackUrl(value, location) {
 }
 
 export function oidcConfigFromEnv(environment = {}, location = globalThis.location) {
-  const clientId = String(environment.VITE_FEED_PASSPORT_OIDC_CLIENT_ID || "").trim();
-  const hostedUi = String(environment.VITE_FEED_PASSPORT_OIDC_HOSTED_UI_URL || "").trim();
-  const issuer = String(environment.VITE_FEED_PASSPORT_OIDC_ISSUER || "").trim();
+  const clientId = String(
+    environment.VITE_CURATE_OIDC_CLIENT_ID
+      || environment.VITE_FEED_PASSPORT_OIDC_CLIENT_ID
+      || "",
+  ).trim();
+  const hostedUi = String(
+    environment.VITE_CURATE_OIDC_HOSTED_UI_URL
+      || environment.VITE_FEED_PASSPORT_OIDC_HOSTED_UI_URL
+      || "",
+  ).trim();
+  const issuer = String(
+    environment.VITE_CURATE_OIDC_ISSUER
+      || environment.VITE_FEED_PASSPORT_OIDC_ISSUER
+      || "",
+  ).trim();
   const anyConfigured = Boolean(clientId || hostedUi || issuer);
   if (!anyConfigured) return Object.freeze({ required: false });
   if (!clientId || !hostedUi || !issuer) {
@@ -49,16 +78,21 @@ export function oidcConfigFromEnv(environment = {}, location = globalThis.locati
   issuerUrl.pathname = issuerUrl.pathname.replace(/\/$/, "");
   issuerUrl.search = "";
   const redirectUri = exactCallbackUrl(
-    environment.VITE_FEED_PASSPORT_OIDC_REDIRECT_URI,
+    environment.VITE_CURATE_OIDC_REDIRECT_URI
+      || environment.VITE_FEED_PASSPORT_OIDC_REDIRECT_URI,
     location,
   );
   const logoutUri = safeUrl(
-    environment.VITE_FEED_PASSPORT_OIDC_LOGOUT_URI || `${location.origin}/`,
+    environment.VITE_CURATE_OIDC_LOGOUT_URI
+      || environment.VITE_FEED_PASSPORT_OIDC_LOGOUT_URI
+      || `${location.origin}/`,
     "OIDC logout URI",
     { allowLoopbackHttp: true },
   ).toString();
   const scopes = String(
-    environment.VITE_FEED_PASSPORT_OIDC_SCOPES || "openid feed-passport/invoke",
+    environment.VITE_CURATE_OIDC_SCOPES
+      || environment.VITE_FEED_PASSPORT_OIDC_SCOPES
+      || "openid feed-passport/invoke",
   )
     .trim()
     .split(/\s+/)
@@ -98,6 +132,7 @@ export class BrowserOidcSession {
     this.listeners = new Set();
     this.token = "";
     this.expiresAt = 0;
+    this.subject = "";
     this.revision = 0;
     this.error = "";
     try {
@@ -113,6 +148,7 @@ export class BrowserOidcSession {
       required: this.config.required,
       configured: this.config.required && !this.config.invalid,
       authenticated: Boolean(this.getAccessToken({ notify: false })),
+      subject: this.getSubject({ notify: false }) || null,
       issuer: this.config.issuer || null,
       error: this.error || null,
       revision: this.revision,
@@ -137,6 +173,7 @@ export class BrowserOidcSession {
       } catch {
         this.token = "";
         this.expiresAt = 0;
+        this.subject = "";
         this.error = "The browser could not complete the sign-in callback safely. Start again.";
       }
     }
@@ -149,11 +186,16 @@ export class BrowserOidcSession {
     if (this.expiresAt <= this.now() + CLOCK_SKEW_MS) {
       this.token = "";
       this.expiresAt = 0;
+      this.subject = "";
       this.error = "Your sign-in session expired. Sign in again to continue.";
       if (notify) this.#notify();
       return "";
     }
     return this.token;
+  }
+
+  getSubject({ notify = true } = {}) {
+    return this.getAccessToken({ notify }) ? this.subject : "";
   }
 
   async signIn({ returnTo } = {}) {
@@ -191,6 +233,7 @@ export class BrowserOidcSession {
     if (!this.config.required || this.config.invalid) return;
     this.token = "";
     this.expiresAt = 0;
+    this.subject = "";
     this.error = "";
     this.storage?.removeItem(TRANSACTION_KEY);
     this.#notify();
@@ -262,6 +305,11 @@ export class BrowserOidcSession {
       });
       const payload = await response.json().catch(() => ({}));
       const expiresIn = Number(payload.expires_in);
+      const claims = decodeJwtPayload(payload.access_token);
+      const scopes = typeof claims.scope === "string" ? claims.scope.split(/\s+/) : [];
+      const expectedScopes = this.config.scope.split(/\s+/).filter((scope) => scope !== "openid");
+      const subject = typeof claims.sub === "string" ? claims.sub.trim() : "";
+      const jwtExpiresAt = Number(claims.exp) * 1000;
       if (
         !response.ok
         || payload.token_type !== "Bearer"
@@ -270,15 +318,26 @@ export class BrowserOidcSession {
         || !Number.isFinite(expiresIn)
         || expiresIn <= 0
         || expiresIn > 86_400
+        || claims.iss !== this.config.issuer.replace(/\/$/, "")
+        || claims.client_id !== this.config.clientId
+        || claims.token_use !== "access"
+        || expectedScopes.some((scope) => !scopes.includes(scope))
+        || !subject
+        || subject.length > 160
+        || subject.includes("\0")
+        || !Number.isFinite(jwtExpiresAt)
+        || jwtExpiresAt <= this.now() + CLOCK_SKEW_MS
       ) {
         throw new Error("The identity provider did not return a valid short-lived bearer token");
       }
       this.token = payload.access_token;
-      this.expiresAt = this.now() + expiresIn * 1000;
+      this.expiresAt = Math.min(this.now() + expiresIn * 1000, jwtExpiresAt);
+      this.subject = subject;
       this.error = "";
     } catch (error) {
       this.token = "";
       this.expiresAt = 0;
+      this.subject = "";
       this.error = `Sign-in could not be completed: ${error.message}`;
     } finally {
       this.#clearCallbackUrl(transaction.returnHash);

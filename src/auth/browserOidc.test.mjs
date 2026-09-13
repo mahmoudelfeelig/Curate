@@ -10,6 +10,12 @@ const ENVIRONMENT = {
   VITE_FEED_PASSPORT_OIDC_ISSUER: "https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_example",
 };
 
+function jwt(claims) {
+  const encode = (value) => Buffer.from(JSON.stringify(value))
+    .toString("base64url");
+  return `${encode({ alg: "RS256", typ: "JWT" })}.${encode(claims)}.${Buffer.from("test-signature").toString("base64url")}`;
+}
+
 function harness({ now = 1_800_000_000_000 } = {}) {
   const records = new Map();
   const navigations = [];
@@ -41,7 +47,14 @@ function harness({ now = 1_800_000_000_000 } = {}) {
         ok: true,
         json: async () => ({
           token_type: "Bearer",
-          access_token: "short-lived-access-token-value",
+          access_token: jwt({
+            iss: ENVIRONMENT.VITE_FEED_PASSPORT_OIDC_ISSUER,
+            client_id: ENVIRONMENT.VITE_FEED_PASSPORT_OIDC_CLIENT_ID,
+            token_use: "access",
+            scope: "feed-passport/invoke",
+            sub: "judge-user-subject",
+            exp: Math.floor(now / 1000) + 3600,
+          }),
           expires_in: 3600,
         }),
       };
@@ -86,7 +99,8 @@ test("callback consumes state, exchanges the code, and retains the access token 
   assert.equal(value.requests.length, 1);
   assert.equal(value.requests[0].options.credentials, "omit");
   assert.equal(value.requests[0].options.body.get("code_verifier").length >= 43, true);
-  assert.equal(value.session.getAccessToken(), "short-lived-access-token-value");
+  assert.match(value.session.getAccessToken(), /^[^.]+\.[^.]+\.[^.]+$/);
+  assert.equal(value.session.getSubject(), "judge-user-subject");
   assert.equal(value.records.size, 0);
   assert.deepEqual(value.replacements[0].slice(1), ["", "/#visas"]);
 });
@@ -99,6 +113,7 @@ test("a mismatched callback state fails closed before the token endpoint", async
   await value.session.initialize();
   assert.equal(value.requests.length, 0);
   assert.equal(value.session.getAccessToken(), "");
+  assert.equal(value.session.getSubject(), "");
   assert.match(value.session.snapshot().error, /did not match/i);
   assert.equal(value.records.size, 0);
 });
@@ -115,4 +130,44 @@ test("sign-out clears the in-memory token and uses the configured allowlisted lo
   const logout = new URL(value.navigations.at(-1));
   assert.equal(logout.pathname, "/logout");
   assert.equal(logout.searchParams.get("logout_uri"), "http://127.0.0.1:5173/");
+});
+
+test("Curate OIDC aliases support the public custom domain", () => {
+  const config = oidcConfigFromEnv({
+    VITE_CURATE_OIDC_CLIENT_ID: "curate-public-client",
+    VITE_CURATE_OIDC_HOSTED_UI_URL: "https://curate.auth.eu-north-1.amazoncognito.com",
+    VITE_CURATE_OIDC_ISSUER: "https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_example",
+    VITE_CURATE_OIDC_REDIRECT_URI: "https://curate.elfeel.me/auth/callback",
+    VITE_CURATE_OIDC_LOGOUT_URI: "https://curate.elfeel.me/",
+  }, { origin: "https://curate.elfeel.me" });
+  assert.equal(config.redirectUri, "https://curate.elfeel.me/auth/callback");
+  assert.equal(config.logoutUri, "https://curate.elfeel.me/");
+  assert.equal(config.scope, "openid feed-passport/invoke");
+});
+
+test("callback rejects a bearer token whose Cognito identity binding is wrong", async () => {
+  const value = harness();
+  value.session.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      token_type: "Bearer",
+      access_token: jwt({
+        iss: ENVIRONMENT.VITE_FEED_PASSPORT_OIDC_ISSUER,
+        client_id: "different-client",
+        token_use: "access",
+        scope: "feed-passport/invoke",
+        sub: "judge-user-subject",
+        exp: Math.floor(1_800_000_000_000 / 1000) + 3600,
+      }),
+      expires_in: 3600,
+    }),
+  });
+  await value.session.signIn();
+  const authorization = new URL(value.navigations[0]);
+  value.location.pathname = "/auth/callback";
+  value.location.search = `?code=one-time-code&state=${authorization.searchParams.get("state")}`;
+  await value.session.initialize();
+  assert.equal(value.session.getAccessToken(), "");
+  assert.equal(value.session.getSubject(), "");
+  assert.match(value.session.snapshot().error, /valid short-lived bearer token/i);
 });

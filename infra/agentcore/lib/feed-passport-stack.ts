@@ -23,6 +23,7 @@ export interface FeedPassportAgentCoreStackProps extends StackProps {
   readonly bedrockModelArn: string;
   readonly callbackUrls: string[];
   readonly logoutUrls: string[];
+  readonly corsAllowedOrigins: string[];
   readonly cognitoDomainPrefix: string;
 }
 
@@ -66,7 +67,7 @@ export class FeedPassportAgentCoreStack extends Stack {
 
     Tags.of(this).add("Project", "feed-passport");
     Tags.of(this).add("ManagedBy", "aws-cdk");
-    Tags.of(this).add("CostProfile", "credits-only-delete-after-demo");
+    Tags.of(this).add("CostProfile", "budget-alert-retained-demo");
 
     const userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: "feed-passport-users",
@@ -294,6 +295,7 @@ exports.handler = async (event) => {
         FEED_PASSPORT_BEDROCK_REGION: Aws.REGION,
         FEED_PASSPORT_BEDROCK_TIMEOUT_SECONDS: "60",
         UNIFIED_TRACES_DESTINATION_ENABLED: "true",
+        CURATE_ALLOWED_ORIGINS: props.corsAllowedOrigins.join(","),
       },
       tags: {
         Project: "feed-passport",

@@ -30,6 +30,7 @@ new FeedPassportAgentCoreStack(app, "FeedPassportAgentCore", {
   bedrockModelArn: requiredContext(app, "bedrockModelArn"),
   callbackUrls: urlList(app, "callbackUrls"),
   logoutUrls: urlList(app, "logoutUrls"),
+  corsAllowedOrigins: urlList(app, "corsAllowedOrigins"),
   cognitoDomainPrefix: requiredContext(app, "cognitoDomainPrefix"),
   description: "Feed Passport proposal-only AgentCore demo infrastructure",
 });

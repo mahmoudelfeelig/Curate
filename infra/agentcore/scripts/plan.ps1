@@ -4,8 +4,9 @@ param(
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-z]{2}(-gov)?-[a-z0-9-]+-\d$")][string]$AwsRegion,
     [Parameter(Mandatory = $true)][string]$BedrockModelId,
     [Parameter(Mandatory = $true)][ValidatePattern("^arn:")][string]$BedrockModelArn,
-    [string[]]$CallbackUrls = @("http://127.0.0.1:5173/auth/callback"),
-    [string[]]$LogoutUrls = @("http://127.0.0.1:5173/"),
+    [string[]]$CallbackUrls = @("http://127.0.0.1:5173/auth/callback", "https://curate.elfeel.me/auth/callback"),
+    [string[]]$LogoutUrls = @("http://127.0.0.1:5173/", "https://curate.elfeel.me/"),
+    [string[]]$CorsAllowedOrigins = @("http://127.0.0.1:5173", "https://curate.elfeel.me"),
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-z0-9-]{1,63}$")][string]$CognitoDomainPrefix,
     [string]$ArtifactPath = "artifacts/feed-passport-agentcore.zip",
     [ValidateSet("PipCrossPlatform", "Docker")][string]$PackagingBackend = "PipCrossPlatform",
@@ -33,13 +34,19 @@ if (-not [string]::IsNullOrWhiteSpace(($dirty -join "`n"))) {
     throw "AgentCore planning requires a clean source worktree"
 }
 
-foreach ($urlText in @($CallbackUrls + $LogoutUrls)) {
+foreach ($urlText in @($CallbackUrls + $LogoutUrls + $CorsAllowedOrigins)) {
     $uri = [Uri]$urlText
     if (-not $uri.IsAbsoluteUri -or $uri.Scheme -notin @("http", "https")) {
         throw "OAuth URLs must be absolute HTTP(S) URLs: $urlText"
     }
     if ($uri.Scheme -eq "http" -and $uri.Host -notin @("localhost", "127.0.0.1")) {
         throw "Non-loopback OAuth URLs must use HTTPS: $urlText"
+    }
+}
+foreach ($originText in $CorsAllowedOrigins) {
+    $origin = [Uri]$originText
+    if ($origin.PathAndQuery -ne "/" -or -not [string]::IsNullOrEmpty($origin.Fragment) -or $originText.Contains("*")) {
+        throw "CORS entries must be exact origins without paths, queries, fragments, or wildcards: $originText"
     }
 }
 if ([string]::IsNullOrWhiteSpace($BedrockModelId)) {
@@ -81,6 +88,7 @@ try {
         "-c", "bedrockModelArn=$BedrockModelArn",
         "-c", "callbackUrls=$($CallbackUrls -join ',')",
         "-c", "logoutUrls=$($LogoutUrls -join ',')",
+        "-c", "corsAllowedOrigins=$($CorsAllowedOrigins -join ',')",
         "-c", "cognitoDomainPrefix=$CognitoDomainPrefix"
     )
     $synthArguments = @(

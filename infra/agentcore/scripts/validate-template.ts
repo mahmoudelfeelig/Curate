@@ -86,6 +86,18 @@ export function validateTemplate(template: JsonObject): void {
   if (runtime.Properties.LifecycleConfiguration?.MaxLifetime !== 1800) {
     fail("Runtime maximum lifetime must remain thirty minutes");
   }
+  const browserOrigins = String(
+    runtime.Properties.EnvironmentVariables?.CURATE_ALLOWED_ORIGINS ?? "",
+  ).split(",").filter(Boolean);
+  if (
+    browserOrigins.length === 0
+    || browserOrigins.some((origin) =>
+      origin.includes("*")
+      || !/^https:\/\/[^/?#]+$/.test(origin) && !/^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
+    )
+  ) {
+    fail("Runtime browser CORS must use explicit HTTPS or loopback origins without wildcards");
+  }
   const code = runtime.Properties.AgentRuntimeArtifact?.CodeConfiguration;
   if (code?.Runtime !== "PYTHON_3_13" || code?.EntryPoint?.[0] !== "agentcore_main.py") {
     fail("Runtime must use the packaged Python 3.13 proposal-only entrypoint");

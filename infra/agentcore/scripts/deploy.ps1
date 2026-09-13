@@ -7,8 +7,9 @@ param(
     [Parameter(Mandatory = $true)][string]$BedrockModelId,
     [Parameter(Mandatory = $true)][ValidatePattern("^arn:")][string]$BedrockModelArn,
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-z0-9-]{1,63}$")][string]$CognitoDomainPrefix,
-    [string[]]$CallbackUrls = @("http://127.0.0.1:5173/auth/callback"),
-    [string[]]$LogoutUrls = @("http://127.0.0.1:5173/"),
+    [string[]]$CallbackUrls = @("http://127.0.0.1:5173/auth/callback", "https://curate.elfeel.me/auth/callback"),
+    [string[]]$LogoutUrls = @("http://127.0.0.1:5173/", "https://curate.elfeel.me/"),
+    [string[]]$CorsAllowedOrigins = @("http://127.0.0.1:5173", "https://curate.elfeel.me"),
     [string]$ArtifactPath = "artifacts/feed-passport-agentcore.zip",
     [ValidateSet("PipCrossPlatform", "Docker")][string]$PackagingBackend = "PipCrossPlatform",
     [switch]$SkipPackage,
@@ -31,6 +32,7 @@ $planArguments = @{
     CognitoDomainPrefix = $CognitoDomainPrefix
     CallbackUrls = $CallbackUrls
     LogoutUrls = $LogoutUrls
+    CorsAllowedOrigins = $CorsAllowedOrigins
     ArtifactPath = $ArtifactPath
     PackagingBackend = $PackagingBackend
     SkipPackage = $SkipPackage
@@ -73,6 +75,7 @@ $context = @(
     "-c", "bedrockModelArn=$BedrockModelArn",
     "-c", "callbackUrls=$($CallbackUrls -join ',')",
     "-c", "logoutUrls=$($LogoutUrls -join ',')",
+    "-c", "corsAllowedOrigins=$($CorsAllowedOrigins -join ',')",
     "-c", "cognitoDomainPrefix=$CognitoDomainPrefix"
 )
 

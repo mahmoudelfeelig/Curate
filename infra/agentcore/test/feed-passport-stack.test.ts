@@ -28,8 +28,12 @@ before(() => {
     artifactPath,
     bedrockModelId: "amazon.nova-lite-v1:0",
     bedrockModelArn: modelArn,
-    callbackUrls: ["http://127.0.0.1:5173/auth/callback"],
-    logoutUrls: ["http://127.0.0.1:5173/"],
+    callbackUrls: [
+      "http://127.0.0.1:5173/auth/callback",
+      "https://curate.elfeel.me/auth/callback",
+    ],
+    logoutUrls: ["http://127.0.0.1:5173/", "https://curate.elfeel.me/"],
+    corsAllowedOrigins: ["http://127.0.0.1:5173", "https://curate.elfeel.me"],
     cognitoDomainPrefix: "feed-passport-test-111122223333",
   });
   template = Template.fromStack(stack);
@@ -91,6 +95,11 @@ describe("Feed Passport AgentCore stack", () => {
     template.hasResourceProperties("AWS::Cognito::UserPoolClient", {
       GenerateSecret: false,
       AllowedOAuthFlows: ["code"],
+      CallbackURLs: [
+        "http://127.0.0.1:5173/auth/callback",
+        "https://curate.elfeel.me/auth/callback",
+      ],
+      LogoutURLs: ["http://127.0.0.1:5173/", "https://curate.elfeel.me/"],
       AllowedOAuthScopes: Match.arrayWith([
         "openid",
         Match.objectLike({ "Fn::Join": Match.anyValue() }),
@@ -169,6 +178,7 @@ describe("Feed Passport AgentCore stack", () => {
       EnvironmentVariables: Match.objectLike({
         FEED_PASSPORT_BEDROCK_MODEL_ID: "amazon.nova-lite-v1:0",
         FEED_PASSPORT_BEDROCK_REGION: { Ref: "AWS::Region" },
+        CURATE_ALLOWED_ORIGINS: "http://127.0.0.1:5173,https://curate.elfeel.me",
       }),
     });
     const runtimes = template.findResources("AWS::BedrockAgentCore::Runtime");
@@ -284,6 +294,18 @@ describe("Feed Passport AgentCore stack", () => {
     );
     assert.doesNotMatch(preflightScript, /Write-Host[^\r\n]*identity\.Account/);
     assert.match(preflightScript, /Verified the expected AWS caller account/);
+  });
+
+  it("generates judge credentials locally without exposing the password in CLI arguments", () => {
+    const script = readFileSync(
+      path.join(__dirname, "..", "..", "scripts", "create-judge-user.ps1"),
+      "utf8",
+    );
+    assert.match(script, /RandomNumberGenerator/);
+    assert.match(script, /artifacts\\local\\judge-access/);
+    assert.match(script, /--cli-input-json "file:\/\/\$passwordFile"/);
+    assert.doesNotMatch(script, /--password\s+\$password/);
+    assert.doesNotMatch(script, /Write-Host[^\r\n]*\$password/);
   });
 
   it("passes the deterministic local safety validator", () => {

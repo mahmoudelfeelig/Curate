@@ -15,6 +15,7 @@ new FeedPassportAgentCoreStack(app, "FeedPassportAgentCore", {
     "arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0",
   callbackUrls: ["http://127.0.0.1:5173/auth/callback"],
   logoutUrls: ["http://127.0.0.1:5173/"],
+  corsAllowedOrigins: ["http://127.0.0.1:5173"],
   cognitoDomainPrefix: "feed-passport-local-plan-111122223333",
   description: "Feed Passport deterministic no-network AgentCore plan",
 });

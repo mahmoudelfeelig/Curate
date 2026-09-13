@@ -21,17 +21,17 @@ export function MigrationSpread({ source, setSource, destination, setDestination
           <Field label="Source Passport capture" hint="Capture creates a new local Passport identity. It does not choose or mutate the migration destination."><select value={source} onChange={(event) => setSource(event.target.value)} disabled={globallyBusy}>{DESTINATIONS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
           <div className="evidence-note">
             <p className="eyebrow">CAPTURE BOUNDARY</p>
-            <p>{source === "lab" ? "The Feed Passport Lab capture uses local deterministic observation evidence; its runtime manifest still reports conformance separately." : `${sourceManifest?.name || source} is currently ${sourceManifest?.status || "Guided"}; capture uses a declared or fixture observation unless this source later passes certified account conformance.`}</p>
+            <p>{source === "lab" ? "Curate Lab uses a repeatable local feed so you can explore every step without connecting an account." : `${sourceManifest?.name || source} is currently ${sourceManifest?.status || "Guided"}; Curate will show which preferences it can carry over before anything changes.`}</p>
             <ActionButton variant="ink" onClick={onCapture} busy={busyAction === "migration-capture"} disabled={globallyBusy && busyAction !== "migration-capture"}>CAPTURE SOURCE PASSPORT</ActionButton>
             {captureNotice ? <p className="success-note">{captureNotice}</p> : null}
           </div>
-          <div className="route-line"><span>CURRENT PORTABLE POLICY</span><b>FEED PASSPORT · V{constitutionVersion}</b></div>
+          <div className="route-line"><span>CURRENT PORTABLE POLICY</span><b>CURATE · V{constitutionVersion}</b></div>
           <Field label="Migration destination" hint="This remains separate from source capture."><select data-prefilled-destination={proposalPrefill ? destination : undefined} value={destination} onChange={(event) => setDestination(event.target.value)} disabled={globallyBusy}>{DESTINATIONS.filter((item) => item.id !== source || item.id === destination).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
         </div>
         <div className="migration-rules"><h3>Travel manifest</h3><div><span>Topic intent and exclusions</span><StatusStamp tone="green" compact>INCLUDED</StatusStamp></div><div><span>Reviewed creator identity links</span><StatusStamp tone="green" compact>INCLUDED</StatusStamp></div><div><span>Format and language preferences</span><StatusStamp tone="green" compact>INCLUDED</StatusStamp></div><div><span>Raw private activity history</span><StatusStamp tone="orange" compact>BLOCKED</StatusStamp></div></div>
         <aside className="border-note"><strong>Non-negotiable border rule</strong><p>Raw history and credentials do not cross this desk. The preview is safe and non-mutating.</p></aside>
         <ActionButton onClick={onPreview} busy={busyAction === "migration-preview"} variant="ink" disabled={source === destination || (globallyBusy && busyAction !== "migration-preview")}>PREVIEW TRANSLATION</ActionButton>
-        <footer className="passport-footer"><span>PORTABILITY</span><span>FEED PASSPORT</span><span>PAGE 7</span></footer>
+        <footer className="passport-footer"><span>PORTABILITY</span><span>CURATE</span><span>PAGE 7</span></footer>
       </article>
 
       <article className="passport-page right-page">
@@ -67,7 +67,7 @@ export function MigrationSpread({ source, setSource, destination, setDestination
             <GuidedHandoffPanel handoff={guidedHandoff} onResolve={onResolveGuidedStep} onFinalize={onFinalizeGuidedHandoff} busyAction={busyAction} />
           </>
         )}
-        <footer className="passport-footer"><span>LOSS DECLARED</span><span>FEED PASSPORT</span><span>PAGE 8</span></footer>
+        <footer className="passport-footer"><span>LOSS DECLARED</span><span>CURATE</span><span>PAGE 8</span></footer>
       </article>
     </section>
   );
@@ -85,16 +85,16 @@ export function TemporarySpread({ form, setForm, visas, onIssue, onRevoke, busy,
         <Field label="Visa name"><input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></Field>
         <Field label="Purpose"><textarea rows="5" value={form.purpose} onChange={(event) => setForm((current) => ({ ...current, purpose: event.target.value }))} /></Field>
         <div className="choice-row">{hasExactCustomDuration ? <label className="selected exact-duration-choice" data-exact-duration-minutes={form.durationMinutes}><input type="radio" name="duration" value={form.duration} checked readOnly /><b>{form.duration}</b><span>Exact Feature Clerk duration; select another ticket to replace it.</span></label> : null}{standardDurations.map(([duration, note]) => <label key={duration} className={form.duration === duration ? "selected" : ""}><input type="radio" name="duration" value={duration} checked={form.duration === duration} onChange={(event) => setForm((current) => ({ ...current, duration: event.target.value, durationMinutes: null }))} /><b>{duration}</b><span>{note}</span></label>)}</div>
-        <div className="mode-selector"><label className={form.mode === "Isolated Lab" ? "selected" : ""}><input type="radio" name="mode" checked={form.mode === "Isolated Lab"} onChange={() => setForm((current) => ({ ...current, mode: "Isolated Lab" }))} /><span><b>Isolated Lab</b>Never touches a connected account. Best for a clean incognito demo.</span></label><label className={form.mode === "Reversible Lab" ? "selected" : ""}><input type="radio" name="mode" checked={form.mode === "Reversible Lab"} onChange={() => setForm((current) => ({ ...current, mode: "Reversible Lab" }))} /><span><b>Reversible Lab</b>Executes only in the certified Feed Passport Lab and records a rollback checkpoint.</span></label></div>
+        <div className="mode-selector"><label className={form.mode === "Isolated Lab" ? "selected" : ""}><input type="radio" name="mode" checked={form.mode === "Isolated Lab"} onChange={() => setForm((current) => ({ ...current, mode: "Isolated Lab" }))} /><span><b>Isolated Lab</b>Never touches a connected account. Best for a clean incognito demo.</span></label><label className={form.mode === "Reversible Lab" ? "selected" : ""}><input type="radio" name="mode" checked={form.mode === "Reversible Lab"} onChange={() => setForm((current) => ({ ...current, mode: "Reversible Lab" }))} /><span><b>Reversible Lab</b>Tries the change in Curate Lab and keeps a one-click way back.</span></label></div>
         <ActionButton onClick={onIssue} busy={busy} disabled={!form.name.trim() || !form.purpose.trim()}>ISSUE TEMPORARY VISA</ActionButton>
-        <footer className="passport-footer"><span>TIME-BOXED</span><span>FEED PASSPORT</span><span>PAGE 9</span></footer>
+        <footer className="passport-footer"><span>TIME-BOXED</span><span>CURATE</span><span>PAGE 9</span></footer>
       </article>
 
       <article className="passport-page right-page">
         <PageHeading eyebrow="ACTIVE AND PAST VISAS" title="Expiry Board" note="Every temporary mode closes on schedule or can be revoked early." page="10" />
         <div className="temporary-visas">{visas.map((visa) => <article key={visa.id} className={`temporary-visa ${visa.status === "Active" ? "active" : "revoked"}`}><div className="temporary-visa-head"><span>{visa.id}</span><StatusStamp tone={visa.status === "Active" ? "green" : "orange"} compact>{visa.status}</StatusStamp></div><h3>{visa.name}</h3><p>{visa.purpose}</p><dl><div><dt>Duration</dt><dd>{visa.duration}</dd></div><div><dt>Mode</dt><dd>{visa.mode}</dd></div><div><dt>Expires</dt><dd>{visa.expiresAt}</dd></div></dl>{visa.status === "Active" ? <button type="button" className="text-link danger-link" onClick={() => onRevoke(visa.id)} disabled={busy}>Revoke this visa now</button> : null}</article>)}</div>
         <aside className="passport-warning">Expiry is an operation, not a reminder. Isolated and reversible Lab overlays are removed on schedule or when you stop them.</aside>
-        <footer className="passport-footer"><span>AUTO-EXPIRY</span><span>FEED PASSPORT</span><span>PAGE 10</span></footer>
+        <footer className="passport-footer"><span>AUTO-EXPIRY</span><span>CURATE</span><span>PAGE 10</span></footer>
       </article>
     </section>
   );
@@ -186,7 +186,7 @@ export function CompanionSpread({
         <div className="privacy-seal"><b>NEVER INCLUDED</b><span>Raw activity history</span><span>Private messages</span><span>Account credentials</span></div>
         <Field label="Local invitation code" hint="Visible handoff code for the second demo persona"><input value={partnerCode} onChange={(event) => setPartnerCode(event.target.value.toUpperCase())} placeholder="HARBOR-1936" disabled={firstConsentRecorded || Boolean(companion) || busy} /></Field>
         {invitation || companion ? <section className="consent-docket" data-companion-owner-state={companion ? "active" : "pending"}><div><span>OWNER SHARING</span><StatusStamp tone={companion ? "green" : "blue"} compact>{companion ? "ACTIVE CONTINUOUS" : invitationStatusLabel}</StatusStamp></div><dl><div><dt>Passport</dt><dd>{invitation?.ownerConsent?.passportId || companion?.ownerPassportId || passportId}</dd></div><div><dt>Scope</dt><dd>Continuous · refresh on revision</dd></div><div><dt>Selected</dt><dd>{ownerFields.join(" · ")}</dd></div><div><dt>Expires</dt><dd>{consentExpiryLabel(invitation?.expiresAt || companion?.expiresAt)}</dd></div></dl>{invitation && !companion ? <button type="button" className="text-link danger-link" onClick={onRevokeInvitation} disabled={busy}>Withdraw invitation</button> : null}</section> : <ActionButton onClick={onCreateInvitation} busy={busy} disabled={!partnerCode.trim() || !Object.values(share).some(Boolean) || commonGroundNeedsTopics}>ISSUE COMPANION INVITATION</ActionButton>}
-        <footer className="passport-footer"><span>SELECTIVE SHARING</span><span>FEED PASSPORT</span><span>PAGE 11</span></footer>
+        <footer className="passport-footer"><span>SELECTIVE SHARING</span><span>CURATE</span><span>PAGE 11</span></footer>
       </article>
 
       <article className="passport-page right-page">
@@ -199,7 +199,7 @@ export function CompanionSpread({
         {!invitation && !companion ? <aside className="activation-boundary"><b>NO BLEND EXISTS</b><p>The invitation creates one expiring shared slice only. It does not create a second Passport or companion.</p></aside> : null}
         {invitation && !companion ? <section className="second-principal-consent"><header><StatusStamp tone="purple" compact>SECOND LOCAL TEST PRINCIPAL</StatusStamp><div><b>{partnerCode}</b><span>Visible persona switch · separate identity</span></div></header><ShareSelector value={partnerShare} onChange={setPartnerShare} disabled={busy} legend="Second local test principal selected fields" />{partnerCommonGroundNeedsTopics ? <aside className="passport-warning compact-note">The second person must also share topics for Common Ground.</aside> : null}<label className="second-person-confirm"><input type="checkbox" checked={partnerConfirmed} onChange={(event) => setPartnerConfirmed(event.target.checked)} disabled={busy} /><span><b>Use the second local test persona.</b><small>This identity switch is separate from the first person. It is not social login or production authentication.</small></span></label><p className="second-person-boundary">The selected fields are shared until {consentExpiryLabel(invitation.expiresAt)}.</p><ActionButton onClick={onAcceptInvitation} busy={busy} disabled={!partnerConfirmed || !Object.values(partnerShare).some(Boolean) || partnerCommonGroundNeedsTopics}>ACTIVATE SHARED VIEW</ActionButton></section> : null}
         {companion ? <div className="companion-active"><div className="companion-active-head"><StatusStamp tone="green">Active continuous companion</StatusStamp><b>SYNC REVISION {companion.syncRevision}</b></div><p>{companion.mode} · {companion.weight}% requested partner input · {companion.effectiveWeight}% effective weighting · {companion.duration}</p><dl><div><dt>Sharing status</dt><dd>Two active independent slices</dd></div><div><dt>First fields</dt><dd>{ownerFields.join(" · ")}</dd></div><div><dt>Second fields</dt><dd>{partnerFields.join(" · ")}</dd></div><div><dt>Expires</dt><dd>{consentExpiryLabel(companion.expiresAt)}</dd></div></dl><ActionButton variant="danger" onClick={onRevokeCompanion} busy={busy}>STOP COMPANION SYNC</ActionButton></div> : null}
-        <footer className="passport-footer"><span>REVERSIBLE OVERLAY</span><span>FEED PASSPORT</span><span>PAGE 12</span></footer>
+        <footer className="passport-footer"><span>REVERSIBLE OVERLAY</span><span>CURATE</span><span>PAGE 12</span></footer>
       </article>
     </section>
   );

@@ -338,7 +338,7 @@ try {
   await pause(2_500);
 
   await openDesk("agent");
-  const missionGoal = page.getByRole("textbox", { name: /outcome for the agent|what should change/i });
+  const missionGoal = page.getByRole("textbox", { name: /outcome for the agent|what should curate change/i });
   await missionGoal.fill(exactGoal);
   await pause(4_000);
   await waitWithoutRecording(

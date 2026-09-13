@@ -23,7 +23,7 @@ export function DriftSpread({
         <div className="drift-score"><span>POLICY ALIGNMENT</span><b>{drift.score}</b><small>OUT OF 100</small></div><p className="last-check">Last checked {drift.checkedAt}</p>
         <div className="drift-signals">{drift.signals.map((signal) => <div key={signal.label}><span>{signal.label}<small>Target {signal.target}</small></span><div className="meter"><i style={{ width: `${Math.min(100, signal.value)}%` }} /></div><b>{signal.value}{signal.label.includes("fit") || signal.label.includes("diversity") ? "%" : ""}</b><StatusStamp tone={signal.state === "on-course" ? "green" : "orange"} compact>{signal.state}</StatusStamp></div>)}</div>
         <ActionButton onClick={onCheck} busy={busy} variant="ink">RUN FRESH LAB CHECK</ActionButton>
-        <footer className="passport-footer"><span>OBSERVATION</span><span>FEED PASSPORT</span><span>PAGE 13</span></footer>
+        <footer className="passport-footer"><span>OBSERVATION</span><span>CURATE</span><span>PAGE 13</span></footer>
       </article>
 
       <article className="passport-page right-page">
@@ -51,7 +51,7 @@ export function DriftSpread({
           )}
           <small>{monitorConfig.mode === "bounded_auto" ? "Certified Lab controls only, three actions per run, with an immediate stop." : "Alert-only mode may observe and notify, but cannot execute a correction."} Model-facing agents can schedule alert-only monitoring only.</small>
         </section>
-        <footer className="passport-footer"><span>NO SILENT WRITES</span><span>FEED PASSPORT</span><span>PAGE 14</span></footer>
+        <footer className="passport-footer"><span>NO SILENT WRITES</span><span>CURATE</span><span>PAGE 14</span></footer>
       </article>
     </section>
   );
@@ -66,13 +66,13 @@ export function CreatorSpread({ query, setQuery, creators, preserved, onPreserve
         <PageHeading eyebrow="PEOPLE OVER PLATFORM HANDLES" title="Creator Continuity" note="Find the same public creator elsewhere using declared identity evidence." page="15" />
         <Field label="Search passport fixtures"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, field, or platform" /></Field>
         <div className="creator-list">{filtered.map((creator) => <article key={creator.id}><div><p className="eyebrow">{creator.field}</p><h3>{creator.name}</h3><span>{creator.source} to {creator.destination}</span></div><div className="identity-confidence"><b>{creator.confidence}%</b><span>{creator.evidence}</span></div><button type="button" className="text-link" onClick={() => onPreserve(creator)} disabled={busy || preserved.includes(creator.id)}>{preserved.includes(creator.id) ? "Preserved" : "Preserve creator"}</button></article>)}</div>
-        <footer className="passport-footer"><span>PUBLIC IDENTITY</span><span>FEED PASSPORT</span><span>PAGE 15</span></footer>
+        <footer className="passport-footer"><span>PUBLIC IDENTITY</span><span>CURATE</span><span>PAGE 15</span></footer>
       </article>
       <article className="passport-page right-page">
         <PageHeading eyebrow={`${preserved.length} MATCHES PRESERVED`} title="Continuity Manifest" note="Confidence is evidence, not certainty. Low-confidence matches always require review." page="16" />
         <div className="continuity-route">{creators.filter((creator) => preserved.includes(creator.id)).map((creator) => <article key={creator.id}><div><span>{creator.source}</span><b>{creator.name}</b></div><div className="route-divider">IDENTITY MATCH</div><div><span>{creator.destination}</span><b>{creator.destinationHandle}</b></div><StatusStamp tone={creator.confidence >= 90 ? "green" : "orange"} compact>{creator.confidence}% confidence</StatusStamp></article>)}{!preserved.length ? <div className="empty-manifest"><b>NO MATCHES PRESERVED</b><p>Select a reviewed fixture from the facing page.</p></div> : null}</div>
         <aside className="border-note"><strong>Identity safety</strong><p>The demo uses public fixture links only. It never guesses from private contact lists or silently follows a match.</p></aside>
-        <footer className="passport-footer"><span>REVIEW REQUIRED</span><span>FEED PASSPORT</span><span>PAGE 16</span></footer>
+        <footer className="passport-footer"><span>REVIEW REQUIRED</span><span>CURATE</span><span>PAGE 16</span></footer>
       </article>
     </section>
   );
@@ -81,7 +81,7 @@ export function CreatorSpread({ query, setQuery, creators, preserved, onPreserve
 export function TemplatesSpread({ onApply, appliedTemplate }) {
   const renderTemplate = (template) => <article key={template.id} className={`template-card template-${template.tone}`}><span className="template-code">{template.code}</span><h3>{template.name}</h3><p>{template.note}</p><dl><div><dt>Duration</dt><dd>{template.duration}</dd></div><div><dt>Serendipity</dt><dd>{template.serendipity}%</dd></div><div><dt>Outrage cap</dt><dd>{template.outrageCeiling}%</dd></div></dl><button type="button" className="text-link" onClick={() => onApply(template)}>{appliedTemplate === template.id ? "Loaded into draft" : "Load this template"}</button></article>;
   return (
-    <section className="passport-book section-book"><div className="book-spine" aria-hidden="true" /><article className="passport-page left-page"><PageHeading eyebrow="REUSABLE, EDITABLE STARTS" title="Policy Template Book" note="Templates are stamped into a new draft. They never replace your constitution without review." page="17" /><div className="template-stack">{TEMPLATES.slice(0, 2).map(renderTemplate)}</div><footer className="passport-footer"><span>FIELD MODES</span><span>FEED PASSPORT</span><span>PAGE 17</span></footer></article><article className="passport-page right-page"><PageHeading eyebrow="SPECIAL PURPOSE VISAS" title="More Starting Points" note="Each template can become temporary, shareable, or a new permanent version." page="18" /><div className="template-stack">{TEMPLATES.slice(2).map(renderTemplate)}</div><aside className="passport-warning">Loading a template opens the Constitution desk. You still review, calibrate, and stamp the version.</aside><footer className="passport-footer"><span>EDIT BEFORE USE</span><span>FEED PASSPORT</span><span>PAGE 18</span></footer></article></section>
+    <section className="passport-book section-book"><div className="book-spine" aria-hidden="true" /><article className="passport-page left-page"><PageHeading eyebrow="REUSABLE, EDITABLE STARTS" title="Policy Template Book" note="Templates are stamped into a new draft. They never replace your constitution without review." page="17" /><div className="template-stack">{TEMPLATES.slice(0, 2).map(renderTemplate)}</div><footer className="passport-footer"><span>FIELD MODES</span><span>CURATE</span><span>PAGE 17</span></footer></article><article className="passport-page right-page"><PageHeading eyebrow="SPECIAL PURPOSE VISAS" title="More Starting Points" note="Each template can become temporary, shareable, or a new permanent version." page="18" /><div className="template-stack">{TEMPLATES.slice(2).map(renderTemplate)}</div><aside className="passport-warning">Loading a template opens the Constitution desk. You still review, calibrate, and stamp the version.</aside><footer className="passport-footer"><span>EDIT BEFORE USE</span><span>CURATE</span><span>PAGE 18</span></footer></article></section>
   );
 }
 
@@ -119,7 +119,7 @@ export function HistorySpread({
             {!checkpoints.length ? <small>No manual checkpoint has been created in this session.</small> : null}
           </div>
         </section>
-        <footer className="passport-footer"><span>{receipts.length} RECEIPTS</span><span>FEED PASSPORT</span><span>PAGE 19</span></footer>
+        <footer className="passport-footer"><span>{receipts.length} RECEIPTS</span><span>CURATE</span><span>PAGE 19</span></footer>
       </article>
       <article className="passport-page right-page receipt-detail-page">
         <PageHeading eyebrow={selected?.id || "NO RECEIPT"} title="Rollback & Portability" note="Rollback creates a new receipt; history itself is never erased." page="20" />
@@ -138,7 +138,7 @@ export function HistorySpread({
           {portabilityNotice ? <p className="success-note">{portabilityNotice}</p> : null}
         </section>
         <aside className="border-note"><strong>Undo is a first-class feature</strong><p>A rollback applies the recorded inverse operation where supported and declares any remaining manual step.</p></aside>
-        <footer className="passport-footer"><span>APPEND ONLY</span><span>FEED PASSPORT</span><span>PAGE 20</span></footer>
+        <footer className="passport-footer"><span>APPEND ONLY</span><span>CURATE</span><span>PAGE 20</span></footer>
       </article>
     </section>
   );

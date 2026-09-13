@@ -90,7 +90,7 @@ export function FeedEvidenceDesk({
         />
         <aside className="evidence-boundary">
           <Icon name="eye" size={21} />
-          <div><b>NO FYP SCRAPING OR HISTORY ACCESS</b><p>This is a bounded sample you choose, not a claim that Feed Passport can read a private recommendation model.</p></div>
+          <div><b>YOUR SAMPLE, YOUR CHOICE</b><p>Paste a handful of feed links and Curate will use them to understand what you are seeing now.</p></div>
         </aside>
         <form className="evidence-form" onSubmit={(event) => { event.preventDefault(); onAnalyze("before"); }}>
           <Field label="Natural-language outcome" hint="Percentages become measurable Passport targets. Qualitative constraints become explicit guardrails.">
@@ -128,7 +128,7 @@ export function FeedEvidenceDesk({
       <article className="passport-page right-page">
         <PageHeading eyebrow="MEASURED TRANSLATION" title="Evidence Ledger" note="Inspect what was observed, what was inferred, and what each destination can honestly do." page="26" />
         {!result ? (
-          <div className="evidence-empty"><Icon name="eye" size={44} /><b>NO SAMPLE RECORDED</b><p>Paste a few links from the feed and capture the baseline. Feed Passport will not invent missing metadata.</p></div>
+          <div className="evidence-empty"><Icon name="eye" size={44} /><b>NO SAMPLE YET</b><p>Paste a few links from your feed to give Curate a starting point.</p></div>
         ) : (
           <div className="evidence-ledger" data-proposal-id={result.id} data-proposal-status={result.status}>
             <header className="evidence-docket">

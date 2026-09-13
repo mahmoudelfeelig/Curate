@@ -20,3 +20,16 @@ test("the AgentCore budget guard is fixed at five dollars and plan-first", async
   assert.match(script, /not a hard cap/i);
   assert.doesNotMatch(script, /update-budget/);
 });
+
+test("the AgentCore bootstrap cannot execute the deployment application", async () => {
+  const script = await fs.readFile(
+    path.join(projectRoot, "infra", "agentcore", "scripts", "bootstrap.ps1"),
+    "utf8",
+  );
+
+  assert.match(script, /node_modules\\aws-cdk\\bin\\cdk/);
+  assert.match(script, /feed-passport-cdk-bootstrap-/);
+  assert.match(script, /Push-Location \$temporaryDirectory/);
+  assert.doesNotMatch(script, /Push-Location \$infraRoot/);
+  assert.doesNotMatch(script, /& npx cdk bootstrap/);
+});

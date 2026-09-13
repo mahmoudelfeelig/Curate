@@ -61,7 +61,7 @@ test("single-owner actions do not require redundant confirmation checkboxes", as
   assert.doesNotMatch(combined, /\bapprovalChecked\b|\bsetApprovalChecked\b|\bfeedEvidenceApproved\b/);
   assert.doesNotMatch(combined, /className="consent-check"|className="instagram-import-consent"/);
   assert.doesNotMatch(combined, /I approve|CONSENT REQUIRED|APPROVE AND APPLY|APPROVE LAB CORRECTION/);
-  assert.match(combined, /RUN BOUNDED MISSION/);
+  assert.match(combined, /START PRACTICE RUN/);
   assert.match(combined, /RUN EXACT PLAN ONCE/);
   assert.match(combined, /ADD SELECTED TO PASSPORT/);
 });
@@ -73,18 +73,15 @@ test("direct run buttons retain server-issued one-time execution tokens", async 
   assert.match(source, /approval_token: approval\.approval_token \|\| approval\.token/);
 });
 
-test("local model waiting state explains progress without implying execution", async () => {
+test("Curate uses a concise animated waiting state", async () => {
   const [source, styles] = await Promise.all([
     readFile(new URL("../src/features/agent/AgentSpread.jsx", import.meta.url), "utf8"),
     readFile(new URL("../src/styles/agent-mission.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(source, /Local model proposal in progress/);
-  assert.match(source, /Read sealed inputs/);
-  assert.match(source, /Run local inference/);
-  assert.match(source, /Collect typed proposal/);
-  assert.match(source, /Validate policy envelope/);
-  assert.match(source, /No social account, public network, or control twin can be changed/);
-  assert.match(styles, /@keyframes mission-working-stage/);
+  assert.match(source, /Curate is making a practice plan/);
+  assert.match(source, /Curate is making the route/);
+  assert.doesNotMatch(source, /Read sealed inputs|Run local inference|Collect typed proposal|Validate policy envelope/);
+  assert.match(styles, /curate-agent-wait/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
 });

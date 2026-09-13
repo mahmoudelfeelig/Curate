@@ -12,13 +12,6 @@ const MISSION_PHASES = [
   ["receipt", "stamp", "Receipt"],
 ];
 
-const MODEL_WORK_STAGES = [
-  ["01", "Read sealed inputs", "Selected Passport and local twin only"],
-  ["02", "Run local inference", "Pinned CPU model on loopback"],
-  ["03", "Collect typed proposal", "No execution or credential tools"],
-  ["04", "Validate policy envelope", "Budgets and action families stay deterministic"],
-];
-
 export const DEFAULT_AGENT_MISSION_FORM = {
   goal: "Make this fresh account feel like my useful internet, preserve the creators I deliberately chose, reduce ragebait, and stop once the result is measurably close.",
   platform: "youtube",
@@ -102,23 +95,23 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
     <section className="passport-book section-book agent-mission-book">
       <div className="book-spine" aria-hidden="true" />
       <article className="passport-page left-page">
-        <PageHeading eyebrow="LOCAL AGENT COMMISSION" title="Set the Mission" note="Give the agent an outcome and a hard envelope. It owns the local loop; you decide when it runs." page="21" />
+        <PageHeading eyebrow="PRACTICE RUN" title="Let Curate try the route" note="Describe the result, choose an app, and see how the feed changes before using an account." page="21" />
         <aside className="local-twin-banner">
           <Icon name="flask-conical" size={24} />
-          <div><b>LOCAL PLATFORM CONTROL TWIN</b><p>Seeded feeds, simulated native controls, zero accounts, zero network calls.</p></div>
-          <StatusStamp tone="green" compact>ACCOUNT-FREE</StatusStamp>
+          <div><b>SAFE PRACTICE FEED</b><p>Try the whole idea on a realistic sample. No social account is needed.</p></div>
+          <StatusStamp tone="green" compact>PRACTICE</StatusStamp>
         </aside>
         <form className="mission-form" onSubmit={onPreview}>
-          <Field label="Outcome for the agent" hint="Natural language stays as the mission goal. It is not regex-routed to another screen.">
+          <Field label="What should Curate change?" hint="Say it naturally. Curate works out a bounded route for the app you choose.">
             <textarea rows="4" value={form.goal} onChange={(event) => updateForm("goal", event.target.value)} disabled={Boolean(busyAction)} placeholder="Make this new account feel like my useful internet, then stop once it is measurably close." />
           </Field>
           <div className="mission-route-fields">
-            <Field label="Control twin">
+            <Field label="Try it on">
               <select value={form.platform} onChange={(event) => updateForm("platform", event.target.value)} disabled={Boolean(busyAction)}>
-                {externalDestinations.map((destination) => <option value={destination.id} key={destination.id}>{destination.name} control twin</option>)}
+                {externalDestinations.map((destination) => <option value={destination.id} key={destination.id}>{destination.name}</option>)}
               </select>
             </Field>
-            <Field label="Seeded scenario">
+            <Field label="Starting point">
               <select value={form.accountId} onChange={(event) => updateForm("accountId", event.target.value)} disabled={Boolean(busyAction)}>
                 <option value="destination-new">Fresh noisy account</option>
                 <option value="destination-twin">Second-account copy</option>
@@ -138,44 +131,32 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
             <span><Icon name="undo-2" size={14} />Every simulated control must have an inverse receipt</span>
           </div>
           <div className="mission-plan-actions">
-            <ActionButton type="button" onClick={onModelPreview} busy={busyAction === "mission-model-preview"} disabled={!form.goal.trim() || Boolean(busyAction) || !modelReady}><Icon name="bot" size={16} />ASK LOCAL MODEL TO PLAN</ActionButton>
-            <ActionButton type="submit" variant="quiet" busy={busyAction === "mission-preview"} disabled={!form.goal.trim() || Boolean(busyAction)}><Icon name="route" size={16} />PREVIEW WITHOUT MODEL</ActionButton>
+            <ActionButton data-testid="mission-model-plan" type="button" onClick={onModelPreview} busy={busyAction === "mission-model-preview"} disabled={!form.goal.trim() || Boolean(busyAction) || !modelReady}><Icon name="bot" size={16} />MAKE A PRACTICE PLAN</ActionButton>
+            <ActionButton type="submit" variant="quiet" busy={busyAction === "mission-preview"} disabled={!form.goal.trim() || Boolean(busyAction)}><Icon name="route" size={16} />QUICK PREVIEW</ActionButton>
           </div>
-          <p className={`model-readiness model-${modelStatus?.readiness || "checking"}`} role="status" aria-label="Local model readiness" data-readiness={modelStatus?.readiness || "checking"}><b>{modelReady ? "LOCAL MODEL READY" : "LOCAL MODEL NOT READY"}</b><span>{modelReady ? `${modelStatus.model_id} · loopback only · no paid calls` : modelStatus?.reason || "Checking the local inference service."}</span></p>
+          <p className={`model-readiness model-${modelStatus?.readiness || "checking"}`} role="status" aria-label="Curate agent readiness" data-readiness={modelStatus?.readiness || "checking"}><b>{modelReady ? "CURATE IS READY" : "QUICK PREVIEW AVAILABLE"}</b><span>{modelReady ? "The agent can interpret the goal and build the route." : "You can still preview the practice feed while the agent is unavailable."}</span></p>
         </form>
         <div className="twin-index" role="group" aria-label="Available local platform control twins">
-          <span>TESTABLE LOCALLY</span>
+          <span>AVAILABLE PRACTICE FEEDS</span>
           <div>{externalDestinations.map((destination) => <button type="button" className={form.platform === destination.id ? "active" : ""} key={destination.id} onClick={() => updateForm("platform", destination.id)} disabled={Boolean(busyAction)}>{destination.shortName}</button>)}</div>
         </div>
-        <footer className="passport-footer"><span>GOAL + BOUNDARIES</span><span>NO ACCOUNT ACCESS</span><span>PAGE 21</span></footer>
+        <footer className="passport-footer"><span>YOUR GOAL</span><span>SAFE PRACTICE</span><span>PAGE 21</span></footer>
       </article>
 
       <article className="passport-page right-page">
-        <PageHeading eyebrow="OBSERVABLE AUTONOMY" title="Agent Run Ledger" note="Watch the agent decide, act, measure, adapt, stop, and leave a reversible trail." page="22" />
-        <div className="runtime-strip mission-runtime-strip">
-          <div><span>Runtime</span><b>{apiMode === "service" ? "Local Python service" : "Browser fixture"}</b></div>
-          <div><span>Coordinator</span><b>{plannerEvidence ? "Local model + policy" : "Persisted agent loop"}</b></div>
-          <div><span>Strands</span><b>{modelReady ? "Local planner ready" : apiMode === "service" ? "Planner offline" : "Service required"}</b></div>
-          <div><span>Twins</span><b>10 deterministic</b></div>
-          <div><span>WebMCP</span><b>{webmcp.supported ? `${webmcp.registered} bounded tools` : "Optional"}</b></div>
-        </div>
-        <aside className="agent-runtime-note">
-          <Icon name="bot" size={22} />
-          <div><b>AGENT, NOT A CHAT ROUTER</b><p>The local Strands planner inspects only the selected Passport and control twin, then narrows the proposed control families. Deterministic policy seals identity, budgets, thresholds, execution, and rollback.</p></div>
-          <StatusStamp tone={schedulerStatus === "active" ? "green" : "purple"} compact>{schedulerStatus === "active" ? "LOOP READY" : "LOCAL FIXTURE"}</StatusStamp>
-        </aside>
+        <PageHeading eyebrow="VISIBLE RESULT" title="Curate's practice run" note="See the starting feed, the changes Curate chose, and the measured result." page="22" />
         {!mission && busyAction === "mission-model-preview" ? (
-          <section className="mission-model-working" role="status" aria-live="polite" aria-label="Local model proposal in progress">
-            <header><div><span>OFFLINE PLANNING PIPELINE</span><b>Local model is preparing a bounded proposal</b></div><StatusStamp tone="purple" compact>WORKING</StatusStamp></header>
+          <section className="mission-model-working curate-agent-wait" role="status" aria-live="polite" aria-label="Curate is making a practice plan">
+            <img src="/assets/brand/curate-elephant.png" alt="" />
+            <b>Curate is making the route</b>
             <div className="mission-working-meter" aria-hidden="true"><span /></div>
-            <ol>{MODEL_WORK_STAGES.map(([number, title, detail], index) => <li style={{ "--work-stage": index }} key={number}><span>{number}</span><div><b>{title}</b><small>{detail}</small></div></li>)}</ol>
-            <p>No social account, public network, or control twin can be changed while this proposal is being prepared.</p>
+            <p>Reading your goal and testing a few reversible changes…</p>
           </section>
         ) : !mission ? (
           <div className="mission-empty">
-            <Icon name="bot" size={44} />
-            <b>NO MISSION SEALED</b>
-            <p>Previewing observes a seeded destination, measures it, and compiles only twin-supported controls. Nothing is applied during preview.</p>
+            <img src="/assets/brand/curate-elephant.png" alt="" className="mission-empty-logo" />
+            <b>YOUR PRACTICE RESULT STARTS HERE</b>
+            <p>Curate will show what the feed looked like, what it changed, and whether the result moved closer to your request.</p>
           </div>
         ) : (
           <div className="mission-ledger" data-mission-id={mission.id} data-mission-status={mission.status} data-planner={plannerEvidence ? "local-model" : "deterministic"}>
@@ -184,13 +165,14 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
               <StatusStamp tone={statusTone}>{missionStatusLabel}</StatusStamp>
             </header>
             <aside className="twin-disclaimer"><Icon name="triangle-alert" size={18} /><p>{mission.fidelity_disclaimer || "This is a deterministic control-surface simulation, not a copy of a private ranking system."}</p></aside>
-            {plannerEvidence ? <section className="model-planner-evidence" aria-label="Local model planner evidence">
-              <header><div><span>LOCAL MODEL CLERK</span><b>{plannerEvidence.model_id || "Configured local model"}</b></div><StatusStamp tone={plannerEvidence.deterministic_validation === "passed" ? "green" : "orange"} compact>{plannerEvidence.deterministic_validation === "passed" ? "POLICY CHECKED" : "INSPECT"}</StatusStamp></header>
+            {plannerEvidence ? <details className="model-planner-evidence" aria-label="Curate agent details">
+              <summary>How Curate made this plan</summary>
+              <header><div><span>CURATE AGENT</span><b>{plannerEvidence.model_id || "Configured model"}</b></div><StatusStamp tone={plannerEvidence.deterministic_validation === "passed" ? "green" : "orange"} compact>{plannerEvidence.deterministic_validation === "passed" ? "CHECKED" : "INSPECT"}</StatusStamp></header>
               <div className="model-proposal-copy"><span>INTERPRETATION</span><p>{mission.goal_interpretation}</p><span>EXPLICIT RATIONALE</span><p>{plannerProposal?.rationale || "The local proposal was admitted without persisting hidden reasoning."}</p></div>
               <div className="model-proof-strip"><dl><dt>Provider</dt><dd>{plannerEvidence.provider}</dd></dl><dl><dt>Tool calls</dt><dd>{plannerEvidence.tools?.length || 0}</dd></dl><dl><dt>Tokens</dt><dd>{plannerEvidence.usage?.total_tokens || 0}</dd></dl><dl><dt>Latency</dt><dd>{plannerEvidence.duration_ms || 0} ms</dd></dl></div>
               <div className="model-tool-trace" role="list" aria-label="Sanitized local model tool trace">{(plannerEvidence.tools || []).map((item, index) => <span role="listitem" data-tool-name={item.name} data-tool-status={item.status} key={`${item.name}-${index}`}>{index + 1}. {String(item.name).replaceAll("_", " ")} · {item.status}</span>)}</div>
-              <p className="model-authority-note">Proposal only. The model received no owner ID, account ID, credentials, run token, execution tool, or rollback authority.</p>
-            </section> : null}
+              <p className="model-authority-note">Curate proposed the route; the app checked its limits before offering the run.</p>
+            </details> : null}
             <div className="mission-comparison">
               <MissionMetrics evaluation={mission.before} label="OBSERVED BEFORE" />
               <Icon name="arrow-right-left" size={25} />
@@ -200,14 +182,13 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
               {trace.map((step) => <article className={`phase-${step.status}`} key={step.stage}><Icon name={step.icon} size={17} /><div><b>{step.label}</b><p>{step.detail}</p></div><span>{step.status.replaceAll("_", " ")}</span></article>)}
             </div>
             {actionEnvelope.length ? <details className="mission-actions" open={isAwaiting}><summary>Initial action envelope · {actionEnvelope.length} controls · {allowedFamilies.length} families</summary><div>{actionEnvelope.map((action, index) => <article key={action.id || `${action.action_type}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{String(action.action_type || action.action || "bounded control").replaceAll("_", " ")}</b><p>{action.reason || action.detail || "Compiled inside the declared twin surface."}</p></div><StatusStamp tone={action.reversible === false ? "orange" : "green"} compact>{action.reversible === false ? "MANUAL" : "REVERSIBLE"}</StatusStamp></article>)}</div><p className="mission-action-scope">Later passes may recompile targets only within these sealed action families, the same Passport version, and the remaining action and iteration budgets.</p></details> : null}
-            {isAwaiting ? <section className="mission-consent" aria-label="Bounded mission actions"><p><b>One bounded run</b><small>{allowedFamilies.length} action families · {mission.max_total_actions || form.maxTotalActions} actions maximum · {mission.max_iterations || form.maxIterations} passes maximum</small></p><div><ActionButton type="button" onClick={onRun} busy={busyAction === "mission-run"} disabled={Boolean(busyAction)}><Icon name="play" size={16} />RUN BOUNDED MISSION</ActionButton><ActionButton type="button" variant="quiet" onClick={onCancel} busy={busyAction === "mission-cancel"} disabled={Boolean(busyAction)}>CANCEL</ActionButton></div></section> : null}
+            {isAwaiting ? <section className="mission-consent" aria-label="Practice run actions"><p><b>Ready for the practice feed</b><small>{mission.max_total_actions || form.maxTotalActions} changes maximum · {mission.max_iterations || form.maxIterations} passes maximum</small></p><div><ActionButton data-testid="mission-run" type="button" onClick={onRun} busy={busyAction === "mission-run"} disabled={Boolean(busyAction)}><Icon name="play" size={16} />START PRACTICE RUN</ActionButton><ActionButton type="button" variant="quiet" onClick={onCancel} busy={busyAction === "mission-cancel"} disabled={Boolean(busyAction)}>CANCEL</ActionButton></div></section> : null}
             {iterations.length ? <section className="iteration-ledger"><span>ADAPTATION PASSES</span>{iterations.map((iteration, index) => <article key={iteration.number || index}><div><b>PASS {iteration.number || index + 1}</b><StatusStamp tone={iteration.decision === "adapt" ? "purple" : "green"} compact>{String(iteration.decision || "measured").replaceAll("_", " ")}</StatusStamp></div><p>{(iteration.actions || []).length} controls · {Math.round(Number(iteration.improvement || 0) * 100)} point distance improvement · receipt {iteration.receipt_id || "recorded"}</p></article>)}</section> : null}
-            {isTerminal ? <div className="mission-terminal" role="region" aria-label="Mission terminal state" data-mission-status={mission.status}><div><b>{mission.status === "rollback_partial" || (mission.status === "rolled_back" && !rollbackVerified) ? "ROLLBACK STATUS" : "STOP REASON"}</b><span>{String(mission.status === "rollback_partial" ? mission.status : mission.stop_reason || mission.status).replaceAll("_", " ")}</span><small>{mission.status === "rollback_partial" ? mission.rollback?.verification?.state_restored === false ? "Receipt inverses completed, but local control state differs from baseline" : "Some inverse controls need inspection" : mission.status === "rolled_back" && !rollbackVerified ? "Restoration verification evidence is missing" : mission.status === "rolled_back" ? `Local control state matched · ${mission.rollback?.verification?.method || "verified local twin"}` : `${mission.remaining_actions ?? 0} actions left unused`}</small></div>{mission.rollback_available ? <ActionButton type="button" variant="danger" onClick={onRollback} busy={busyAction === "mission-rollback"} disabled={Boolean(busyAction)}><Icon name="undo-2" size={16} />{mission.status === "rollback_partial" ? "RETRY ROLLBACK" : "ROLL BACK RUN"}</ActionButton> : <StatusStamp tone={mission.status === "rolled_back" && rollbackVerified ? "blue" : mission.status === "rollback_partial" || mission.status === "rolled_back" ? "orange" : "green"}>{mission.status === "rolled_back" && rollbackVerified ? apiMode === "service" ? "STATE VERIFIED" : "FIXTURE MATCHED" : mission.status === "rollback_partial" || mission.status === "rolled_back" ? "INSPECTION NEEDED" : "BOUNDARY CLOSED"}</StatusStamp>}</div> : null}
+            {isTerminal ? <div className="mission-terminal" role="region" aria-label="Practice run result" data-mission-status={mission.status}><div><b>{mission.status === "rollback_partial" || (mission.status === "rolled_back" && !rollbackVerified) ? "UNDO STATUS" : "RESULT"}</b><span>{String(mission.status === "rollback_partial" ? mission.status : mission.stop_reason || mission.status).replaceAll("_", " ")}</span><small>{mission.status === "rollback_partial" ? mission.rollback?.verification?.state_restored === false ? "The practice feed does not yet match its starting point" : "Some changes need inspection" : mission.status === "rolled_back" && !rollbackVerified ? "The starting state still needs checking" : mission.status === "rolled_back" ? "The practice feed is back where it started" : `${mission.remaining_actions ?? 0} changes left unused`}</small></div>{mission.rollback_available ? <ActionButton data-testid="mission-rollback" type="button" variant="danger" onClick={onRollback} busy={busyAction === "mission-rollback"} disabled={Boolean(busyAction)}><Icon name="undo-2" size={16} />{mission.status === "rollback_partial" ? "TRY UNDO AGAIN" : "UNDO PRACTICE RUN"}</ActionButton> : <StatusStamp tone={mission.status === "rolled_back" && rollbackVerified ? "blue" : mission.status === "rollback_partial" || mission.status === "rolled_back" ? "orange" : "green"}>{mission.status === "rolled_back" && rollbackVerified ? "START RESTORED" : mission.status === "rollback_partial" || mission.status === "rolled_back" ? "CHECK NEEDED" : "RUN FINISHED"}</StatusStamp>}</div> : null}
           </div>
         )}
         <details className="recent-activity"><summary>Recent Passport activity</summary><div className="activity-ledger">{activity.slice(0, 3).map((item) => <article key={item.id}><div><span>{item.time}</span><b>{item.actor}</b></div><p>{item.detail}</p><StatusStamp tone={item.state === "Boundary kept" || item.state === "Needs attention" ? "orange" : "green"} compact>{item.state}</StatusStamp></article>)}</div></details>
-        <aside className="passport-warning">WebMCP may preview and inspect this site's bounded missions. It cannot start a run, access a social account, or widen the action-family allowlist or budgets.</aside>
-        <footer className="passport-footer"><span>OBSERVE · ACT · MEASURE</span><span>STOP HONESTLY</span><span>PAGE 22</span></footer>
+        <footer className="passport-footer"><span>BEFORE / AFTER</span><span>REVERSIBLE</span><span>PAGE 22</span></footer>
       </article>
     </section>
   );

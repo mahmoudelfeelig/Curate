@@ -2976,6 +2976,19 @@ dd {
     width: 100%;
   }
 
+  .mission-model-working {
+    padding: 18px;
+  }
+
+  .mission-model-working > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mission-model-working ol {
+    grid-template-columns: 1fr;
+  }
+
   .model-proof-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

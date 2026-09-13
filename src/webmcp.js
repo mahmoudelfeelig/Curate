@@ -158,7 +158,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "feed_passport.preview_local_agent_mission",
     description:
-      "Observe a seeded local platform control twin, compile a bounded mission, and open the consent checkpoint. This never accesses a social account or grants approval.",
+      "Observe a seeded local platform control twin, compile a bounded mission, and open its one-time run checkpoint. This never accesses a social account or starts a run.",
     inputSchema: {
       type: "object",
       required: ["goal", "platform"],

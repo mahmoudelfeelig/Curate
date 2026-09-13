@@ -127,7 +127,7 @@ A successful mission plan displays:
 - planning latency;
 - requested, admitted, and rejected action families;
 - `proposal_only` authority and deterministic validation;
-- a consent checkpoint with execution still disabled.
+- a one-time run checkpoint with execution still disabled.
 
 **PREVIEW WITHOUT MODEL** uses the deterministic planner and does not show fabricated model evidence. If the frontend cannot complete its initial service probe, it switches to visibly labeled fixtures. It never converts an interrupted mutation into fixture success.
 

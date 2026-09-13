@@ -72,3 +72,19 @@ test("direct run buttons retain server-issued one-time execution tokens", async 
   assert.match(source, /missions\/\$\{encodeURIComponent\(missionId\)\}\/approval/);
   assert.match(source, /approval_token: approval\.approval_token \|\| approval\.token/);
 });
+
+test("local model waiting state explains progress without implying execution", async () => {
+  const [source, styles] = await Promise.all([
+    readFile(new URL("../src/features/agent/AgentSpread.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/styles/agent-mission.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /Local model proposal in progress/);
+  assert.match(source, /Read sealed inputs/);
+  assert.match(source, /Run local inference/);
+  assert.match(source, /Collect typed proposal/);
+  assert.match(source, /Validate policy envelope/);
+  assert.match(source, /No social account, public network, or control twin can be changed/);
+  assert.match(styles, /@keyframes mission-working-stage/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+});

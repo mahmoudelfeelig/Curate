@@ -12,6 +12,13 @@ const MISSION_PHASES = [
   ["receipt", "stamp", "Receipt"],
 ];
 
+const MODEL_WORK_STAGES = [
+  ["01", "Read sealed inputs", "Selected Passport and local twin only"],
+  ["02", "Run local inference", "Pinned CPU model on loopback"],
+  ["03", "Collect typed proposal", "No execution or credential tools"],
+  ["04", "Validate policy envelope", "Budgets and action families stay deterministic"],
+];
+
 export const DEFAULT_AGENT_MISSION_FORM = {
   goal: "Make this fresh account feel like my useful internet, preserve the creators I deliberately chose, reduce ragebait, and stop once the result is measurably close.",
   platform: "youtube",
@@ -157,7 +164,14 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
           <div><b>AGENT, NOT A CHAT ROUTER</b><p>The local Strands planner inspects only the selected Passport and control twin, then narrows the proposed control families. Deterministic policy seals identity, budgets, thresholds, execution, and rollback.</p></div>
           <StatusStamp tone={schedulerStatus === "active" ? "green" : "purple"} compact>{schedulerStatus === "active" ? "LOOP READY" : "LOCAL FIXTURE"}</StatusStamp>
         </aside>
-        {!mission ? (
+        {!mission && busyAction === "mission-model-preview" ? (
+          <section className="mission-model-working" role="status" aria-live="polite" aria-label="Local model proposal in progress">
+            <header><div><span>OFFLINE PLANNING PIPELINE</span><b>Local model is preparing a bounded proposal</b></div><StatusStamp tone="purple" compact>WORKING</StatusStamp></header>
+            <div className="mission-working-meter" aria-hidden="true"><span /></div>
+            <ol>{MODEL_WORK_STAGES.map(([number, title, detail], index) => <li style={{ "--work-stage": index }} key={number}><span>{number}</span><div><b>{title}</b><small>{detail}</small></div></li>)}</ol>
+            <p>No social account, public network, or control twin can be changed while this proposal is being prepared.</p>
+          </section>
+        ) : !mission ? (
           <div className="mission-empty">
             <Icon name="bot" size={44} />
             <b>NO MISSION SEALED</b>

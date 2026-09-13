@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import os
 import unittest
@@ -23,7 +22,7 @@ from feed_passport.agent.model_provider import (
     ModelExecutionProfile,
 )
 from feed_passport.runtime.agentcore_app import create_agentcore_app
-from feed_passport.runtime.agentcore_models import RuntimeJwtSubjectResolver
+from feed_passport.runtime.agentcore_models import RuntimeGatewaySubjectResolver
 
 
 class ScriptedFeatureModel(Model):
@@ -121,30 +120,8 @@ def scripted_calls(kind: str, details: dict[str, Any]) -> list[tuple[str, dict[s
     ]
 
 
-def _unsigned_runtime_token(*, subject: str) -> str:
-    def encoded(value: dict[str, Any]) -> str:
-        raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
-        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
-
-    return ".".join(
-        (
-            encoded({"alg": "RS256", "typ": "JWT"}),
-            encoded(
-                {
-                    "sub": subject,
-                    "iss": "https://cognito-idp.eu-central-1.amazonaws.com/test-pool",
-                    "token_use": "access",
-                }
-            ),
-            "runtime-validated-signature",
-        )
-    )
-
-
 def _request_context(*, subject: str) -> RequestContext:
-    return RequestContext(
-        request_headers={"Authorization": f"Bearer {_unsigned_runtime_token(subject=subject)}"}
-    )
+    return RequestContext(request_headers={"X-Feed-Passport-Actor": subject})
 
 
 def _passport_payload(*, owner_id: str = "cognito-user-123") -> dict[str, Any]:
@@ -254,9 +231,7 @@ class AgentCoreBedrockConfigurationTests(unittest.TestCase):
 
 
 class AgentCoreRuntimeTests(unittest.TestCase):
-    identity_resolver = RuntimeJwtSubjectResolver(
-        expected_issuer="https://cognito-idp.eu-central-1.amazonaws.com/test-pool"
-    )
+    identity_resolver = RuntimeGatewaySubjectResolver()
 
     def _planner(self, model: ScriptedFeatureModel) -> FeatureIntentPlanner:
         return FeatureIntentPlanner(
@@ -317,7 +292,7 @@ class AgentCoreRuntimeTests(unittest.TestCase):
             },
         )
 
-    def test_runtime_derives_actor_from_validated_jwt_context(self) -> None:
+    def test_runtime_derives_actor_from_gateway_validated_context(self) -> None:
         model = ScriptedFeatureModel(
             scripted_calls("migration", {"destination": "youtube"})
         )

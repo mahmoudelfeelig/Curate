@@ -19,7 +19,7 @@ from .agentcore_models import (
     HealthRequest,
     PlanFeatureRequest,
     PlanFeedRequest,
-    RuntimeJwtSubjectResolver,
+    RuntimeGatewaySubjectResolver,
 )
 
 
@@ -32,7 +32,7 @@ def create_agentcore_app(
     planner_factory: PlannerFactory | None = None,
     feed_planner_factory: FeedPlannerFactory | None = None,
     feature_catalog: SafeFeatureCatalog | None = None,
-    identity_resolver: RuntimeJwtSubjectResolver | None = None,
+    identity_resolver: RuntimeGatewaySubjectResolver | None = None,
 ) -> tuple[BedrockAgentCoreApp, Any]:
     """Create the stateless, proposal-only AgentCore Runtime boundary.
 
@@ -44,7 +44,7 @@ def create_agentcore_app(
     selected_planner_factory = planner_factory or build_bedrock_feature_planner
     selected_feed_planner_factory = feed_planner_factory or build_bedrock_feed_goal_planner
     selected_catalog = feature_catalog or default_agentcore_feature_catalog()
-    selected_identity_resolver = identity_resolver or RuntimeJwtSubjectResolver()
+    selected_identity_resolver = identity_resolver or RuntimeGatewaySubjectResolver()
     application = BedrockAgentCoreApp()
 
     @application.entrypoint
@@ -60,7 +60,7 @@ def create_agentcore_app(
                 "authority": "proposal_only",
                 "operations": ["health", "plan_feature", "plan_feed"],
                 "mutation_tools_exposed": False,
-                "identity": "runtime_validated_custom_jwt_sub",
+                "identity": "gateway_validated_cognito_sub",
                 "model": bedrock_configuration_status(),
             }
 

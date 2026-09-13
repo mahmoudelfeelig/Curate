@@ -22,7 +22,21 @@
       "capability": "runtime gateway route",
       "cloudformation_type": "AWS::BedrockAgentCore::GatewayTarget",
       "billing_trigger": "used when gateway requests are routed",
-      "local_substitute": "strict route, qualifier, JWT passthrough, and optional-schema omission assertions",
+      "local_substitute": "strict route, qualifier, gateway-role signing, subject-interceptor, resource-policy, and optional-schema omission assertions",
+      "teardown": "CloudFormation stack deletion"
+    },
+    {
+      "capability": "validated JWT subject bridge",
+      "cloudformation_type": "AWS::Lambda::Function",
+      "billing_trigger": "one short interceptor invocation per gateway request",
+      "local_substitute": "inline handler and synthesized environment/header assertions",
+      "teardown": "CloudFormation stack deletion"
+    },
+    {
+      "capability": "gateway-only runtime ingress",
+      "cloudformation_type": "AWS::BedrockAgentCore::ResourcePolicy",
+      "billing_trigger": "no separate resource charge",
+      "local_substitute": "allow-gateway and deny-bypass policy assertions",
       "teardown": "CloudFormation stack deletion"
     },
     {
@@ -55,7 +69,7 @@
     },
     {
       "capability": "runtime and gateway service identities",
-      "cloudformation_type": "AWS::IAM::Role (2) and AWS::IAM::Policy (2)",
+      "cloudformation_type": "AWS::IAM::Role (3) and AWS::IAM::Policy (3)",
       "billing_trigger": "IAM has no direct charge; granted services can incur usage",
       "local_substitute": "synthesized exact-action and exact-resource assertions",
       "teardown": "CloudFormation stack deletion"
@@ -73,6 +87,13 @@
       "billing_trigger": "object storage and requests",
       "local_substitute": "clean-HEAD-bound Linux ARM64 zip with deterministic archive serialization; base image and ranged dependency resolution remain mutable",
       "teardown": "optional exact-object cleanup; shared CDKToolkit bucket is never automatically deleted"
+    },
+    {
+      "capability": "interceptor observability",
+      "cloudformation_type": "AWS::Logs::LogGroup",
+      "billing_trigger": "log storage if the fail-closed interceptor emits a platform error",
+      "local_substitute": "seven-day retention and no application logging assertions",
+      "teardown": "CloudFormation stack deletion"
     },
     {
       "capability": "runtime observability",

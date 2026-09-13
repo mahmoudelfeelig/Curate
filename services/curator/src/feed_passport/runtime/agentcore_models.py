@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import base64
-import binascii
-import json
 import math
-import os
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, Protocol
@@ -143,68 +139,27 @@ class ActorIdentityResolver(Protocol):
     def resolve(self, context: Any) -> str: ...
 
 
-class RuntimeJwtSubjectResolver:
-    """Reads ``sub`` only after AgentCore Runtime's CUSTOM_JWT authorizer.
+class RuntimeGatewaySubjectResolver:
+    """Reads the subject injected by the authenticated Gateway interceptor.
 
-    Signature, issuer, audience, expiry, and scope verification belong to the
-    Runtime authorizer configured in CDK. This resolver deliberately performs no
-    local signature verification; it requires the exact configured issuer as a
-    second fail-closed binding and must not be used on an unauthenticated server.
-    Local tests inject a synthetic RequestContext and explicit expected issuer.
+    The Runtime's IAM resource policy permits only the Gateway role. The Gateway
+    validates the Cognito JWT and invoke scope before its interceptor overwrites
+    this header, so a client-supplied value cannot reach this resolver unchanged.
     """
 
-    def __init__(self, *, expected_issuer: str | None = None) -> None:
-        self._expected_issuer = expected_issuer
+    HEADER_NAME = "x-feed-passport-actor"
 
     def resolve(self, context: Any) -> str:
         headers = getattr(context, "request_headers", None)
         if not isinstance(headers, Mapping):
-            raise PermissionError("AgentCore Runtime JWT context is required")
+            raise PermissionError("AgentCore Gateway identity context is required")
         normalized = {str(key).lower(): str(value) for key, value in headers.items()}
-        authorization = normalized.get("authorization", "")
-        scheme, separator, token = authorization.partition(" ")
-        if scheme.lower() != "bearer" or not separator or not token or " " in token:
-            raise PermissionError("a Runtime-validated bearer token is required")
-
-        expected_issuer = (
-            self._expected_issuer
-            or os.getenv("FEED_PASSPORT_JWT_ISSUER", "").strip()
-        )
-        if not expected_issuer:
-            raise RuntimeError(
-                "FEED_PASSPORT_JWT_ISSUER is required before authenticated planning"
-            )
-        claims = self._decode_runtime_validated_claims(token)
-        if claims.get("iss") != expected_issuer:
-            raise PermissionError("the Runtime-validated token issuer does not match this deployment")
-        subject = claims.get("sub")
+        subject = normalized.get(self.HEADER_NAME)
         if (
             not isinstance(subject, str)
             or not subject.strip()
             or len(subject.strip()) > 160
             or "\0" in subject
         ):
-            raise PermissionError("the Runtime-validated token has no usable subject")
+            raise PermissionError("the Gateway-validated request has no usable subject")
         return subject.strip()
-
-    @staticmethod
-    def _decode_runtime_validated_claims(token: str) -> dict[str, Any]:
-        if len(token) > 16_384:
-            raise PermissionError("the bearer token exceeds the accepted size")
-        parts = token.split(".")
-        if len(parts) != 3:
-            raise PermissionError("the bearer token is not a compact JWT")
-        segment = parts[1]
-        padding = "=" * (-len(segment) % 4)
-        try:
-            raw = base64.b64decode(
-                segment + padding,
-                altchars=b"-_",
-                validate=True,
-            )
-            claims = json.loads(raw.decode("utf-8"))
-        except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise PermissionError("the Runtime-validated JWT claims are malformed") from exc
-        if not isinstance(claims, dict):
-            raise PermissionError("the Runtime-validated JWT claims must be an object")
-        return claims

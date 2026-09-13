@@ -12,6 +12,8 @@ import {
 import * as agentcore from "aws-cdk-lib/aws-bedrockagentcore";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3assets from "aws-cdk-lib/aws-s3-assets";
 import { Construct } from "constructs";
 
@@ -27,6 +29,7 @@ export interface FeedPassportAgentCoreStackProps extends StackProps {
 const RUNTIME_NAME = "feed_passport_curator";
 const GATEWAY_NAME = "feed-passport-gateway";
 const REQUIRED_SCOPE = "feed-passport/invoke";
+const ACTOR_HEADER = "X-Feed-Passport-Actor";
 
 export function validateBedrockModelBinding(
   modelId: string,
@@ -111,7 +114,7 @@ export class FeedPassportAgentCoreStack extends Stack {
         conditions: {
           StringEquals: { "aws:SourceAccount": Aws.ACCOUNT_ID },
           ArnLike: {
-            "aws:SourceArn": `arn:${Aws.PARTITION}:bedrock-agentcore:${Aws.REGION}:${Aws.ACCOUNT_ID}:*`,
+            "aws:SourceArn": `arn:${Aws.PARTITION}:bedrock-agentcore:${Aws.REGION}:${Aws.ACCOUNT_ID}:runtime/*`,
           },
         },
       }),
@@ -171,12 +174,74 @@ export class FeedPassportAgentCoreStack extends Stack {
         conditions: {
           StringEquals: { "aws:SourceAccount": Aws.ACCOUNT_ID },
           ArnLike: {
-            "aws:SourceArn": `arn:${Aws.PARTITION}:bedrock-agentcore:${Aws.REGION}:${Aws.ACCOUNT_ID}:*`,
+            "aws:SourceArn": `arn:${Aws.PARTITION}:bedrock-agentcore:${Aws.REGION}:${Aws.ACCOUNT_ID}:gateway/*`,
           },
         },
       }),
-      description: "AgentCore Gateway service role; JWT passthrough adds no secret access",
+      description: "AgentCore Gateway service role; may invoke only the curated Runtime",
     });
+    const interceptorLogGroup = new logs.LogGroup(this, "IdentityInterceptorLogs", {
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const identityInterceptor = new lambda.Function(this, "IdentityInterceptor", {
+      description: "Derives a bounded subject from the Gateway-validated Cognito JWT",
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "index.handler",
+      timeout: Duration.seconds(5),
+      memorySize: 128,
+      logGroup: interceptorLogGroup,
+      environment: {
+        EXPECTED_ISSUER: jwtIssuer,
+        EXPECTED_CLIENT_ID: userPoolClient.userPoolClientId,
+        REQUIRED_SCOPE,
+      },
+      code: lambda.Code.fromInline(`
+"use strict";
+exports.handler = async (event) => {
+  const request = event && event.http && event.http.gatewayRequest;
+  if (!request || event.interceptorInputVersion !== "1.0") {
+    throw new Error("unsupported interceptor request");
+  }
+  const headers = request.headers || {};
+  const authorizationEntry = Object.entries(headers).find(
+    ([name]) => String(name).toLowerCase() === "authorization",
+  );
+  const authorization = authorizationEntry ? String(authorizationEntry[1]) : "";
+  const match = /^Bearer ([A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+)$/.exec(authorization);
+  if (!match) throw new Error("validated bearer token is missing");
+  let claims;
+  try {
+    claims = JSON.parse(Buffer.from(match[1].split(".")[1], "base64url").toString("utf8"));
+  } catch {
+    throw new Error("validated bearer claims are malformed");
+  }
+  const scopes = typeof claims.scope === "string" ? claims.scope.split(/\\s+/) : [];
+  if (
+    claims.iss !== process.env.EXPECTED_ISSUER ||
+    claims.client_id !== process.env.EXPECTED_CLIENT_ID ||
+    claims.token_use !== "access" ||
+    !scopes.includes(process.env.REQUIRED_SCOPE)
+  ) {
+    throw new Error("validated bearer claims do not match this deployment");
+  }
+  const subject = typeof claims.sub === "string" ? claims.sub.trim() : "";
+  if (!subject || subject.length > 160 || subject.includes("\\0")) {
+    throw new Error("validated bearer subject is unusable");
+  }
+  return {
+    interceptorOutputVersion: "1.0",
+    http: {
+      transformedGatewayRequest: {
+        headers: { "Content-Type": "application/json", "${ACTOR_HEADER}": subject },
+        body: request.body,
+      },
+    },
+  };
+};
+`),
+    });
+    identityInterceptor.grantInvoke(gatewayRole);
     const gateway = new agentcore.CfnGateway(this, "Gateway", {
       name: GATEWAY_NAME,
       description: "JWT-governed entry point for the Feed Passport proposal-only runtime",
@@ -189,6 +254,13 @@ export class FeedPassportAgentCoreStack extends Stack {
         },
       },
       roleArn: gatewayRole.roleArn,
+      interceptorConfigurations: [
+        {
+          interceptor: { lambda: { arn: identityInterceptor.functionArn } },
+          interceptionPoints: ["REQUEST"],
+          inputConfiguration: { passRequestHeaders: true },
+        },
+      ],
       tags: { Project: "feed-passport", Authority: "proposal-only" },
     });
 
@@ -215,23 +287,12 @@ export class FeedPassportAgentCoreStack extends Stack {
         maxLifetime: 1800,
       },
       requestHeaderConfiguration: {
-        requestHeaderAllowlist: ["Authorization"],
-      },
-      authorizerConfiguration: {
-        customJwtAuthorizer: {
-          discoveryUrl,
-          allowedClients: [userPoolClient.userPoolClientId],
-          allowedScopes: [REQUIRED_SCOPE],
-          allowedWorkloadConfiguration: {
-            hostingEnvironments: [{ arn: gateway.attrGatewayArn }],
-          },
-        },
+        requestHeaderAllowlist: [ACTOR_HEADER],
       },
       environmentVariables: {
         FEED_PASSPORT_BEDROCK_MODEL_ID: props.bedrockModelId,
         FEED_PASSPORT_BEDROCK_REGION: Aws.REGION,
         FEED_PASSPORT_BEDROCK_TIMEOUT_SECONDS: "60",
-        FEED_PASSPORT_JWT_ISSUER: jwtIssuer,
         UNIFIED_TRACES_DESTINATION_ENABLED: "true",
       },
       tags: {
@@ -247,12 +308,42 @@ export class FeedPassportAgentCoreStack extends Stack {
         resources: [runtime.attrAgentRuntimeArn, `${runtime.attrAgentRuntimeArn}/*`],
       }),
     );
+    const runtimeIngressPolicy = new agentcore.CfnResourcePolicy(
+      this,
+      "RuntimeIngressPolicy",
+      {
+        resourceArn: runtime.attrAgentRuntimeArn,
+        policy: this.toJsonString({
+          Version: "2012-10-17",
+          Statement: [
+            {
+              Sid: "AllowOnlyGatewayRole",
+              Effect: "Allow",
+              Principal: { AWS: gatewayRole.roleArn },
+              Action: "bedrock-agentcore:InvokeAgentRuntime",
+              Resource: runtime.attrAgentRuntimeArn,
+            },
+            {
+              Sid: "DenyOtherPrincipals",
+              Effect: "Deny",
+              Principal: { AWS: "*" },
+              Action: "bedrock-agentcore:InvokeAgentRuntime",
+              Resource: runtime.attrAgentRuntimeArn,
+              Condition: {
+                ArnNotEquals: { "aws:PrincipalArn": gatewayRole.roleArn },
+              },
+            },
+          ],
+        }),
+      },
+    );
+    runtimeIngressPolicy.addResourceDependency(runtime);
 
     const gatewayTarget = new agentcore.CfnGatewayTarget(this, "RuntimeGatewayTarget", {
       gatewayIdentifier: gateway.attrGatewayIdentifier,
       name: "curator-runtime",
-      description: "Forwards the already validated user JWT to the proposal-only Runtime",
-      credentialProviderConfigurations: [{ credentialProviderType: "JWT_PASSTHROUGH" }],
+      description: "Signs the Gateway-validated, subject-bound request to the Runtime",
+      credentialProviderConfigurations: [{ credentialProviderType: "GATEWAY_IAM_ROLE" }],
       targetConfiguration: {
         http: {
           agentcoreRuntime: {

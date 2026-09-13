@@ -113,7 +113,7 @@ describe("Feed Passport AgentCore stack", () => {
     );
   });
 
-  it("constrains both AgentCore service roles to this account and Region", () => {
+  it("constrains AgentCore service roles to this account, Region, and resource type", () => {
     const roles = template.findResources("AWS::IAM::Role");
     const agentCoreRoles = Object.values(roles).filter((resource: any) =>
       JSON.stringify(resource.Properties.AssumeRolePolicyDocument).includes(
@@ -121,6 +121,7 @@ describe("Feed Passport AgentCore stack", () => {
       ),
     );
     assert.equal(agentCoreRoles.length, 2);
+    const sourceArnPatterns: string[] = [];
     for (const resource of agentCoreRoles as any[]) {
       const statement = resource.Properties.AssumeRolePolicyDocument.Statement[0];
       assert.deepEqual(statement.Condition.StringEquals, {
@@ -131,10 +132,14 @@ describe("Feed Passport AgentCore stack", () => {
         JSON.stringify(statement.Condition.ArnLike["aws:SourceArn"]),
         /bedrock-agentcore/,
       );
+      sourceArnPatterns.push(JSON.stringify(statement.Condition.ArnLike["aws:SourceArn"]));
     }
+    assert.equal(sourceArnPatterns.some((pattern) => /:runtime\//.test(pattern)), true);
+    assert.equal(sourceArnPatterns.some((pattern) => /:gateway\//.test(pattern)), true);
+    assert.equal(sourceArnPatterns.some((pattern) => /:\*"/.test(pattern)), false);
   });
 
-  it("locks both gateway and runtime to Cognito JWT scope and gateway-only ingress", () => {
+  it("binds Cognito JWT identity to gateway-only IAM runtime ingress", () => {
     template.hasResourceProperties("AWS::BedrockAgentCore::Gateway", {
       AuthorizerType: "CUSTOM_JWT",
       AuthorizerConfiguration: {
@@ -143,6 +148,13 @@ describe("Feed Passport AgentCore stack", () => {
           DiscoveryUrl: Match.objectLike({ "Fn::Join": Match.anyValue() }),
         },
       },
+      InterceptorConfigurations: [
+        {
+          InterceptionPoints: ["REQUEST"],
+          InputConfiguration: { PassRequestHeaders: true },
+          Interceptor: { Lambda: { Arn: Match.anyValue() } },
+        },
+      ],
     });
     template.hasResourceProperties("AWS::BedrockAgentCore::Runtime", {
       NetworkConfiguration: { NetworkMode: "PUBLIC" },
@@ -151,24 +163,36 @@ describe("Feed Passport AgentCore stack", () => {
         IdleRuntimeSessionTimeout: 300,
         MaxLifetime: 1800,
       },
-      AuthorizerConfiguration: {
-        CustomJWTAuthorizer: {
-          AllowedScopes: ["feed-passport/invoke"],
-          AllowedWorkloadConfiguration: {
-            HostingEnvironments: Match.arrayWith([
-              { Arn: Match.objectLike({ "Fn::GetAtt": Match.anyValue() }) },
-            ]),
-          },
-        },
+      RequestHeaderConfiguration: {
+        RequestHeaderAllowlist: ["X-Feed-Passport-Actor"],
       },
       EnvironmentVariables: Match.objectLike({
         FEED_PASSPORT_BEDROCK_MODEL_ID: "amazon.nova-lite-v1:0",
         FEED_PASSPORT_BEDROCK_REGION: { Ref: "AWS::Region" },
       }),
     });
+    const runtimes = template.findResources("AWS::BedrockAgentCore::Runtime");
+    assert.equal(Object.values(runtimes)[0].Properties.AuthorizerConfiguration, undefined);
+    template.resourceCountIs("AWS::BedrockAgentCore::ResourcePolicy", 1);
+    const policies = template.findResources("AWS::BedrockAgentCore::ResourcePolicy");
+    const policyText = JSON.stringify(Object.values(policies)[0].Properties.Policy);
+    assert.match(policyText, /AllowOnlyGatewayRole/);
+    assert.match(policyText, /DenyOtherPrincipals/);
+    assert.match(policyText, /aws:PrincipalArn/);
+    const functions = template.findResources("AWS::Lambda::Function");
+    const interceptor = Object.values(functions).find((resource: any) =>
+      String(resource.Properties.Description).includes("Gateway-validated Cognito JWT"),
+    ) as any;
+    assert.ok(interceptor);
+    const code = String(interceptor.Properties.Code.ZipFile);
+    assert.match(code, /EXPECTED_ISSUER/);
+    assert.match(code, /EXPECTED_CLIENT_ID/);
+    assert.match(code, /REQUIRED_SCOPE/);
+    assert.match(code, /X-Feed-Passport-Actor/);
+    assert.doesNotMatch(code, /console\.(?:log|info|debug|warn|error)/);
   });
 
-  it("uses a direct Python 3.13 artifact and JWT passthrough runtime target", () => {
+  it("uses a direct Python 3.13 artifact and gateway-role runtime target", () => {
     template.hasResourceProperties("AWS::BedrockAgentCore::Runtime", {
       AgentRuntimeArtifact: {
         CodeConfiguration: {
@@ -179,7 +203,7 @@ describe("Feed Passport AgentCore stack", () => {
     });
     template.hasResourceProperties("AWS::BedrockAgentCore::GatewayTarget", {
       Name: "curator-runtime",
-      CredentialProviderConfigurations: [{ CredentialProviderType: "JWT_PASSTHROUGH" }],
+      CredentialProviderConfigurations: [{ CredentialProviderType: "GATEWAY_IAM_ROLE" }],
       TargetConfiguration: {
         Http: {
           AgentcoreRuntime: Match.objectLike({ Qualifier: "DEFAULT" }),

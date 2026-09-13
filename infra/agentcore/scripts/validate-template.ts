@@ -65,11 +65,17 @@ export function validateTemplate(template: JsonObject): void {
   }
 
   const runtime = one(template, "AWS::BedrockAgentCore::Runtime");
-  const runtimeJwt = runtime.Properties.AuthorizerConfiguration?.CustomJWTAuthorizer;
-  const hostingEnvironments =
-    runtimeJwt?.AllowedWorkloadConfiguration?.HostingEnvironments;
-  if (!Array.isArray(hostingEnvironments) || hostingEnvironments.length !== 1) {
-    fail("Runtime must allow only the Gateway hosting environment");
+  if (runtime.Properties.AuthorizerConfiguration !== undefined) {
+    fail("Runtime must use IAM ingress behind the JWT-authorized Gateway");
+  }
+  const allowedHeaders =
+    runtime.Properties.RequestHeaderConfiguration?.RequestHeaderAllowlist;
+  if (
+    !Array.isArray(allowedHeaders) ||
+    allowedHeaders.length !== 1 ||
+    allowedHeaders[0] !== "X-Feed-Passport-Actor"
+  ) {
+    fail("Runtime must accept only the Gateway-injected actor header");
   }
   if (runtime.Properties.NetworkConfiguration?.NetworkMode !== "PUBLIC") {
     fail("Runtime must use managed PUBLIC mode; this stack must not create a NAT or VPC");
@@ -89,8 +95,8 @@ export function validateTemplate(template: JsonObject): void {
   const credentialTypes = (target.Properties.CredentialProviderConfigurations ?? []).map(
     (configuration: JsonObject) => configuration.CredentialProviderType,
   );
-  if (credentialTypes.length !== 1 || credentialTypes[0] !== "JWT_PASSTHROUGH") {
-    fail("Gateway Runtime target must use JWT_PASSTHROUGH");
+  if (credentialTypes.length !== 1 || credentialTypes[0] !== "GATEWAY_IAM_ROLE") {
+    fail("Gateway Runtime target must use the scoped Gateway IAM role");
   }
   const runtimeTarget = target.Properties.TargetConfiguration?.Http?.AgentcoreRuntime;
   if (!runtimeTarget?.Arn || runtimeTarget.Qualifier !== "DEFAULT") {
@@ -100,6 +106,55 @@ export function validateTemplate(template: JsonObject): void {
     fail(
       "HTTP Runtime schema must remain absent until an AgentCore policy engine is configured and its schema is validated",
     );
+  }
+
+  const agentCoreRoles = resourcesOf(template, "AWS::IAM::Role").filter((role) =>
+    JSON.stringify(role.Properties.AssumeRolePolicyDocument).includes(
+      "bedrock-agentcore.amazonaws.com",
+    ),
+  );
+  if (agentCoreRoles.length !== 2) {
+    fail("expected one Runtime role and one Gateway role");
+  }
+  const sourceArns = agentCoreRoles.map(
+    (role) =>
+      role.Properties.AssumeRolePolicyDocument.Statement?.[0]?.Condition?.ArnLike?.[
+        "aws:SourceArn"
+      ],
+  );
+  const sourceAccounts = agentCoreRoles.map(
+    (role) =>
+      role.Properties.AssumeRolePolicyDocument.Statement?.[0]?.Condition?.StringEquals?.[
+        "aws:SourceAccount"
+      ],
+  );
+  if (
+    sourceAccounts.some((account) => account === undefined) ||
+    !sourceArns.some((arn) => JSON.stringify(arn).includes(":runtime/")) ||
+    !sourceArns.some((arn) => JSON.stringify(arn).includes(":gateway/")) ||
+    sourceArns.some((arn) => JSON.stringify(arn).includes(":*"))
+  ) {
+    fail("AgentCore role trust must be account-bound and scoped by resource type");
+  }
+
+  const interceptors = gateway.Properties.InterceptorConfigurations;
+  if (
+    !Array.isArray(interceptors) ||
+    interceptors.length !== 1 ||
+    interceptors[0].InterceptionPoints?.[0] !== "REQUEST" ||
+    interceptors[0].InputConfiguration?.PassRequestHeaders !== true ||
+    !interceptors[0].Interceptor?.Lambda?.Arn
+  ) {
+    fail("Gateway must use one request interceptor to derive the validated actor");
+  }
+  const resourcePolicy = one(template, "AWS::BedrockAgentCore::ResourcePolicy");
+  const resourcePolicyText = JSON.stringify(resourcePolicy.Properties.Policy);
+  if (
+    !resourcePolicyText.includes("AllowOnlyGatewayRole") ||
+    !resourcePolicyText.includes("DenyOtherPrincipals") ||
+    !resourcePolicyText.includes("aws:PrincipalArn")
+  ) {
+    fail("Runtime resource policy must allow only the Gateway role and deny bypass");
   }
 
   const statements = resourcesOf(template, "AWS::IAM::Policy").flatMap(

@@ -20,7 +20,7 @@ The public cloud boundary exposes exactly three discriminated operations:
 {"kind":"plan_feed","passport":{"...":"bounded versioned snapshot"},"request":"60% pet science, 20% cute drawing, reduce ragebait","evidence":[{"platform":"youtube","metadata_source":"youtube_data_api_v3","metadata_verified":true,"title":"Veterinary anatomy explained","description":"","inferred_topics":["pet_science"],"ragebait_signal":false,"confidence":0.91}]}
 ```
 
-Both planning operations derive their actor from the `sub` claim of the bearer token after AgentCore Runtime's custom JWT authorizer has validated it. The caller cannot supply an actor ID. The Passport owner must match that subject. `plan_feed` accepts only a bounded sanitized evidence schema and rejects source URLs, credentials, account identifiers, approval, execution, and social targets. The app exposes no `execute`, `approve`, `rollback`, browser-control, credential, or live-platform mutation tool.
+Both planning operations derive their actor from the `sub` claim after the Gateway has validated the Cognito bearer token's issuer, client, and invoke scope. A fail-closed request interceptor overwrites the actor header from that validated claim, the Runtime accepts only the Gateway IAM role, and its resource policy explicitly denies direct bypass. The caller cannot supply an actor ID. The Passport owner must match that subject. `plan_feed` accepts only a bounded sanitized evidence schema and rejects source URLs, credentials, account identifiers, approval, execution, and social targets. The app exposes no `execute`, `approve`, `rollback`, browser-control, credential, or live-platform mutation tool.
 
 The deployment path is:
 
@@ -30,16 +30,16 @@ Cognito Authorization Code + PKCE access token
                   v
 AgentCore Gateway custom JWT authorizer
                   |
-             JWT passthrough
+     validated-subject request interceptor
                   v
-AgentCore Runtime custom JWT authorizer + gateway-only workload restriction
+AgentCore Runtime IAM ingress + gateway-only resource policy
                   |
           async proposal-only Strands planner
                   |
         one explicitly configured Bedrock model
 ```
 
-The stack deliberately omits AgentCore workload identity/token-vault resources, DynamoDB, and Secrets Manager because the current proposal-only Runtime does not consume them. The live-platform layer remains local and owner-bound until a later runtime actually integrates those services; unused future permissions and billable resources are not deployed speculatively.
+The interceptor never logs or returns the bearer token. It verifies the already Gateway-validated token's issuer, client, access-token use, required scope, and bounded subject again before emitting only the subject and original base64 request body. This IAM target design avoids the incompatible combination in which `JWT_PASSTHROUGH` forwards a Cognito token while `allowedWorkloadConfiguration` requires a distinct AgentCore transaction token. The stack deliberately omits AgentCore token-vault resources, DynamoDB, and Secrets Manager because the current proposal-only Runtime does not consume them. The live-platform layer remains local and owner-bound until a later runtime actually integrates those services; unused future permissions and billable resources are not deployed speculatively.
 
 The HTTP Runtime target also omits the optional Gateway API schema. AWS documents that [Runtime target schemas are optional unless a policy engine will apply Gateway guardrails](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-target-http-runtime.html); this stack creates no policy engine, and the Runtime already enforces the discriminated request contract with Pydantic before constructing a model. The template validator rejects adding a target schema until a policy engine and an independently validated, AgentCore-supported schema are introduced together. This avoids presenting application input validation as a managed Gateway policy that is not deployed.
 
@@ -53,7 +53,6 @@ Cloud planning fails closed unless CDK sets all of these values:
 | --- | --- | --- |
 | `FEED_PASSPORT_BEDROCK_MODEL_ID` | yes | Exact direct foundation-model identifier |
 | `FEED_PASSPORT_BEDROCK_REGION` | yes | Explicit AWS Region; there is no SDK/default-region fallback |
-| `FEED_PASSPORT_JWT_ISSUER` | yes | Exact Cognito issuer accepted when reading the already validated JWT context |
 | `FEED_PASSPORT_BEDROCK_TIMEOUT_SECONDS` | no | Planner timeout, default `60`, valid range `1..300` |
 
 The model execution evidence always labels Bedrock as external and potentially billable. Local tests inject a scripted Strands `Model` and label it `scripted_no_network`; the existing llama.cpp path remains loopback-only. There is no silent provider fallback in either direction.
@@ -66,7 +65,7 @@ The direct-code artifact requires Python 3.13 for Linux ARM64. Its entrypoint is
 
 ## What is proven locally
 
-The local suite executes the actual async Strands tool loops with a scripted, no-network model; validates JWT-subject ownership; validates the sanitized evidence boundary; rejects free text, spoofed actor IDs, and mutation-shaped commands; proves health performs no model construction; asserts the proposal-only IAM boundary and gateway-only ingress in the synthesized template; and rejects VPCs, NAT gateways, unused state/identity services, wildcard Bedrock model permissions, public client secrets, workload-token permissions, and an unreviewed HTTP Runtime schema without a policy engine.
+The local suite executes the actual async Strands tool loops with a scripted, no-network model; validates Gateway-subject ownership; validates the sanitized evidence boundary; rejects free text, spoofed actor IDs, and mutation-shaped commands; proves health performs no model construction; asserts the JWT-to-IAM subject bridge, proposal-only IAM boundary, and gateway-only ingress in the synthesized template; and rejects VPCs, NAT gateways, unused state/identity services, wildcard Bedrock model permissions, public client secrets, workload-token permissions, and an unreviewed HTTP Runtime schema without a policy engine.
 
 It cannot prove AWS account permissions, regional AgentCore availability, Cognito token validation by the managed service, Bedrock entitlement, Gateway-to-Runtime routing, credit coverage, or billing. Those require an AWS account and some checks require metered invocations.
 

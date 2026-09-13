@@ -725,6 +725,20 @@ dd {
   margin-bottom: 0;
 }
 
+.overview-primary-actions {
+  align-items: center;
+  background: rgba(189, 45, 53, .06);
+  border-left: 4px solid var(--coral);
+  display: flex;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 13px;
+}
+
+.overview-primary-actions .text-link {
+  white-space: nowrap;
+}
+
 .compact-note {
   margin: 11px 0;
 }

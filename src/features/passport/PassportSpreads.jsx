@@ -26,9 +26,9 @@ export function OverviewSpread({
         <div className="book-spine" aria-hidden="true" />
         <article className="passport-page left-page">
           <PageHeading
-            eyebrow={`ACTIVE POLICY · VERSION ${constitution.version}`}
-            title="Feed Constitution"
-            note="Your preference becomes a portable, inspectable policy."
+            eyebrow={`YOUR CURATE PASSPORT · VERSION ${constitution.version}`}
+            title="Your feed, on your terms"
+            note="Describe what you want once, then carry that taste between apps."
             page="1"
           />
           <div className="constitution-statement">
@@ -44,18 +44,18 @@ export function OverviewSpread({
               <span><b>{Math.max(0, 100 - Number(constitution.creatorCeiling || 0))}%</b> source diversity</span>
             </div>
           </section>
-          <aside className="border-note">
-            <strong>Trust boundary</strong>
-            <p>Your agent uses allowed controls, reports unsupported actions, moves no credentials, and leaves an undoable receipt.</p>
-          </aside>
-          <footer className="passport-footer"><span>{passportId}</span><span>FEED PASSPORT</span><span>OWNER COPY</span></footer>
+          <div className="overview-primary-actions">
+            <ActionButton onClick={() => onNavigate("evidence")}>TUNE MY FEED</ActionButton>
+            <button type="button" className="text-link" onClick={() => onNavigate("agent")}>Try a practice run</button>
+          </div>
+          <footer className="passport-footer"><span>{passportId}</span><span>CURATE</span><span>OWNER COPY</span></footer>
         </article>
 
         <article className="passport-page right-page">
           <PageHeading
-            eyebrow="CAPABILITY, NOT MARKETING"
-            title="Destination Visas"
-            note="Where this policy can travel and how honestly it can be applied."
+            eyebrow="YOUR APPS"
+            title="Where should it travel?"
+            note="Pick an app now or build the mix first and choose later."
             page="2"
           />
           <div className="featured-visas">
@@ -68,25 +68,25 @@ export function OverviewSpread({
               />
             ))}
           </div>
-          <button type="button" className="page-corner-link" onClick={() => onNavigate("visas")}>Inspect all eleven destination manifests</button>
-          <footer className="passport-footer"><span>CAP-2026-A</span><span>FEED PASSPORT</span><span>NO DIRECT CLAIMS</span></footer>
+          <button type="button" className="page-corner-link" onClick={() => onNavigate("visas")}>See every supported app</button>
+          <footer className="passport-footer"><span>YOUR ROUTES</span><span>CURATE</span><span>PAGE 02</span></footer>
         </article>
       </section>
 
       <section className="customs-ticket">
-        <div className="customs-stub"><span>CUSTOMS</span><b>ITINERARY</b><small>READY TO SEAL</small></div>
+        <div className="customs-stub"><span>TRAVEL</span><b>PASS</b><small>READY TO SAVE</small></div>
         <div className="customs-form">
-          <p>Seal a reviewable itinerary for the selected capability manifests. Connected-account actions are always shown as an exact plan before they can run.</p>
+          <p>Save this mix as a travel pass for the apps you selected. You can review every proposed change before it runs.</p>
           <div className="customs-fields">
-            <Field label="Review window"><select value={expiry} onChange={(event) => setExpiry(event.target.value)}><option>7 days</option><option>30 days</option></select></Field>
-            <div className="anchor-date"><span>Anchor date</span><b>29 AUG 2026</b></div>
+            <Field label="Keep this pass for"><select value={expiry} onChange={(event) => setExpiry(event.target.value)}><option>7 days</option><option>30 days</option></select></Field>
+            <div className="anchor-date"><span>Passport</span><b>{passportId}</b></div>
           </div>
         </div>
         <div className="issue-panel">
-          <ActionButton onClick={onIssue} busy={busy}>{issued ? "RESEAL PASSPORT ITINERARY" : "SEAL PASSPORT ITINERARY"}</ActionButton>
-          <small>{connectedIds.length} destinations selected · review window {expiry.toLowerCase()}</small>
+          <ActionButton onClick={onIssue} busy={busy}>{issued ? "SAVE PASS AGAIN" : "SAVE MY TRAVEL PASS"}</ActionButton>
+          <small>{connectedIds.length} apps selected · saved for {expiry.toLowerCase()}</small>
         </div>
-        <aside className={`audit-slip${issued ? " audit-issued" : ""}`}><span>AUDIT RECORD</span><b>{latestReceipt?.id || "PENDING"}</b><small>{issued ? "SEALED AT CHECKPOINT" : "NOT YET SEALED"}</small></aside>
+        <aside className={`audit-slip${issued ? " audit-issued" : ""}`}><span>PASS NUMBER</span><b>{latestReceipt?.id || "PENDING"}</b><small>{issued ? "SAVED" : "WAITING"}</small></aside>
       </section>
     </>
   );
@@ -107,7 +107,7 @@ export function ConstitutionSpread({ constitution, setConstitution, onSave, busy
         </Field>
         <div className="policy-assurances"><span>Public engagement automation: <b>off</b></span><span>Credentials in model context: <b>never</b></span><span>Raw private history transfer: <b>off</b></span></div>
         <Field label="Passport title"><input value={constitution.title} onChange={(event) => setConstitution((current) => ({ ...current, title: event.target.value }))} /></Field>
-        <footer className="passport-footer"><span>EXPLICIT INTENT</span><span>FEED PASSPORT</span><span>PAGE 3</span></footer>
+        <footer className="passport-footer"><span>EXPLICIT INTENT</span><span>CURATE</span><span>PAGE 3</span></footer>
       </article>
 
       <article className="passport-page right-page">
@@ -125,7 +125,7 @@ export function ConstitutionSpread({ constitution, setConstitution, onSave, busy
           <Field label="Creator share ceiling"><input type="number" min="1" max="100" value={constitution.creatorCeiling} onChange={(event) => setConstitution((current) => ({ ...current, creatorCeiling: Math.max(1, Number(event.target.value)) }))} /></Field>
         </div>
         <div className="page-actions"><ActionButton onClick={onSave} busy={busy} disabled={!valid || !constitution.intent.trim()}>STAMP NEW VERSION</ActionButton>{savedNotice ? <p className="success-note">{savedNotice}</p> : null}</div>
-        <footer className="passport-footer"><span>CROSS-CUTTING</span><span>FEED PASSPORT</span><span>PAGE 4</span></footer>
+        <footer className="passport-footer"><span>CROSS-CUTTING</span><span>CURATE</span><span>PAGE 4</span></footer>
       </article>
     </section>
   );
@@ -188,7 +188,7 @@ export function VisaSpread({
           ))}
         </div>
         <aside className="border-note compact-note"><strong>What the labels mean</strong><p>Closed loop proves observe, execute, sample, and rollback in the named environment. Executable proves allowed mutations. Guided compiles declared native steps. Lab stays deterministic.</p></aside>
-        <footer className="passport-footer"><span>11 MANIFESTS</span><span>FEED PASSPORT</span><span>PAGE 5</span></footer>
+        <footer className="passport-footer"><span>11 MANIFESTS</span><span>CURATE</span><span>PAGE 5</span></footer>
       </article>
       <article className="passport-page right-page visa-detail-page">
         <PageHeading eyebrow={destination.certification} title={`${destination.name} Visa`} note="Inspect the exact boundary before including a destination in an itinerary." page="6" />

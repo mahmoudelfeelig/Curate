@@ -295,7 +295,7 @@ export function ConnectedAgentDesk({
               <option value="creator_continuity_first">Creator continuity first</option>
             </select>
           </Field>
-          <Field label="Eligible connected account" hint="The exact provider subject is printed here; Feed Passport does not infer that an account is a dummy account.">
+          <Field label="Connected account" hint="Choose the account this run should use.">
             <select value={selectedConnectionId} onChange={selectConnection} disabled={!serviceReady || Boolean(busyAction)}>
               <option value="">Choose an active certified connection</option>
               {connections.map((connection) => (

@@ -113,7 +113,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "feed_passport.inspect",
     description:
-      "Read the active Feed Passport intent, version, destination capabilities, and trust boundaries from this site.",
+      "Read the active Curate intent, version, destination capabilities, and trust boundaries from this site.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: "inspect",
   },

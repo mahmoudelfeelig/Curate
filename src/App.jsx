@@ -348,14 +348,23 @@ export function App() {
       appRef.current = { ...appRef.current, hydrationPending: false };
       setInitialHydrationPending(false);
       if (loaded.source !== "service") {
-        setModelStatus({
-          configured: false,
-          online: false,
-          readiness: "service_required",
-          provider: "disabled",
-          model_id: null,
-          reason: "The local Python service is required for genuine model inference.",
-        });
+        try {
+          const availableModel = await feedPassportApi.getAgentModelStatus();
+          if (active && hydrationRevision === identityRevisionRef.current) {
+            setModelStatus(availableModel.data);
+          }
+        } catch (error) {
+          if (active && hydrationRevision === identityRevisionRef.current) {
+            setModelStatus({
+              configured: false,
+              online: false,
+              readiness: "unavailable",
+              provider: "disabled",
+              model_id: null,
+              reason: `Curate planning is unavailable: ${error.message}`,
+            });
+          }
+        }
         const fixtureState = await feedPassportApi.listState();
         if (active && hydrationRevision === identityRevisionRef.current) hydratePassportState(fixtureState.data);
         return;

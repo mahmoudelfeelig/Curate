@@ -44,6 +44,7 @@ import {
   missionRollbackIsVerified,
   previewFixtureMission,
 } from "./api/agentMissions.js";
+import { createAgentCoreGatewayClient } from "./api/agentCoreGateway.js";
 
 export { classifyAgentCommand, missionRollbackIsVerified };
 
@@ -62,6 +63,13 @@ const configuredApiBase =
   globalThis.__CURATOR_API_URL__ ||
   globalThis.__FEED_PASSPORT_API_BASE__ ||
   "";
+const agentCoreEnvironment = {
+  ...env,
+  VITE_CURATE_AGENTCORE_GATEWAY_URL:
+    env.VITE_CURATE_AGENTCORE_GATEWAY_URL
+    || globalThis.__CURATE_AGENTCORE_GATEWAY_URL__
+    || "",
+};
 
 let fixtureSequence = 0;
 let serviceAvailable = Boolean(configuredApiBase);
@@ -69,6 +77,10 @@ let accessTokenProvider = async () => {
   const value = globalThis.__FEED_PASSPORT_ACCESS_TOKEN__;
   return typeof value === "string" ? value : "";
 };
+const agentCoreGatewayClient = createAgentCoreGatewayClient({
+  environment: agentCoreEnvironment,
+  getAccessToken: () => accessTokenProvider(),
+});
 const runtime = {
   demo: null,
   passport: null,
@@ -85,6 +97,8 @@ const runtime = {
   creatorLinks: new Map(),
   agentMissions: new Map(),
   liveCommissions: new Map(),
+  feedEvidenceProposals: new Map(),
+  feedEvidenceSnapshots: new Map(),
   lastDrift: null,
   fixturePassportId: "FP-74128",
   fixtureOwnerId: "fixture-owner",
@@ -289,6 +303,8 @@ function resetPassportRuntime() {
   runtime.creatorLinks.clear();
   runtime.agentMissions.clear();
   runtime.liveCommissions.clear();
+  runtime.feedEvidenceProposals.clear();
+  runtime.feedEvidenceSnapshots.clear();
   runtime.lastDrift = null;
   runtime.fixtureCheckpoints.clear();
 }
@@ -557,11 +573,335 @@ function fixtureOwnerPassport() {
     creator_preferences: {},
     format_preferences: {},
     languages: ["en"],
-    hard_exclusions: [],
+    hard_exclusions: runtime.fixtureConstitution.hardExclusions || [],
     serendipity: Number(runtime.fixtureConstitution.serendipity || 20) / 100,
     max_outrage: Number(runtime.fixtureConstitution.outrageCeiling || 5) / 100,
     max_source_share: Number(runtime.fixtureConstitution.creatorCeiling || 15) / 100,
   };
+}
+
+function agentCorePassportSnapshot() {
+  const passport = runtime.passport || fixtureOwnerPassport();
+  return {
+    id: passport.id || runtime.fixturePassportId,
+    owner_id: passport.owner_id || runtime.actorId || runtime.fixtureOwnerId,
+    name: passport.name || runtime.fixtureConstitution.title || "My Curate Passport",
+    version: Number(passport.version || runtime.fixtureConstitution.version || 1),
+    intent: passport.intent || runtime.fixtureConstitution.intent,
+    topic_targets: passport.topic_targets || uiTopicTargets(runtime.fixtureConstitution),
+    creator_preferences: passport.creator_preferences || {},
+    format_preferences: passport.format_preferences || {},
+    languages: passport.languages || ["en"],
+    hard_exclusions: passport.hard_exclusions || [],
+    serendipity: passport.serendipity ?? Number(runtime.fixtureConstitution.serendipity || 20) / 100,
+    max_outrage: passport.max_outrage ?? Number(runtime.fixtureConstitution.outrageCeiling || 5) / 100,
+    max_source_share: passport.max_source_share ?? Number(runtime.fixtureConstitution.creatorCeiling || 15) / 100,
+  };
+}
+
+const FIXTURE_EVIDENCE_LEXICON = {
+  astronomy: ["astronomy", "nebula", "space", "telescope", "planet", "stars"],
+  coding: ["coding", "programming", "software", "developer", "code"],
+  drawing: ["drawing", "illustration", "sketch", "art"],
+  anime: ["anime"],
+  naruto: ["naruto"],
+  one_piece: ["one piece"],
+  perfumes: ["perfume", "perfumes", "fragrance"],
+  science: ["science", "study", "research", "evidence", "experiment"],
+  pet_science: ["pet science", "animal behavior", "animal behaviour", "veterinary", "zoology"],
+  cute_drawing: ["cute drawing", "kawaii", "watercolor", "watercolour"],
+  design: ["design", "typography", "architecture", "interface"],
+  independent_games: ["indie game", "independent game", "game design", "devlog"],
+  local_culture: ["local culture", "neighborhood", "neighbourhood", "community"],
+};
+const FIXTURE_RAGEBAIT_TERMS = [
+  "ragebait", "rage bait", "outrage", "destroyed", "furious", "shocking",
+  "you won't believe", "exposed", "slams",
+];
+
+function evidenceTopicSlug(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64);
+}
+
+function roundedTopicMix(values, fixedTopics = new Set()) {
+  const result = Object.fromEntries(
+    Object.entries(values)
+      .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) > 0)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => [key, Math.round(Number(value) * 1_000_000) / 1_000_000]),
+  );
+  const adjustable = Object.keys(result).filter((key) => !fixedTopics.has(key));
+  const residual = Math.round((1 - Object.values(result).reduce((sum, value) => sum + value, 0)) * 1_000_000) / 1_000_000;
+  if (adjustable.length && residual) {
+    const selected = adjustable.sort((left, right) => result[right] - result[left])[0];
+    result[selected] = Math.round((result[selected] + residual) * 1_000_000) / 1_000_000;
+  }
+  return result;
+}
+
+function fixtureGoalTargets(goal, current) {
+  const explicit = {};
+  const percentage = /(\d{1,3}(?:\.\d+)?)\s*(?:%|percent)\s+(?:of\s+)?([a-z][a-z0-9 '&/-]{1,60}?)(?=\s*(?:,|;|\band\b|\bplus\b|\bwith\b|\bwhile\b|\.|$))/gi;
+  for (const match of String(goal).matchAll(percentage)) {
+    const value = Number(match[1]);
+    const topic = evidenceTopicSlug(match[2]);
+    if (!(value > 0 && value <= 100) || !topic) {
+      throw new CuratorApiError(422, "Topic percentages must be greater than zero and at most 100", null);
+    }
+    if (Object.hasOwn(explicit, topic)) {
+      throw new CuratorApiError(422, "Each explicit topic percentage can appear only once", null);
+    }
+    explicit[topic] = value / 100;
+  }
+  const increased = new Set();
+  const decreased = new Set();
+  const removed = new Set();
+  const relative = /\b(more|increase|increased|boost|prioritize|prioritise|focus\s+on|less|fewer|reduce|decrease|decreased|cut\s+back\s+on|no|avoid|without|exclude|remove|stop\s+showing(?:\s+me)?)\s+(?:of\s+)?([a-z0-9][a-z0-9 '&/-]{0,80}?)(?=\s*(?:,|;|\.|!|\?|$|\band\b|\bbut\b|\bwhile\b|\binstead\b))/gi;
+  for (const match of String(goal).matchAll(relative)) {
+    const direction = match[1].toLowerCase().replace(/\s+/g, " ");
+    const tokens = match[2].toLowerCase().match(/[a-z0-9]+/g) || [];
+    while (["account", "accounts", "channel", "channels", "content", "creator", "creators", "page", "pages", "post", "posts", "video", "videos"].includes(tokens.at(-1))) tokens.pop();
+    if (tokens.at(-1) === "based") tokens.pop();
+    const topic = evidenceTopicSlug(tokens.join(" "));
+    if (!topic) continue;
+    if (["more", "increase", "increased", "boost", "prioritize", "prioritise", "focus on"].includes(direction)) increased.add(topic);
+    else if (["less", "fewer", "reduce", "decrease", "decreased", "cut back on"].includes(direction)) decreased.add(topic);
+    else removed.add(topic);
+  }
+  const conflicts = [...increased].filter((topic) => decreased.has(topic) || removed.has(topic));
+  if (conflicts.length) throw new CuratorApiError(422, `Topic directions conflict for: ${conflicts.sort().join(", ")}`, null);
+  const fixed = new Set(Object.keys(explicit));
+  const explicitTotal = Object.values(explicit).reduce((sum, value) => sum + value, 0);
+  if (explicitTotal > 1.000001) {
+    throw new CuratorApiError(422, "Explicit topic percentages cannot exceed 100%", null);
+  }
+  if (!fixed.size && !increased.size && !decreased.size && !removed.size) return roundedTopicMix(current);
+  const result = { ...explicit };
+  const remaining = Math.max(0, 1 - explicitTotal);
+  if (remaining && /(?:remainder|rest)\s+(?:exploratory|exploration)/i.test(goal)) {
+    result.exploration = remaining;
+    return roundedTopicMix(result, fixed);
+  }
+  const flexible = Object.fromEntries(
+    Object.entries(current).filter(([key, value]) => !fixed.has(key) && Number(value) > 0),
+  );
+  const baseValues = Object.values(flexible);
+  const baseline = baseValues.length
+    ? baseValues.reduce((sum, value) => sum + Number(value), 0) / baseValues.length
+    : 1;
+  for (const topic of removed) delete flexible[topic];
+  for (const topic of decreased) if (Object.hasOwn(flexible, topic)) flexible[topic] *= 0.2;
+  for (const topic of increased) if (!fixed.has(topic)) flexible[topic] = Math.max(flexible[topic] || baseline, baseline * 0.5) * 2;
+  const flexibleTotal = Object.values(flexible).reduce((sum, value) => sum + Number(value), 0);
+  if (remaining && flexibleTotal) {
+    for (const [key, value] of Object.entries(flexible)) result[key] = remaining * Number(value) / flexibleTotal;
+  } else if (remaining) {
+    result.exploration = remaining;
+  }
+  return roundedTopicMix(result, fixed);
+}
+
+function fixtureEvidencePlatform(rawUrl) {
+  let url;
+  try {
+    url = new URL(String(rawUrl || ""));
+  } catch {
+    throw new CuratorApiError(422, "Feed evidence links must be valid HTTPS URLs", null);
+  }
+  if (url.protocol !== "https:" || url.username || url.password || url.port) {
+    throw new CuratorApiError(422, "Feed evidence links must be ordinary public HTTPS URLs", null);
+  }
+  const host = url.hostname.toLowerCase();
+  if (["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"].includes(host)) return "youtube";
+  if (["bsky.app", "www.bsky.app"].includes(host)) return "bluesky";
+  if (["instagram.com", "www.instagram.com"].includes(host)) return "instagram";
+  throw new CuratorApiError(422, "Feed evidence currently supports YouTube, Bluesky, and Instagram", null);
+}
+
+function fixtureEvidenceInference(text) {
+  const lowered = String(text || "").toLowerCase();
+  const topics = Object.entries(FIXTURE_EVIDENCE_LEXICON)
+    .filter(([, terms]) => terms.some((term) => lowered.includes(term)))
+    .map(([topic]) => topic);
+  const ragebait = FIXTURE_RAGEBAIT_TERMS.some((term) => lowered.includes(term));
+  const hits = topics.length + Number(ragebait);
+  return {
+    topics,
+    ragebait_signal: ragebait,
+    matched_terms: [],
+    confidence: hits ? Math.min(0.95, 0.25 + hits * 0.12) : 0.1,
+    method: "deterministic_keyword_taxonomy_v1",
+  };
+}
+
+function fixtureEvidenceMetrics(items) {
+  const topicCounts = {};
+  let ragebait = 0;
+  for (const item of items) {
+    const topics = item.inference.topics.length ? item.inference.topics : ["unclassified"];
+    for (const topic of topics) topicCounts[topic] = (topicCounts[topic] || 0) + 1 / topics.length;
+    ragebait += Number(item.inference.ragebait_signal);
+  }
+  const total = Object.values(topicCounts).reduce((sum, value) => sum + value, 0) || 1;
+  return {
+    topic_distribution: Object.fromEntries(Object.entries(topicCounts).map(([key, value]) => [key, Math.round(value / total * 10_000) / 10_000])),
+    ragebait_rate: Math.round(ragebait / items.length * 10_000) / 10_000,
+    source_concentration: 0,
+    provider_verified_rate: 0,
+    sample_size: items.length,
+  };
+}
+
+function fixtureProviderControls() {
+  return [
+    { platform: "youtube", mode: "connected_or_guided", supported_controls: ["subscribe_creator", "unsubscribe_creator"], candidate_creators: [], manual_controls: ["Not interested", "Don't recommend channel"], excluded_controls: ["automated likes", "private Home ranking access"] },
+    { platform: "bluesky", mode: "connected_or_guided", supported_controls: ["follow_creator", "unfollow_creator", "mute_keyword"], candidate_creators: [], manual_controls: ["select or pin a custom feed"], excluded_controls: ["automated likes", "private Discover ranking access"] },
+    { platform: "instagram", mode: "guided_only", supported_controls: ["selected export import"], candidate_creators: [], manual_controls: ["Interested", "Not interested", "Following feed review"], excluded_controls: ["consumer FYP API", "automated likes", "automated follows"] },
+  ];
+}
+
+function fixtureAnalyzeFeedEvidence(spec) {
+  const goal = String(spec.goal || "").trim();
+  if (!goal || goal.length > 1200) throw new CuratorApiError(422, "A feed goal of at most 1200 characters is required", null);
+  if (!Array.isArray(spec.links) || spec.links.length < 1 || spec.links.length > 12) throw new CuratorApiError(422, "Provide between one and 12 feed evidence links", null);
+  if (spec.stage === "after" && !spec.baselineSnapshotId) throw new CuratorApiError(422, "An after sample requires its before sample", null);
+  const observedAt = nextFixtureIdentity("OBSERVED");
+  const items = spec.links.map((link, index) => {
+    const note = String(link.note || "").trim();
+    if (note.length > 600 || note.includes("\0")) throw new CuratorApiError(422, "Each feed evidence note must be at most 600 characters", null);
+    const platform = fixtureEvidencePlatform(link.url);
+    return {
+      platform,
+      provider_id: `selected-link-${index + 1}`,
+      metadata_source: "user_selected_link_only",
+      metadata_verified: false,
+      observed_at: observedAt.iso,
+      title: "",
+      description: "",
+      author: "",
+      tags: [],
+      url: String(link.url),
+      user_note: note,
+      inference: fixtureEvidenceInference(note),
+    };
+  });
+  const metrics = fixtureEvidenceMetrics(items);
+  const snapshotId = nextFixtureIdentity("EVIDENCE").id;
+  const passport = fixtureOwnerPassport();
+  const snapshot = {
+    id: snapshotId,
+    owner_id: runtime.fixtureOwnerId,
+    passport_id: runtime.fixturePassportId,
+    passport_version: passport.version,
+    stage: spec.stage || "before",
+    observed_at: observedAt.iso,
+    item_count: items.length,
+    items,
+    metrics,
+    claim_boundary: "A sample of links and notes selected by the judge. No provider metadata or private feed history was read.",
+  };
+  runtime.feedEvidenceSnapshots.set(snapshotId, snapshot);
+  const targets = fixtureGoalTargets(goal, passport.topic_targets);
+  const reduceRagebait = /(?:less|reduce|avoid|no)\s+(?:rage\s?bait|outrage)/i.test(goal);
+  const hardExclusions = new Set(passport.hard_exclusions);
+  if (reduceRagebait) hardExclusions.add("ragebait");
+  const changes = { intent: goal, topic_targets: targets };
+  if (reduceRagebait) {
+    changes.hard_exclusions = [...hardExclusions].sort();
+    changes.max_outrage = Math.min(passport.max_outrage, 0.03);
+  }
+  const proposal = {
+    goal_interpretation: Object.entries(targets).sort(([, left], [, right]) => right - left).map(([topic, value]) => `${Math.round(value * 100)}% ${topic.replaceAll("_", " ")}`).join(", "),
+    target_topic_weights: targets,
+    passport_changes: changes,
+    observed_metrics: metrics,
+    provider_controls: fixtureProviderControls(),
+    translation_losses: ["Topic percentages are targets for the samples judges choose, not direct ranking controls.", "This browser-only sample uses the judge's notes; provider metadata was not fetched."],
+    execution_boundary: "Applying this result updates the portable Curate Passport only.",
+    interpretation_source: "browser_local",
+  };
+  let comparison = null;
+  if (spec.stage === "after") {
+    const baseline = runtime.feedEvidenceSnapshots.get(spec.baselineSnapshotId);
+    if (!baseline || baseline.stage !== "before") throw new CuratorApiError(404, "The selected before sample was not found", null);
+    const topics = new Set([...Object.keys(baseline.metrics.topic_distribution), ...Object.keys(metrics.topic_distribution)]);
+    comparison = {
+      baseline_snapshot_id: baseline.id,
+      after_snapshot_id: snapshot.id,
+      topic_shift: Object.fromEntries([...topics].sort().map((topic) => [topic, Math.round(((metrics.topic_distribution[topic] || 0) - (baseline.metrics.topic_distribution[topic] || 0)) * 10_000) / 10_000])),
+      ragebait_rate_delta: Math.round((metrics.ragebait_rate - baseline.metrics.ragebait_rate) * 10_000) / 10_000,
+      source_concentration_delta: 0,
+      claim_boundary: "Change observed across two judge-selected samples; this does not prove platform causation.",
+    };
+  }
+  const proposalId = nextFixtureIdentity("PROPOSAL").id;
+  const result = {
+    id: proposalId,
+    owner_id: runtime.fixtureOwnerId,
+    passport_id: runtime.fixturePassportId,
+    passport_version: passport.version,
+    status: spec.stage === "after" ? "comparison_recorded" : "awaiting_owner_consent",
+    goal,
+    snapshot_id: snapshotId,
+    snapshot,
+    created_at: observedAt.iso,
+    proposal,
+    comparison,
+  };
+  runtime.feedEvidenceProposals.set(proposalId, result);
+  return clone(result);
+}
+
+function fixtureApplyFeedEvidence(proposalId, expectedPassportVersion) {
+  const stored = runtime.feedEvidenceProposals.get(proposalId);
+  if (!stored) throw new CuratorApiError(404, "This feed proposal was not found", null);
+  if (stored.status !== "awaiting_owner_consent") throw new CuratorApiError(409, "This feed proposal cannot be applied", stored);
+  const passport = fixtureOwnerPassport();
+  if (passport.version !== Number(expectedPassportVersion) || passport.version !== stored.passport_version) {
+    throw new CuratorApiError(409, "The Passport changed after this sample; capture it again", stored);
+  }
+  const changes = stored.proposal.passport_changes;
+  const resultPassport = {
+    ...passport,
+    version: passport.version + 1,
+    intent: changes.intent || passport.intent,
+    topic_targets: changes.topic_targets || passport.topic_targets,
+    hard_exclusions: changes.hard_exclusions || passport.hard_exclusions,
+    max_outrage: changes.max_outrage ?? passport.max_outrage,
+  };
+  runtime.fixtureConstitution = {
+    ...serverConstitution(resultPassport, runtime.fixtureConstitution),
+    hardExclusions: [...resultPassport.hard_exclusions],
+  };
+  const applied = {
+    ...stored,
+    status: "applied_to_passport",
+    result_passport_version: resultPassport.version,
+    passport: resultPassport,
+  };
+  runtime.feedEvidenceProposals.set(proposalId, applied);
+  return {
+    ...clone(applied),
+    constitution: clone(runtime.fixtureConstitution),
+  };
+}
+
+function sanitizedAgentCoreEvidence(snapshot) {
+  return snapshot.items.map((item) => ({
+    platform: item.platform,
+    metadata_source: item.metadata_source,
+    metadata_verified: false,
+    title: String(item.user_note || "").replace(/(?:https?:\/\/|www\.)\S*/gi, "[link removed]").slice(0, 300),
+    description: "",
+    inferred_topics: item.inference.topics,
+    ragebait_signal: item.inference.ragebait_signal,
+    confidence: item.inference.confidence,
+  }));
 }
 
 function fixturePartnerPassport(payload, ownerId) {
@@ -619,6 +959,21 @@ function fixtureContinuousSlice({
 }
 
 export const feedPassportApi = {
+  agentCoreStatus() {
+    return agentCoreGatewayClient.status();
+  },
+
+  async planFeedWithAgentCore({ request, evidence }) {
+    return {
+      source: "agentcore",
+      data: await agentCoreGatewayClient.planFeed({
+        passport: agentCorePassportSnapshot(),
+        request,
+        evidence,
+      }),
+    };
+  },
+
   async loadPassport() {
     if (!serviceAvailable) {
       return {
@@ -2044,6 +2399,30 @@ export const feedPassportApi = {
 
   async getAgentModelStatus() {
     if (!serviceAvailable) {
+      const agentCoreStatus = agentCoreGatewayClient.status();
+      const oidcConfigured = Boolean(
+        (env.VITE_CURATE_OIDC_CLIENT_ID || env.VITE_FEED_PASSPORT_OIDC_CLIENT_ID)
+        && (env.VITE_CURATE_OIDC_HOSTED_UI_URL || env.VITE_FEED_PASSPORT_OIDC_HOSTED_UI_URL)
+        && (env.VITE_CURATE_OIDC_ISSUER || env.VITE_FEED_PASSPORT_OIDC_ISSUER),
+      );
+      if (agentCoreStatus.configured && oidcConfigured) {
+        const signedIn = Boolean(String((await accessTokenProvider()) || "").trim());
+        return {
+          source: "agentcore",
+          data: {
+            configured: true,
+            online: signedIn,
+            readiness: signedIn ? "ready" : "sign_in_required",
+            provider: "aws_bedrock_agentcore",
+            model_id: "deployment_configured",
+            endpoint_scope: "aws_managed",
+            mode: "proposal_only",
+            external_model_calls: true,
+            paid_model_calls: true,
+            reason: signedIn ? null : "Sign in with the judge account to use the cloud planner.",
+          },
+        };
+      }
       return {
         source: "fixture",
         data: {
@@ -2099,11 +2478,7 @@ export const feedPassportApi = {
 
   async analyzeFeedEvidence(spec) {
     if (!serviceAvailable) {
-      throw new CuratorApiError(
-        503,
-        "Feed evidence inspection requires the local Curator service; fixture mode will not invent provider metadata.",
-        { fallback_permitted: false },
-      );
+      return { source: "fixture", data: fixtureAnalyzeFeedEvidence(spec) };
     }
     await ensureServiceContext();
     const proposal = await requestJson("/api/agent/feed-evidence/analyze", {
@@ -2124,11 +2499,10 @@ export const feedPassportApi = {
 
   async applyFeedEvidence(proposalId, expectedPassportVersion) {
     if (!serviceAvailable) {
-      throw new CuratorApiError(
-        503,
-        "Feed evidence proposals require the local Curator service.",
-        { fallback_permitted: false },
-      );
+      return {
+        source: "fixture",
+        data: fixtureApplyFeedEvidence(proposalId, expectedPassportVersion),
+      };
     }
     await ensureServiceContext();
     const result = await requestJson(
@@ -2156,11 +2530,37 @@ export const feedPassportApi = {
 
   async planFeedEvidenceWithModel(proposalId, expectedPassportVersion) {
     if (!serviceAvailable) {
-      throw new CuratorApiError(
-        503,
-        "The feed evidence agent requires the configured loopback-only Curator model service.",
-        { fallback_permitted: false },
-      );
+      const stored = runtime.feedEvidenceProposals.get(proposalId);
+      if (!stored) throw new CuratorApiError(404, "This feed proposal was not found", null);
+      if (stored.status !== "awaiting_owner_consent") throw new CuratorApiError(409, "This feed proposal cannot be cloud-planned", stored);
+      if (stored.passport_version !== Number(expectedPassportVersion)) throw new CuratorApiError(409, "The Passport changed after this sample; capture it again", stored);
+      const cloud = await agentCoreGatewayClient.planFeed({
+        passport: agentCorePassportSnapshot(),
+        request: stored.goal,
+        evidence: sanitizedAgentCoreEvidence(stored.snapshot),
+      });
+      const modelTargets = cloud.proposal.target_topic_weights;
+      const hardExclusions = [...new Set([
+        ...(stored.proposal.passport_changes.hard_exclusions || []),
+        ...(cloud.proposal.hard_exclusions || []),
+      ])].sort();
+      const updated = {
+        ...stored,
+        proposal: {
+          ...stored.proposal,
+          target_topic_weights: modelTargets,
+          passport_changes: {
+            ...stored.proposal.passport_changes,
+            topic_targets: modelTargets,
+            hard_exclusions: hardExclusions,
+          },
+          agent_rationale: cloud.proposal.rationale,
+          interpretation_source: "aws_bedrock_agentcore",
+        },
+        agent_evidence: cloud.evidence,
+      };
+      runtime.feedEvidenceProposals.set(proposalId, updated);
+      return { source: "agentcore", data: clone(updated) };
     }
     await ensureServiceContext();
     const result = await requestJson(

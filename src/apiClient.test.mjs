@@ -1529,6 +1529,98 @@ test("Feature Clerk refuses fixture-mode AI impersonation with 503", async () =>
   }
 });
 
+test("browser-local feed evidence supports vague goals, before/after comparison, and Passport apply", async () => {
+  const previousBase = globalThis.__CURATOR_API_URL__;
+  const previousLegacyBase = globalThis.__FEED_PASSPORT_API_BASE__;
+  delete globalThis.__CURATOR_API_URL__;
+  delete globalThis.__FEED_PASSPORT_API_BASE__;
+  try {
+    const { feedPassportApi } = await import(`./apiClient.js?browser-evidence=${Date.now()}`);
+    const loaded = await feedPassportApi.loadPassport();
+    const before = await feedPassportApi.analyzeFeedEvidence({
+      goal: "I want less ragebait and more science-based pages.",
+      stage: "before",
+      links: [
+        {
+          url: "https://www.youtube.com/watch?v=abcdefghijk",
+          note: "A shocking ragebait clip without any useful explanation.",
+        },
+      ],
+    });
+    assert.equal(before.source, "fixture");
+    assert.equal(before.data.snapshot.metrics.provider_verified_rate, 0);
+    assert.equal(before.data.snapshot.items[0].metadata_source, "user_selected_link_only");
+    assert.match(before.data.snapshot.claim_boundary, /No provider metadata/i);
+    assert.ok(before.data.proposal.target_topic_weights.science > 0);
+    assert.equal(before.data.proposal.passport_changes.hard_exclusions.includes("ragebait"), true);
+
+    const applied = await feedPassportApi.applyFeedEvidence(
+      before.data.id,
+      before.data.passport_version,
+    );
+    assert.equal(applied.data.status, "applied_to_passport");
+    assert.equal(applied.data.result_passport_version, loaded.data.passport.version + 1);
+    assert.equal(applied.data.constitution.intent, "I want less ragebait and more science-based pages.");
+
+    const after = await feedPassportApi.analyzeFeedEvidence({
+      goal: "I want less ragebait and more science-based pages.",
+      stage: "after",
+      baselineSnapshotId: before.data.snapshot_id,
+      links: [
+        {
+          url: "https://bsky.app/profile/science.example/post/3abc",
+          note: "A calm evidence-based astronomy study.",
+        },
+      ],
+    });
+    assert.equal(after.data.status, "comparison_recorded");
+    assert.equal(after.data.comparison.ragebait_rate_delta, -1);
+    assert.ok(after.data.comparison.topic_shift.astronomy > 0);
+  } finally {
+    if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
+    else globalThis.__CURATOR_API_URL__ = previousBase;
+    if (previousLegacyBase === undefined) delete globalThis.__FEED_PASSPORT_API_BASE__;
+    else globalThis.__FEED_PASSPORT_API_BASE__ = previousLegacyBase;
+  }
+});
+
+test("browser-local feed evidence preserves a detailed 100 percent topic request exactly", async () => {
+  const previousBase = globalThis.__CURATOR_API_URL__;
+  const previousLegacyBase = globalThis.__FEED_PASSPORT_API_BASE__;
+  delete globalThis.__CURATOR_API_URL__;
+  delete globalThis.__FEED_PASSPORT_API_BASE__;
+  try {
+    const { feedPassportApi } = await import(`./apiClient.js?exact-browser-evidence=${Date.now()}`);
+    await feedPassportApi.loadPassport();
+    const result = await feedPassportApi.analyzeFeedEvidence({
+      goal: "Make it 50% astronomy, 15% coding, 12% drawing, 3% anime, 10% naruto, 5% one piece, 5% perfumes.",
+      stage: "before",
+      links: [{
+        url: "https://www.instagram.com/reel/evidence123/",
+        note: "A mixed sample for a detailed feed request.",
+      }],
+    });
+    assert.deepEqual(result.data.proposal.target_topic_weights, {
+      anime: 0.03,
+      astronomy: 0.5,
+      coding: 0.15,
+      drawing: 0.12,
+      naruto: 0.1,
+      one_piece: 0.05,
+      perfumes: 0.05,
+    });
+    assert.equal(
+      Object.values(result.data.proposal.target_topic_weights).reduce((sum, value) => sum + value, 0),
+      1,
+    );
+  } finally {
+    if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
+    else globalThis.__CURATOR_API_URL__ = previousBase;
+    if (previousLegacyBase === undefined) delete globalThis.__FEED_PASSPORT_API_BASE__;
+    else globalThis.__FEED_PASSPORT_API_BASE__ = previousLegacyBase;
+  }
+});
+
 test("service hydration preserves an overlay's exact positive elapsed minutes", async () => {
   const previousBase = globalThis.__CURATOR_API_URL__;
   const previousFetch = globalThis.fetch;

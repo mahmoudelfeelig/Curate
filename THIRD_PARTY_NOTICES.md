@@ -12,6 +12,14 @@ Retrieved 30 August 2026. The application code remains under the repository lice
 - SHA-256 (`curate-icon-192.png`): `2EE7A558EBA3628EE898AD71F383B387184C43C1B1ED0CF1ECD17DDFF6AACCE6`
 - SHA-256 (`curate-favicon.png`): `E542464A5F1BC884D085280679C6F0CB0F9972AE16FD1B2D940ED140FCC2FD69`
 
+## Curate hosting policy
+
+- Shipped file: `public/_headers`
+- Source: owner-authored project configuration
+- License: covered by the repository MIT license
+- Transformation: none
+- SHA-256: `95FBF87D4A8737D0EF2A5135DCE5DDCA965DF56AE509E0A82AD148642BF549B6`
+
 ## Rough Linen
 
 - Shipped file: `public/assets/licensed/rough-linen-1k.jpg`

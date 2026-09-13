@@ -19,6 +19,7 @@ from feed_passport.agent import (
     CompanionFieldCategory,
     CompanionStrategy,
     FeatureIntentPlannerError,
+    FeedGoalPlannerError,
     FeatureIntentResult,
     LiveCommissionPlannerError,
     MissionPlannerError,
@@ -26,6 +27,7 @@ from feed_passport.agent import (
     TemporaryVisaMode,
 )
 from feed_passport.application.oauth import OAuthFlowError
+from feed_passport.application.feed_evidence import EvidenceLink
 from feed_passport.application.curator import InvalidStateError, NotFoundError
 from feed_passport.application.instagram_import_sessions import InstagramImportSessionError
 from feed_passport.domain import ActionType, AgentMissionAcceptance, AgentMissionBudget, OverlayMode
@@ -62,6 +64,9 @@ from .models import (
     DriftMonitorCreate,
     DriftRequest,
     FeatureIntentPlan,
+    FeedEvidenceAnalyze,
+    FeedEvidenceAgentPlan,
+    FeedEvidenceApply,
     GuidedStepResolve,
     InstagramImportApply,
     MigrationExecute,
@@ -496,9 +501,15 @@ def create_app(
     @app.exception_handler(MissionPlannerError)
     @app.exception_handler(LiveCommissionPlannerError)
     @app.exception_handler(FeatureIntentPlannerError)
+    @app.exception_handler(FeedGoalPlannerError)
     async def planner_error_handler(
         _: Request,
-        exc: MissionPlannerError | LiveCommissionPlannerError | FeatureIntentPlannerError,
+        exc: (
+            MissionPlannerError
+            | LiveCommissionPlannerError
+            | FeatureIntentPlannerError
+            | FeedGoalPlannerError
+        ),
     ) -> JSONResponse:
         return JSONResponse(
             status_code=502,
@@ -1254,6 +1265,62 @@ def create_app(
             passport=passport,
             request=body.request,
             catalog=_safe_feature_catalog(service),
+        )
+
+    @app.post("/api/agent/feed-evidence/analyze", status_code=201)
+    def analyze_feed_evidence(body: FeedEvidenceAnalyze) -> dict[str, Any]:
+        if service.feed_evidence_service is None:
+            raise HTTPException(status_code=503, detail="The feed evidence service is unavailable.")
+        return service.feed_evidence_service.analyze(
+            actor_id=body.actor_id,
+            passport_id=body.passport_id,
+            goal=body.goal,
+            links=tuple(EvidenceLink(url=item.url, note=item.note) for item in body.links),
+            stage=body.stage,
+            youtube_connection_id=body.youtube_connection_id,
+            baseline_snapshot_id=body.baseline_snapshot_id,
+        )
+
+    @app.post("/api/agent/feed-evidence/{proposal_id}/apply")
+    def apply_feed_evidence(proposal_id: str, body: FeedEvidenceApply) -> dict[str, Any]:
+        if service.feed_evidence_service is None:
+            raise HTTPException(status_code=503, detail="The feed evidence service is unavailable.")
+        return service.feed_evidence_service.apply(
+            proposal_id,
+            actor_id=body.actor_id,
+            expected_passport_version=body.expected_passport_version,
+        )
+
+    @app.post("/api/agent/feed-evidence/{proposal_id}/model-plan")
+    async def model_plan_feed_evidence(
+        proposal_id: str,
+        body: FeedEvidenceAgentPlan,
+    ) -> dict[str, Any]:
+        if service.feed_evidence_service is None:
+            raise HTTPException(status_code=503, detail="The feed evidence service is unavailable.")
+        if service.feed_goal_planner is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "The local feed planner is disabled. Configure the explicit loopback-only "
+                    "model provider; there is no hosted or paid fallback."
+                ),
+            )
+        passport, goal, evidence = service.feed_evidence_service.planner_input(
+            proposal_id,
+            actor_id=body.actor_id,
+        )
+        result = await service.feed_goal_planner.propose(
+            actor_id=body.actor_id,
+            passport=passport,
+            request=goal,
+            evidence=evidence,
+        )
+        return service.feed_evidence_service.attach_agent_plan(
+            proposal_id,
+            actor_id=body.actor_id,
+            expected_passport_version=body.expected_passport_version,
+            result=result,
         )
 
     @app.get("/api/agent/missions/{mission_id}")

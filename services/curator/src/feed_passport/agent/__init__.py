@@ -12,6 +12,13 @@ from .feature_intent_planner import (
     SafeFeatureCatalog,
     TemporaryVisaMode,
 )
+from .feed_goal_planner import (
+    FeedGoalPlanner,
+    FeedGoalPlannerError,
+    FeedGoalProposal,
+    FeedGoalResult,
+    SanitizedEvidenceItem,
+)
 from .live_commission_planner import (
     LiveCommissionPlanner,
     LiveCommissionPlannerError,
@@ -35,6 +42,10 @@ __all__ = [
     "FeatureIntentPlannerError",
     "FeatureIntentResult",
     "FeatureKind",
+    "FeedGoalPlanner",
+    "FeedGoalPlannerError",
+    "FeedGoalProposal",
+    "FeedGoalResult",
     "LocalModelProviderConfig",
     "LiveCommissionPlanner",
     "LiveCommissionPlannerError",
@@ -43,6 +54,7 @@ __all__ = [
     "MissionPlannerError",
     "MissionPlannerProposal",
     "SafeFeatureCatalog",
+    "SanitizedEvidenceItem",
     "SYSTEM_PROMPT",
     "TemporaryVisaMode",
     "build_strands_agent",

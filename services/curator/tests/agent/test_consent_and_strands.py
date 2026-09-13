@@ -360,7 +360,7 @@ class ConsentAndStrandsTests(unittest.TestCase):
         runtime, handler = create_agentcore_app()
         self.assertIs(runtime.handlers["main"], handler)
         health = asyncio.run(handler({"kind": "health"}))
-        self.assertEqual(health["operations"], ["health", "plan_feature"])
+        self.assertEqual(health["operations"], ["health", "plan_feature", "plan_feed"])
         self.assertFalse(health["mutation_tools_exposed"])
 
         for payload in (

@@ -1,6 +1,7 @@
 """Feed Passport application use cases."""
 
 from .curator import CuratorApplication, InvalidStateError, NotFoundError
+from .feed_evidence import EvidenceLink, FeedEvidenceService
 from .instagram_import_sessions import InstagramImportSessionService
 from .live_commission import LiveCommissionCandidate, LiveCommissionService, LivePriorityMode
 from .mission_runner import AgentMissionRunner
@@ -15,6 +16,8 @@ __all__ = [
     "AgentMissionRunner",
     "AtprotoOAuthConnectionService",
     "CuratorApplication",
+    "EvidenceLink",
+    "FeedEvidenceService",
     "InvalidStateError",
     "InstagramImportSessionService",
     "LiveCommissionCandidate",

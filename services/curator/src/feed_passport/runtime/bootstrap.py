@@ -18,6 +18,7 @@ from feed_passport.adapters.platforms.live import (
 from feed_passport.agent import (
     ConsentBroker,
     CuratorAgentService,
+    FeedGoalPlanner,
     FeatureIntentPlanner,
     LiveCommissionPlanner,
     LocalModelProviderConfig,
@@ -25,6 +26,7 @@ from feed_passport.agent import (
 )
 from feed_passport.application import (
     CuratorApplication,
+    FeedEvidenceService,
     InstagramImportSessionService,
     LiveCommissionService,
 )
@@ -61,6 +63,8 @@ class ServiceBundle:
         default_factory=InstagramImportSessionService
     )
     feature_intent_planner: FeatureIntentPlanner | None = None
+    feed_goal_planner: FeedGoalPlanner | None = None
+    feed_evidence_service: FeedEvidenceService | None = None
     oauth_providers: OAuthProviderCatalog = field(default_factory=lambda: OAuthProviderCatalog({}))
     connection_registry: EncryptedConnectionRegistry | None = None
     oauth_service: OAuthConnectionService | None = None
@@ -357,6 +361,15 @@ def build_service_bundle(
         if model_provider.configured
         else None
     )
+    feed_goal_planner = (
+        FeedGoalPlanner(
+            model_factory=model_provider.create_model,
+            execution_profile=model_provider.execution_profile,
+            timeout_seconds=model_provider.timeout_seconds,
+        )
+        if model_provider.configured
+        else None
+    )
     live_commission_planner = (
         LiveCommissionPlanner(
             live_commission_service,
@@ -369,6 +382,17 @@ def build_service_bundle(
         if model_provider.configured
         else None
     )
+    evidence_http_client = oauth_http_client or HttpxNoAmbientClient(
+        timeout_seconds=float(os.getenv("FEED_PASSPORT_PLATFORM_HTTP_TIMEOUT_SECONDS", "20"))
+    )
+    if oauth_http_client is None:
+        oauth_http_client = evidence_http_client
+    feed_evidence_service = FeedEvidenceService(
+        application=application,
+        http_client=evidence_http_client,
+        connections=connection_registry,
+        credentials=oauth_vault,
+    )
     return ServiceBundle(
         store=store,
         application=application,
@@ -379,6 +403,8 @@ def build_service_bundle(
         live_commission_service=live_commission_service,
         live_commission_planner=live_commission_planner,
         feature_intent_planner=feature_intent_planner,
+        feed_goal_planner=feed_goal_planner,
+        feed_evidence_service=feed_evidence_service,
         oauth_providers=oauth_providers,
         connection_registry=connection_registry,
         oauth_service=oauth_service,

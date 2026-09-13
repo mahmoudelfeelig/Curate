@@ -341,6 +341,39 @@ class FeatureIntentPlan(StrictModel):
     request: str = Field(min_length=1, max_length=1200)
 
 
+class FeedEvidenceLinkInput(StrictModel):
+    url: str = Field(min_length=12, max_length=2048)
+    note: str = Field(default="", max_length=600)
+
+
+class FeedEvidenceAnalyze(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    passport_id: str = Field(min_length=1, max_length=160)
+    goal: str = Field(min_length=1, max_length=1200)
+    stage: Literal["before", "after"] = "before"
+    links: list[FeedEvidenceLinkInput] = Field(min_length=1, max_length=12)
+    youtube_connection_id: str | None = Field(default=None, min_length=1, max_length=160)
+    baseline_snapshot_id: str | None = Field(default=None, min_length=1, max_length=160)
+
+    @model_validator(mode="after")
+    def require_baseline_only_for_after(self) -> FeedEvidenceAnalyze:
+        if self.stage == "before" and self.baseline_snapshot_id is not None:
+            raise ValueError("a baseline snapshot is valid only for after evidence")
+        if self.stage == "after" and self.baseline_snapshot_id is None:
+            raise ValueError("after evidence requires a baseline snapshot")
+        return self
+
+
+class FeedEvidenceApply(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    expected_passport_version: int = Field(ge=1)
+
+
+class FeedEvidenceAgentPlan(StrictModel):
+    actor_id: str = Field(min_length=1, max_length=120)
+    expected_passport_version: int = Field(ge=1)
+
+
 class DriftRequest(StrictModel):
     actor_id: str = Field(min_length=1)
     passport_id: str = Field(min_length=1)

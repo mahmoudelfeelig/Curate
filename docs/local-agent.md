@@ -195,6 +195,9 @@ The supported routes are:
 | --- | --- |
 | `GET /api/agent/model/status` | Probes only the configured loopback server and reports readiness. |
 | `POST /api/agent/features/plan` | Classifies one untrusted request into a typed, server-rendered, proposal-only top-level feature configuration. |
+| `POST /api/agent/feed-evidence/analyze` | Records a bounded owner-selected before/after sample, deterministic inference, and capability translation without claiming FYP access. |
+| `POST /api/agent/feed-evidence/{proposal_id}/model-plan` | Runs the exact three-tool local Strands feed-goal protocol over sanitized evidence only. |
+| `POST /api/agent/feed-evidence/{proposal_id}/apply` | Applies a reviewed before-proposal to the Passport only; comparison records and changed Passport versions fail closed. |
 | `POST /api/agent/missions/plan` | Canonical request-bound local-model planning route. |
 | `POST /api/agent/missions/model-preview` | Compatibility alias for the same planning route. |
 | `POST /api/agent/missions/preview` | Deterministic mission preview without model inference. |
@@ -203,7 +206,7 @@ The supported routes are:
 
 When no local provider is configured, model planning returns `503` rather than selecting another provider. A proposal-protocol failure returns `502` with `local_model_protocol_failed`. The deterministic preview remains available in both cases.
 
-The AgentCore Runtime entrypoint follows the same fail-closed authority boundary through two strict discriminated commands. `health` performs no model construction. `plan_feature` accepts one bounded natural-language request inside a typed Passport payload and returns only a validated proposal; it derives the actor from the Runtime-validated JWT `sub` and exposes no execution, approval, rollback, credential, browser-control, or live-platform mutation operation. Arbitrary chat payloads and unknown commands are rejected. No AgentCore deployment is claimed by this checkout.
+The AgentCore Runtime entrypoint follows the same fail-closed authority boundary through three strict discriminated commands. `health` performs no model construction. `plan_feature` accepts one bounded natural-language feature request. `plan_feed` accepts a bounded feed goal plus sanitized evidence without URLs, account identifiers, credentials, consent, or exact social targets. Each planning operation returns only a validated proposal, derives the actor from the Runtime-validated JWT `sub`, and exposes no execution, approval, rollback, credential, browser-control, or live-platform mutation operation. Arbitrary chat payloads and unknown commands are rejected. No AgentCore deployment is claimed by this checkout until a managed receipt exists.
 
 ## Record the genuine model proofs
 

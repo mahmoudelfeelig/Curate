@@ -60,7 +60,7 @@ function FeedColumn({ title, subtitle, snapshot, testId, accent = "before" }) {
       </header>
       <FeedMetrics metrics={snapshot?.metrics} />
       <div className="feed-card-stack">
-        {items.length ? items.slice(0, 4).map((item, index) => <FeedCard item={item} position={index} key={`${item.platform}-${item.provider_id}-${index}`} />) : <p className="feed-preview-empty">Your selected posts will appear here.</p>}
+        {items.length ? items.slice(0, 6).map((item, index) => <FeedCard item={item} position={index} key={`${item.platform}-${item.provider_id}-${index}`} />) : <p className="feed-preview-empty">Your selected posts will appear here.</p>}
       </div>
     </section>
   );

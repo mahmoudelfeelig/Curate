@@ -1,18 +1,18 @@
 export const NAV_ITEMS = [
   ["overview", "Passport"],
-  ["constitution", "Constitution"],
-  ["visas", "Visas"],
-  ["migration", "Migration"],
-  ["temporary", "Temporary"],
-  ["companion", "Companion"],
-  ["drift", "Drift watch"],
+  ["evidence", "Tune feed"],
+  ["agent", "Practice run"],
+  ["connected-agent", "Live run"],
+  ["constitution", "My mix"],
+  ["visas", "Apps"],
+  ["migration", "Copy feed"],
+  ["temporary", "Incognito"],
+  ["companion", "Blend"],
+  ["drift", "Check feed"],
   ["continuity", "Creators"],
-  ["templates", "Templates"],
-  ["history", "History"],
-  ["clerk", "Feature clerk"],
-  ["agent", "Agent mission"],
-  ["connected-agent", "Connected agent"],
-  ["evidence", "Feed evidence"],
+  ["templates", "Presets"],
+  ["history", "Receipts"],
+  ["clerk", "Ask Curate"],
 ];
 
 export const INITIAL_CONSTITUTION = {
@@ -37,7 +37,7 @@ export const INITIAL_CONSTITUTION = {
 export const DESTINATIONS = [
   {
     id: "lab",
-    name: "Feed Passport Lab",
+    name: "Curate Lab",
     shortName: "Proof Lab",
     status: "Lab",
     tone: "blue",

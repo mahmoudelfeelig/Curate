@@ -1,5 +1,5 @@
 export const DEFAULT_FEED_EVIDENCE_FORM = {
-  goal: "Reduce ragebait. Make my feed 60% pet science and 20% cute drawing; keep the remainder exploratory.",
+  goal: "I want less ragebait and more science-based pages.",
   linksText: "",
   youtubeConnectionId: "",
 };

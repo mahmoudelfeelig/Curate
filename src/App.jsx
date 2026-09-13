@@ -22,7 +22,7 @@ import { mapFeatureProposalToDesk } from "./features/featureClerk.js";
 import { AgentSpread, DEFAULT_AGENT_MISSION_FORM } from "./features/agent/AgentSpread.jsx";
 import { ConnectedAgentDesk } from "./features/agent/ConnectedAgentDesk.jsx";
 import { DEFAULT_CONNECTED_AGENT_FORM } from "./features/agent/connectedAgentDesk.js";
-import { FeedEvidenceDesk } from "./features/agent/FeedEvidenceDesk.jsx";
+import { CurateFeedDesk } from "./features/agent/CurateFeedDesk.jsx";
 import { DEFAULT_FEED_EVIDENCE_FORM, parseEvidenceLines } from "./features/agent/feedEvidence.js";
 import { CreatorSpread, DriftSpread, HistorySpread, TemplatesSpread } from "./features/operations/OperationsSpreads.jsx";
 import { ConstitutionSpread, OverviewSpread, VisaSpread } from "./features/passport/PassportSpreads.jsx";
@@ -142,6 +142,7 @@ export function App() {
   const [liveCommission, setLiveCommission] = useState(null);
   const [feedEvidenceForm, setFeedEvidenceForm] = useState(clone(DEFAULT_FEED_EVIDENCE_FORM));
   const [feedEvidenceResult, setFeedEvidenceResult] = useState(null);
+  const [feedEvidenceBaselineResult, setFeedEvidenceBaselineResult] = useState(null);
   const [feedEvidenceBaselineId, setFeedEvidenceBaselineId] = useState("");
   const [featureClerkRequest, setFeatureClerkRequest] = useState("Give me a reversible research-focused feed for exactly 9 hours, then return to my base Passport.");
   const [featureClerkResult, setFeatureClerkResult] = useState(null);
@@ -229,6 +230,10 @@ export function App() {
     setInstagramImportNotice("");
     setAgentMissionForm(clone(DEFAULT_AGENT_MISSION_FORM));
     setAgentMission(null);
+    setFeedEvidenceForm(clone(DEFAULT_FEED_EVIDENCE_FORM));
+    setFeedEvidenceResult(null);
+    setFeedEvidenceBaselineResult(null);
+    setFeedEvidenceBaselineId("");
     setConnectedAgentForm(clone(DEFAULT_CONNECTED_AGENT_FORM));
     setLiveCommission(null);
     setFeatureClerkResult(null);
@@ -763,7 +768,7 @@ export function App() {
         id: `CAPTURE-${capturedId}`,
         type: migrationSource === "lab" ? "Lab Passport captured" : "Declared source observation captured",
         detail: migrationSource === "lab"
-          ? `Captured the certified Feed Passport Lab observation as ${capturedId}.`
+          ? `Captured the certified Curate Lab observation as ${capturedId}.`
           : `Captured the declared or fixture ${source?.name || migrationSource} observation as ${capturedId}; no external account read was claimed.`,
         time: "NOW",
         status: "Succeeded",
@@ -1389,7 +1394,10 @@ export function App() {
         baselineSnapshotId: stage === "after" ? feedEvidenceBaselineId : null,
       });
       setFeedEvidenceResult(result.data);
-      if (stage === "before") setFeedEvidenceBaselineId(result.data.snapshot_id);
+      if (stage === "before") {
+        setFeedEvidenceBaselineId(result.data.snapshot_id);
+        setFeedEvidenceBaselineResult(result.data);
+      }
       addActivity(
         `Recorded ${links.length} owner-selected ${stage} links and separated provider facts from deterministic inference.`,
         "Evidence sealed",
@@ -1536,7 +1544,7 @@ export function App() {
     case "clerk": content = <FeatureClerkSpread request={featureClerkRequest} setRequest={setFeatureClerkRequest} result={featureClerkResult} ready={featureClerkReady} readinessReason={featureClerkReadinessReason} busy={busyAction === "feature-clerk-plan"} onPlan={handleFeatureClerkPlan} onApply={handleFeatureClerkApply} />; break;
     case "agent": content = <AgentSpread form={agentMissionForm} setForm={setAgentMissionForm} mission={agentMission} onPreview={handleMissionPreview} onModelPreview={handleModelMissionPreview} onRun={handleMissionRun} onCancel={handleMissionCancel} onRollback={handleMissionRollback} busyAction={busyAction} webmcp={webmcp} apiMode={apiMode} schedulerStatus={schedulerStatus} modelStatus={modelStatus} activity={activity} />; break;
     case "connected-agent": content = <ConnectedAgentDesk form={connectedAgentForm} setForm={setConnectedAgentForm} eligibleConnections={accountConnections} commission={liveCommission} onPreview={handleLiveCommissionPreview} onRun={handleLiveCommissionRun} onReconcile={handleLiveCommissionReconcile} onRollback={handleLiveCommissionRollback} onCancel={handleLiveCommissionCancel} busyAction={busyAction} modelStatus={modelStatus} apiMode={apiMode} />; break;
-    case "evidence": content = <FeedEvidenceDesk form={feedEvidenceForm} setForm={setFeedEvidenceForm} result={feedEvidenceResult} onAnalyze={handleFeedEvidenceAnalyze} onModelPlan={handleFeedEvidenceModelPlan} onApply={handleFeedEvidenceApply} onOpenConnectedAgent={() => navigate("connected-agent")} eligibleConnections={accountConnections} busyAction={busyAction} apiMode={apiMode} baselineSnapshotId={feedEvidenceBaselineId} modelStatus={modelStatus} />; break;
+    case "evidence": content = <CurateFeedDesk form={feedEvidenceForm} setForm={setFeedEvidenceForm} result={feedEvidenceResult} baselineResult={feedEvidenceBaselineResult} onAnalyze={handleFeedEvidenceAnalyze} onModelPlan={handleFeedEvidenceModelPlan} onApply={handleFeedEvidenceApply} onOpenConnectedAgent={() => navigate("connected-agent")} eligibleConnections={accountConnections} busyAction={busyAction} baselineSnapshotId={feedEvidenceBaselineId} modelStatus={modelStatus} />; break;
     default: content = <OverviewSpread constitution={constitution} connectedIds={connectedIds} onNavigate={navigate} onToggleDestination={toggleDestination} expiry={expiry} setExpiry={setExpiry} onIssue={handleIssue} busy={busyAction === "issue"} issued={issued} latestReceipt={latestReceipt} passportId={passportId} />;
   }
   if (authState.required && !authState.authenticated) {

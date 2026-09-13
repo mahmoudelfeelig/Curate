@@ -21,7 +21,7 @@ Invoke only these requests:
 
 Save only redacted response metadata: operation, proposal-only authority, tool sequence, provider/model identifier, latency/token evidence, timestamps, and stack revision. Never save the access token, account ID, Cognito subject, email address, or full Gateway URL in a committed artifact.
 
-Destroy `FeedPassportAgentCore` in the same session, including its exact Runtime log group and exact Runtime deployment asset. Leave the shared `CDKToolkit` stack unless the AWS account owner independently decides it is unused. Run `inventory.ps1` after teardown and inspect Billing again the next day because metering can arrive late.
+The current release owner chose to retain `FeedPassportAgentCore` for judging. Do not invoke it again as part of this runbook. Keep the fixed budget alerts enabled, inspect Billing again after metering catches up, and use `inventory.ps1` to review the retained resources. The documented destroy script remains an owner-operated cleanup option after judging; it is not part of the current release procedure. Leave the shared `CDKToolkit` stack unless the AWS account owner independently decides it is unused.
 
 ## Stop conditions
 

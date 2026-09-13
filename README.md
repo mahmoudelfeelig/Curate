@@ -1,17 +1,19 @@
-# Feed Passport
+# Curate
 
-Feed Passport is an agentic control layer for recommendation feeds. A person writes the feed they want as a portable, versioned policy; the agent translates that intent into only the controls a destination declares, re-observes after acting, and stops with a rollback receipt. The complete loop runs locally in Feed Passport Lab and ten account-free platform control twins. Real external destinations remain Guided in the public default configuration. Owner-bound YouTube and Bluesky commission routes can load only the action families proven by a fresh signed dummy-account conformance receipt for the exact running revision; generic migrations still cannot execute them.
+Curate is an agentic control layer for recommendation feeds. A person describes the feed they want in everyday language; Curate turns that into a portable policy, translates it for each destination, measures the before-and-after result, and keeps a rollback receipt. The complete loop runs locally in Curate Lab and ten account-free platform control twins. Owner-bound YouTube and Bluesky commission routes can load only the action families proven by a fresh signed dummy-account conformance receipt for the exact running revision; generic migrations still cannot execute them.
 
 It transfers **intent**, not a platform's proprietary algorithm, embeddings, hidden ranking state, or raw private history.
 
-**Public demo:** [feed-passport.pages.dev](https://feed-passport.pages.dev/) — a free, credential-free build that keeps external platforms visibly Guided and exercises the complete deterministic product flow without requiring a social account.
+**Public demo:** [curate.elfeel.me](https://curate.elfeel.me/) — a Cloudflare Pages build with a private judge sign-in for the managed proposal path and an account-free practice flow for the complete before-and-after experience.
+
+The public name is Curate. Internal package names and `FEED_PASSPORT_*` environment variables remain stable so existing receipts, deployment scripts, and integrations stay compatible.
 
 ## Current proof level
 
 This repository deliberately separates a complete local proof from future platform integrations:
 
 - Public `main` is anchored by the sanitized 40-commit baseline at `d6727618fbe9339d1c95281806498002096dbdbd`. Work after that point is append-only. The committed evidence manifest remains the source-bound snapshot for that baseline until a new clean-tree evidence run is generated; its historical `git_pushes: 0` field is not the repository's current publication status.
-- The public checkout contains no social credential, OAuth token, callback value, live-account receipt, cloud account identifier, or managed endpoint. Owner-run YouTube and Bluesky OAuth/conformance evidence, the Instagram export-import receipt, and the bounded AgentCore deployment receipt are deliberately retained only under the ignored local evidence area. Source tests never substitute for those external receipts.
+- The public checkout contains no social credential, OAuth token, callback value, live-account receipt, cloud account identifier, or judge password. Owner-run YouTube and Bluesky OAuth/conformance evidence, the Instagram export-import receipt, managed AgentCore receipts, and private judge access are deliberately retained only under the ignored local evidence area. The public browser knows only the retained proposal-only Gateway URL and Cognito client configuration needed for judge sign-in.
 - The browser can run against the real local Curator API by setting `VITE_CURATOR_API_URL`. Without a configured service, or when the initial read-only service probe cannot connect, it uses deterministic fixtures and visibly labels that mode. A connectivity loss after a mutation starts is reported as an unknown outcome and never replaced with a fabricated fixture success.
 - The Python service provides the policy, consent, persistence, migration, expiry, evaluation, and rollback implementation. A client contract test verifies the browser-to-API mapping for the core Passport, checkpoint, preview, approval, and Lab execution flow.
 - The standalone FastAPI app starts an autonomous due-job runner during its lifespan. It polls persisted jobs every five seconds by default, so overlays, consent slices, companion blends, and drift monitors advance without calling the manual processing endpoint.
@@ -30,7 +32,7 @@ This repository deliberately separates a complete local proof from future platfo
 
 ## Why this is useful
 
-Changing accounts or platforms should not mean spending weeks retraining recommendations. Feed Passport makes a person's desired recommendation environment explicit and inspectable:
+Changing accounts or platforms should not mean spending weeks retraining recommendations. Curate makes a person's desired recommendation environment explicit and inspectable:
 
 > Keep research, independent games, thoughtful design, and local culture. Preserve useful surprise, keep outrage below five percent, and never like, post, comment, repost, or message anyone to train my feed.
 
@@ -40,7 +42,7 @@ The same policy can support account migration, a temporary focused feed, a conse
 
 | Capability | What the product does | Evidence in this checkout | Boundary |
 | --- | --- | --- | --- |
-| Portable Feed Passport | Captures an authorized observation into normalized intent; stores topics, creator and format preferences, languages, exclusions, serendipity, outrage, and source caps; supports strict export/import and append-only checkpoints | Lab source account, declared dummy snapshots for ten external planners, capture API/agent/UI path, SQLite store, and deterministic tests | It is preference intent, not a copy of hidden ranking state; arbitrary unobserved account IDs fail closed |
+| Curate Passport | Captures an authorized observation into normalized intent; stores topics, creator and format preferences, languages, exclusions, serendipity, outrage, and source caps; supports strict export/import and append-only checkpoints | Lab source account, declared dummy snapshots for ten external planners, capture API/agent/UI path, SQLite store, and deterministic tests | It is preference intent, not a copy of hidden ranking state; arbitrary unobserved account IDs fail closed |
 | Migration | Compiles destination actions, declares translation loss, requires an owner-bound action envelope, executes against Lab/twins, or opens an exact human handoff where only native controls exist | Closed loop in Feed Passport Lab; structured missions against ten local twins; owner-bound guided-handoff state and receipts; candidate transports/recovery journals for YouTube, X, Reddit, and Bluesky | Generic migration authority cannot execute a live adapter; the separately routed owner-authenticated commission boundary is the only implemented live execution authority, and it remains fail-closed without an exact-revision live certificate |
 | Instagram portability intake | Parses a user-supplied Accounts Center-format following export, previews normalized followed handles, and merges only a selected subset into creator intent | Strict JSON/ZIP parser, short-lived owner-bound session, loopback API, Passport revision path, and browser intake | Observes only followed creators; the file is not provider-authenticated, and no feed items, topics, mutes, hidden words, ranking state, login, account access, or Instagram mutation are claimed |
 | Feed evidence curator | Accepts 1–12 owner-selected YouTube, Bluesky, or Instagram links plus optional owner notes; separates provider metadata from notes and deterministic inference; translates one natural-language target into a normalized mix, exclusions, and platform-specific control options | Owner-bound API, responsive Evidence desk, before/after snapshots, explicit-percentage parsing, WebMCP preview, and service/browser tests | A sample is not the full FYP. YouTube metadata needs an authorized connection, Bluesky uses public AppView, and Instagram links remain owner-note-only. Association after a change is not ranking causation |
@@ -79,7 +81,7 @@ flowchart LR
     GUARD --> APP
     MR --> GUARD
     MR --> APP
-    APP --> LAB[Feed Passport Lab]
+    APP --> LAB[Curate Lab]
     APP --> TWINS[10 local platform control twins]
     APP --> EXT[Credential-free platform planners]
     APP --> LIVE[Certified owner-bound transports]
@@ -222,7 +224,7 @@ Each named platform therefore has two deliberately separate local representation
 
 | Platform | Certified here | Documented or native opportunity | Material blocker |
 | --- | --- | --- | --- |
-| Feed Passport Lab | Closed-loop deterministic Lab | Full local observe, execute, sample, evaluate, and rollback | It is a simulator, not a social network |
+| Curate Lab | Closed-loop deterministic Lab | Full local observe, execute, sample, evaluate, and rollback | It is a simulator, not a social network |
 | Bluesky | Guided; live candidate unpromoted | Official AT Protocol OAuth/DPoP sidecar for follows/unfollows, actor mute/unmute, and muted-word add/remove; owner-authenticated Connected Agent lifecycle | Needs durable HTTPS sidecar deployment, authorized dummy account, and signed conformance receipt; the routes fail closed without those bindings and one-time approval; custom feeds and ranking state are not copied |
 | X | Guided; zero-spend live candidate disabled | OAuth/API follows and mutes; public Phoenix code for offline research | API is pay-per-use; no authorized API for personalized For You ranking state; no live receipt |
 | YouTube | Guided; live candidate unpromoted | OAuth/Data API subscription list/insert/delete; owner-authenticated Connected Agent lifecycle | Needs authorized dummy account and signed conformance receipt; the routes fail closed without those bindings and one-time approval; Home ranking, watch history, and native recommendation feedback are neither read nor written |
@@ -264,7 +266,9 @@ No AI-generated or unprovenanced image is stored or shipped in the web applicati
 
 ## Agents for Humans
 
-Feed Passport targets the **Everyday Agents** track: its primary user is a person reclaiming everyday control when changing accounts, changing platforms, or temporarily changing context. A real request-bound Strands agent performs genuine local inference through the pinned Qwen/llama.cpp path, while deterministic policy retains authority. AgentCore is an optional proposal-only Strands/Bedrock deployment seam with no execution authority, consistent with the [official overview](https://agentsforhumans.devpost.com/) and [FAQ](https://agentsforhumans.devpost.com/details/faqs).
+Curate targets the **Everyday Agents** track: its primary user is a person reclaiming everyday control when changing accounts, changing platforms, or temporarily changing context. A real request-bound Strands agent performs genuine local inference through the pinned Qwen/llama.cpp path, while deterministic policy retains authority. The retained Amazon Bedrock AgentCore deployment provides the public proposal-only planning seam; it has no execution authority, consistent with the [official overview](https://agentsforhumans.devpost.com/) and [FAQ](https://agentsforhumans.devpost.com/details/faqs).
+
+The current managed and public deployment proof is summarized in [docs/deployment-status.md](docs/deployment-status.md). Secrets and reusable access tokens are never included there.
 
 The exact submission and scoring evidence is mapped in [docs/judging-evidence.md](docs/judging-evidence.md). The recording plan is in [docs/demo-script.md](docs/demo-script.md), and the no-secret external handoff is in [docs/external-readiness.md](docs/external-readiness.md). Entrants must still confirm eligibility, project-newness disclosures, public-repository settings, AWS Builder ID, working judge access, and the final public video against the [Official Rules](https://agentsforhumans.devpost.com/rules).
 

@@ -18,6 +18,7 @@ from pydantic import (
     field_validator,
 )
 
+from feed_passport.agent.feed_goal_planner import SanitizedEvidenceItem
 from feed_passport.domain import FeedPassport
 
 
@@ -121,8 +122,18 @@ class PlanFeatureRequest(StrictRuntimeModel):
     ]
 
 
+class PlanFeedRequest(StrictRuntimeModel):
+    kind: Literal["plan_feed"]
+    passport: PassportSnapshot
+    request: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=1200),
+    ]
+    evidence: list[SanitizedEvidenceItem] = Field(min_length=1, max_length=12)
+
+
 AgentCoreRequest = Annotated[
-    HealthRequest | PlanFeatureRequest,
+    HealthRequest | PlanFeatureRequest | PlanFeedRequest,
     Field(discriminator="kind"),
 ]
 AGENTCORE_REQUEST_ADAPTER = TypeAdapter(AgentCoreRequest)

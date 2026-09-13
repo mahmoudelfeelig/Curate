@@ -1,0 +1,36 @@
+{
+  "kind": "plan_feed",
+  "passport": {
+    "id": "passport-demo-v3",
+    "owner_id": "replace-with-cognito-sub",
+    "name": "My useful internet",
+    "version": 3,
+    "intent": "Prefer calm, useful material and deliberately chosen creators.",
+    "topic_targets": {
+      "research": 0.6,
+      "design": 0.4
+    },
+    "creator_preferences": {},
+    "format_preferences": {
+      "long_form": 0.8
+    },
+    "languages": ["en"],
+    "hard_exclusions": ["ragebait"],
+    "serendipity": 0.2,
+    "max_outrage": 0.05,
+    "max_source_share": 0.3
+  },
+  "request": "Reduce ragebait. Make this 60% pet science and 20% cute drawing; keep the remainder exploratory.",
+  "evidence": [
+    {
+      "platform": "bluesky",
+      "metadata_source": "bluesky_public_appview",
+      "metadata_verified": true,
+      "title": "A veterinary study of cat behavior",
+      "description": "Calm pet science with a hand-drawn explainer.",
+      "inferred_topics": ["pet_science", "cute_drawing"],
+      "ragebait_signal": false,
+      "confidence": 0.84
+    }
+  ]
+}

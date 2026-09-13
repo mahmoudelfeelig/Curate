@@ -10,6 +10,7 @@ from feed_passport.agent.feature_intent_planner import (
     SafeFeatureCatalog,
     TemporaryVisaMode,
 )
+from feed_passport.agent.feed_goal_planner import FeedGoalPlanner
 from feed_passport.agent.model_provider import AgentCoreBedrockModelConfig
 
 
@@ -79,6 +80,17 @@ def build_bedrock_feature_planner() -> FeatureIntentPlanner:
         timeout_seconds=config.timeout_seconds,
         endpoint_scope=config.endpoint_scope,
         execution_profile=config.execution_profile,
+    )
+
+
+def build_bedrock_feed_goal_planner() -> FeedGoalPlanner:
+    """Build the proposal-only feed evidence agent without invoking Bedrock."""
+
+    config = AgentCoreBedrockModelConfig.from_env()
+    return FeedGoalPlanner(
+        model_factory=config.create_model,
+        execution_profile=config.execution_profile,
+        timeout_seconds=config.timeout_seconds,
     )
 
 

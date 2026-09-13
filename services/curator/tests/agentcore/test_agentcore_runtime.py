@@ -17,6 +17,7 @@ from feed_passport.agent.feature_intent_planner import (
     FeatureIntentPlanner,
     SafeFeatureCatalog,
 )
+from feed_passport.agent.feed_goal_planner import FeedGoalPlanner
 from feed_passport.agent.model_provider import (
     AgentCoreBedrockModelConfig,
     ModelExecutionProfile,
@@ -266,6 +267,18 @@ class AgentCoreRuntimeTests(unittest.TestCase):
             endpoint_scope="scripted_no_network",
         )
 
+    @staticmethod
+    def _feed_planner(model: ScriptedFeatureModel) -> FeedGoalPlanner:
+        return FeedGoalPlanner(
+            model_factory=lambda: model,
+            execution_profile=ModelExecutionProfile.local(
+                provider="scripted_local",
+                model_id="scripted-feed-planner",
+                endpoint_scope="scripted_no_network",
+            ),
+            timeout_seconds=5,
+        )
+
     def test_async_plan_feature_runs_real_strands_without_mutation_tools(self) -> None:
         model = ScriptedFeatureModel(
             scripted_calls("temporary_visa", {"duration_minutes": 360, "mode": "isolated"})
@@ -337,6 +350,76 @@ class AgentCoreRuntimeTests(unittest.TestCase):
                 )
             )
 
+    def test_plan_feed_runs_strands_on_sanitized_evidence_without_mutation_authority(self) -> None:
+        model = ScriptedFeatureModel(
+            [
+                ("inspect_selected_passport", {}),
+                ("inspect_sanitized_evidence", {}),
+                (
+                    "submit_feed_goal_proposal",
+                    {
+                        "target_topic_weights": {
+                            "pet_science": 0.6,
+                            "cute_drawing": 0.2,
+                            "exploration": 0.2,
+                        },
+                        "hard_exclusions": ["ragebait"],
+                        "rationale": (
+                            "The explicit percentages are preserved and the selected sample "
+                            "supports pet science and drawing interests."
+                        ),
+                    },
+                ),
+            ]
+        )
+        _, handler = create_agentcore_app(
+            planner_factory=lambda: self._planner(
+                ScriptedFeatureModel(scripted_calls("migration", {"destination": "youtube"}))
+            ),
+            feed_planner_factory=lambda: self._feed_planner(model),
+            feature_catalog=_catalog(),
+            identity_resolver=self.identity_resolver,
+        )
+        response = asyncio.run(
+            handler(
+                {
+                    "kind": "plan_feed",
+                    "passport": _passport_payload(),
+                    "request": (
+                        "Reduce ragebait. Make this 60% pet science and 20% cute drawing; "
+                        "keep the remainder exploratory."
+                    ),
+                    "evidence": [
+                        {
+                            "platform": "bluesky",
+                            "metadata_source": "bluesky_public_appview",
+                            "metadata_verified": True,
+                            "title": "A veterinary study of cat behavior",
+                            "description": "Calm pet science with a hand-drawn explainer.",
+                            "inferred_topics": ["pet_science", "cute_drawing"],
+                            "ragebait_signal": False,
+                            "confidence": 0.84,
+                        }
+                    ],
+                },
+                _request_context(subject="cognito-user-123"),
+            )
+        )
+
+        self.assertEqual(response["kind"], "feed_goal_proposal")
+        self.assertEqual(response["proposal"]["target_topic_weights"]["pet_science"], 0.6)
+        self.assertFalse(response["evidence"]["mutation_tools_exposed"])
+        self.assertFalse(response["evidence"]["links_transmitted"])
+        self.assertFalse(response["evidence"]["account_identifier_fields_transmitted"])
+        self.assertNotIn("owner_id", json.dumps(response))
+        self.assertEqual(
+            model.seen_tool_specs[0],
+            {
+                "inspect_selected_passport",
+                "inspect_sanitized_evidence",
+                "submit_feed_goal_proposal",
+            },
+        )
     def test_runtime_rejects_mutation_commands_free_text_and_actor_spoofing(self) -> None:
         _, handler = create_agentcore_app(
             planner_factory=lambda: self._planner(
@@ -354,6 +437,23 @@ class AgentCoreRuntimeTests(unittest.TestCase):
                 "passport": _passport_payload(),
                 "request": "Copy this Passport to YouTube.",
             },
+            {
+                "kind": "plan_feed",
+                "passport": _passport_payload(),
+                "request": "Prefer calm research.",
+                "evidence": [
+                    {
+                        "platform": "youtube",
+                        "metadata_source": "youtube_data_api_v3",
+                        "metadata_verified": True,
+                        "title": "A source containing https://private.example/path",
+                        "description": "",
+                        "inferred_topics": ["research"],
+                        "ragebait_signal": False,
+                        "confidence": 0.8,
+                    }
+                ],
+            },
             {"command": "approve_migration", "arguments": {}},
         )
         for payload in rejected:
@@ -367,7 +467,7 @@ class AgentCoreRuntimeTests(unittest.TestCase):
             response = asyncio.run(handler({"kind": "health"}))
 
         self.assertEqual(response["status"], "healthy")
-        self.assertEqual(response["operations"], ["health", "plan_feature"])
+        self.assertEqual(response["operations"], ["health", "plan_feature", "plan_feed"])
         self.assertFalse(response["mutation_tools_exposed"])
         self.assertFalse(response["model"]["configured"])
 

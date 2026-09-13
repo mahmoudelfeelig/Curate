@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet("Validate", "Invoke")][string]$Mode = "Validate",
-    [ValidateSet("Health", "PlanFeature")][string]$Operation = "Health",
+    [ValidateSet("Health", "PlanFeature", "PlanFeed")][string]$Operation = "Health",
     [string]$GatewayUrl,
     [string]$PayloadPath,
     [AllowEmptyString()][string]$InvokeAcknowledgement = "",
@@ -11,14 +11,15 @@ param(
 $ErrorActionPreference = "Stop"
 $targetName = "curator-runtime"
 
-if ($Operation -eq "PlanFeature") {
+if ($Operation -in @("PlanFeature", "PlanFeed")) {
     if ([string]::IsNullOrWhiteSpace($PayloadPath)) {
-        throw "PayloadPath is required for PlanFeature"
+        throw "PayloadPath is required for $Operation"
     }
     $resolvedPayload = (Resolve-Path -LiteralPath $PayloadPath).Path
     $payload = Get-Content -LiteralPath $resolvedPayload -Raw | ConvertFrom-Json -Depth 100
-    if ([string]$payload.kind -cne "plan_feature") {
-        throw "PlanFeature payload must have kind='plan_feature'"
+    $expectedKind = if ($Operation -eq "PlanFeed") { "plan_feed" } else { "plan_feature" }
+    if ([string]$payload.kind -cne $expectedKind) {
+        throw "$Operation payload must have kind='$expectedKind'"
     }
 }
 else {
@@ -44,8 +45,8 @@ if ($gatewayUri.Host -notmatch "\.gateway\.bedrock-agentcore\.[a-z0-9-]+\.amazon
 if ($InvokeAcknowledgement -cne "INVOKE AGENTCORE MAY INCUR AWS CHARGES") {
     throw "Invoke mode requires the exact acknowledgement: INVOKE AGENTCORE MAY INCUR AWS CHARGES"
 }
-if ($Operation -eq "PlanFeature" -and $BedrockAcknowledgement -cne "INVOKE BEDROCK MAY INCUR AWS CHARGES") {
-    throw "PlanFeature requires the exact acknowledgement: INVOKE BEDROCK MAY INCUR AWS CHARGES"
+if ($Operation -in @("PlanFeature", "PlanFeed") -and $BedrockAcknowledgement -cne "INVOKE BEDROCK MAY INCUR AWS CHARGES") {
+    throw "$Operation requires the exact acknowledgement: INVOKE BEDROCK MAY INCUR AWS CHARGES"
 }
 
 $secureToken = Read-Host "Paste a short-lived Cognito access token (input is hidden)" -AsSecureString

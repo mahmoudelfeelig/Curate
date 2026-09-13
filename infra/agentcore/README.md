@@ -1,12 +1,12 @@
 # Feed Passport AgentCore deployment
 
-This directory packages the real proposal-only Strands feature planner for Amazon Bedrock AgentCore and defines its supporting AWS resources with CDK. It is deliberately plan-first: the local commands synthesize, validate, package, and test without contacting AWS. Every command that can change AWS defaults to `Plan` or `Validate` and requires an exact acknowledgement before its apply path runs.
+This directory packages the real proposal-only Strands feature and feed-goal planners for Amazon Bedrock AgentCore and defines their supporting AWS resources with CDK. It is deliberately plan-first: the local commands synthesize, validate, package, and test without contacting AWS. Every command that can change AWS defaults to `Plan` or `Validate` and requires an exact acknowledgement before its apply path runs.
 
 There is no honest way to guarantee a zero-dollar AWS deployment. AgentCore Runtime/Gateway, Bedrock, Cognito, S3 assets, and CloudWatch are consumption-based services. Promotional credits and AWS Budgets are not hard caps. The repository therefore never deploys, bootstraps, invokes, or tears down AWS resources as part of a local test.
 
 ## Cloud boundary
 
-The public cloud boundary exposes exactly two discriminated operations:
+The public cloud boundary exposes exactly three discriminated operations:
 
 ```json
 {"kind":"health"}
@@ -16,7 +16,11 @@ The public cloud boundary exposes exactly two discriminated operations:
 {"kind":"plan_feature","passport":{"...":"bounded versioned snapshot"},"request":"one bounded request"}
 ```
 
-`plan_feature` derives its actor from the `sub` claim of the bearer token after AgentCore Runtime's custom JWT authorizer has validated it. The caller cannot supply an actor ID. The Passport owner must match that subject. The app exposes no `execute`, `approve`, `rollback`, browser-control, credential, or live-platform mutation tool.
+```json
+{"kind":"plan_feed","passport":{"...":"bounded versioned snapshot"},"request":"60% pet science, 20% cute drawing, reduce ragebait","evidence":[{"platform":"youtube","metadata_source":"youtube_data_api_v3","metadata_verified":true,"title":"Veterinary anatomy explained","description":"","inferred_topics":["pet_science"],"ragebait_signal":false,"confidence":0.91}]}
+```
+
+Both planning operations derive their actor from the `sub` claim of the bearer token after AgentCore Runtime's custom JWT authorizer has validated it. The caller cannot supply an actor ID. The Passport owner must match that subject. `plan_feed` accepts only a bounded sanitized evidence schema and rejects source URLs, credentials, account identifiers, approval, execution, and social targets. The app exposes no `execute`, `approve`, `rollback`, browser-control, credential, or live-platform mutation tool.
 
 The deployment path is:
 
@@ -60,7 +64,7 @@ The direct-code artifact requires Python 3.13 for Linux ARM64. Its entrypoint is
 
 ## What is proven locally
 
-The local suite executes the actual async Strands tool loop with a scripted, no-network model; validates JWT-subject ownership; rejects free text, spoofed actor IDs, and mutation-shaped commands; proves health performs no model construction; asserts the proposal-only IAM boundary and gateway-only ingress in the synthesized template; and rejects VPCs, NAT gateways, unused state/identity services, wildcard Bedrock model permissions, public client secrets, and workload-token permissions.
+The local suite executes the actual async Strands tool loops with a scripted, no-network model; validates JWT-subject ownership; validates the sanitized evidence boundary; rejects free text, spoofed actor IDs, and mutation-shaped commands; proves health performs no model construction; asserts the proposal-only IAM boundary and gateway-only ingress in the synthesized template; and rejects VPCs, NAT gateways, unused state/identity services, wildcard Bedrock model permissions, public client secrets, and workload-token permissions.
 
 It cannot prove AWS account permissions, regional AgentCore availability, Cognito token validation by the managed service, Bedrock entitlement, Gateway-to-Runtime routing, credit coverage, or billing. Those require an AWS account and some checks require metered invocations.
 
@@ -112,6 +116,19 @@ Before any write, the read-only preflight confirms the exact caller account, Age
   -BedrockModelId amazon.nova-lite-v1:0 `
   -BedrockModelArn arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-lite-v1:0
 ```
+
+Before bootstrap or deployment, create the narrowest available spend alarm. The script is fixed at USD 5 per month, sends actual-spend alerts at 50% and 100% plus a forecast alert at 80%, refuses to replace a differently configured budget, and requires an exact apply acknowledgement. It is still an alert, not a service-control policy or hard cap:
+
+```powershell
+./scripts/configure-budget.ps1 `
+  -Mode Apply `
+  -AwsAccountId 111122223333 `
+  -AwsProfile feed-passport-demo `
+  -NotificationEmail owner@example.com `
+  -ApplyAcknowledgement "CREATE FEED PASSPORT FIVE DOLLAR BUDGET"
+```
+
+Confirm any AWS subscription email before continuing. Check the account's Credits page and current month Cost Explorer separately; neither a visible credit balance nor this budget proves that every service charge will be covered.
 
 If `CDKToolkit` is absent, inspect the bootstrap command first:
 
@@ -188,6 +205,20 @@ Use the stack's hosted-UI base URL, public client ID, and callback URL with Auth
 ```
 
 The example Passport's `owner_id` must be replaced with the Cognito access token's `sub`. A successful response is still only a proposal. `consent_created`, `approved`, and `executed` remain false.
+
+Use `PlanFeed` for the competition's natural-language feed-curation proof. It calls Bedrock once and therefore uses the same charge acknowledgements:
+
+```powershell
+./scripts/smoke.ps1 `
+  -Mode Invoke `
+  -Operation PlanFeed `
+  -GatewayUrl https://replace.gateway.bedrock-agentcore.eu-north-1.amazonaws.com `
+  -PayloadPath ./examples/plan-feed.json `
+  -InvokeAcknowledgement "INVOKE AGENTCORE MAY INCUR AWS CHARGES" `
+  -BedrockAcknowledgement "INVOKE BEDROCK MAY INCUR AWS CHARGES"
+```
+
+For the smallest live evidence run, invoke `health` once and `PlanFeed` once, save redacted receipts, set seven-day log retention, then destroy the stack in the same session. Do not repeatedly invoke the model to improve demo wording; use the scripted local model tests for iteration.
 
 After the first explicitly approved invocation creates the Runtime log group, set short retention through the separately gated script:
 

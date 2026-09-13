@@ -22,7 +22,7 @@
       "capability": "runtime gateway route",
       "cloudformation_type": "AWS::BedrockAgentCore::GatewayTarget",
       "billing_trigger": "used when gateway requests are routed",
-      "local_substitute": "strict path/schema assertion",
+      "local_substitute": "strict route, qualifier, JWT passthrough, and optional-schema omission assertions",
       "teardown": "CloudFormation stack deletion"
     },
     {

@@ -52,98 +52,6 @@ export function validateBedrockModelBinding(
   }
 }
 
-function runtimeSchema(): string {
-  return JSON.stringify({
-    openapi: "3.0.3",
-    info: {
-      title: "Feed Passport proposal-only AgentCore Runtime",
-      version: "1.0.0",
-    },
-    paths: {
-      "/invocations": {
-        post: {
-          operationId: "invokeFeedPassportPlanner",
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  oneOf: [
-                    {
-                      type: "object",
-                      additionalProperties: false,
-                      required: ["kind"],
-                      properties: { kind: { const: "health" } },
-                    },
-                    {
-                      type: "object",
-                      additionalProperties: false,
-                      required: ["kind", "passport", "request"],
-                      properties: {
-                        kind: { const: "plan_feature" },
-                        passport: { type: "object" },
-                        request: { type: "string", minLength: 1, maxLength: 1200 },
-                      },
-                    },
-                    {
-                      type: "object",
-                      additionalProperties: false,
-                      required: ["kind", "passport", "request", "evidence"],
-                      properties: {
-                        kind: { const: "plan_feed" },
-                        passport: { type: "object" },
-                        request: { type: "string", minLength: 1, maxLength: 1200 },
-                        evidence: {
-                          type: "array",
-                          minItems: 1,
-                          maxItems: 12,
-                          items: {
-                            type: "object",
-                            additionalProperties: false,
-                            required: [
-                              "platform",
-                              "metadata_source",
-                              "metadata_verified",
-                              "confidence",
-                            ],
-                            properties: {
-                              platform: { enum: ["youtube", "bluesky", "instagram"] },
-                              metadata_source: {
-                                enum: [
-                                  "youtube_data_api_v3",
-                                  "bluesky_public_appview",
-                                  "user_selected_link_only",
-                                  "unavailable_without_owner_oauth",
-                                ],
-                              },
-                              metadata_verified: { type: "boolean" },
-                              title: { type: "string", maxLength: 300 },
-                              description: { type: "string", maxLength: 1200 },
-                              inferred_topics: {
-                                type: "array",
-                                maxItems: 12,
-                                uniqueItems: true,
-                                items: { type: "string", pattern: "^[a-z0-9][a-z0-9_]{0,63}$" },
-                              },
-                              ragebait_signal: { type: "boolean" },
-                              confidence: { type: "number", minimum: 0, maximum: 1 },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-            },
-          },
-          responses: { "200": { description: "Health or bounded proposal" } },
-        },
-      },
-    },
-  });
-}
-
 export class FeedPassportAgentCoreStack extends Stack {
   constructor(scope: Construct, id: string, props: FeedPassportAgentCoreStackProps) {
     super(scope, id, props);
@@ -350,7 +258,6 @@ export class FeedPassportAgentCoreStack extends Stack {
           agentcoreRuntime: {
             arn: runtime.attrAgentRuntimeArn,
             qualifier: "DEFAULT",
-            schema: { source: { inlinePayload: runtimeSchema() } },
           },
         },
       },

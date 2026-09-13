@@ -92,6 +92,15 @@ export function validateTemplate(template: JsonObject): void {
   if (credentialTypes.length !== 1 || credentialTypes[0] !== "JWT_PASSTHROUGH") {
     fail("Gateway Runtime target must use JWT_PASSTHROUGH");
   }
+  const runtimeTarget = target.Properties.TargetConfiguration?.Http?.AgentcoreRuntime;
+  if (!runtimeTarget?.Arn || runtimeTarget.Qualifier !== "DEFAULT") {
+    fail("Gateway target must route to the DEFAULT qualifier of the managed Runtime");
+  }
+  if (runtimeTarget.Schema !== undefined) {
+    fail(
+      "HTTP Runtime schema must remain absent until an AgentCore policy engine is configured and its schema is validated",
+    );
+  }
 
   const statements = resourcesOf(template, "AWS::IAM::Policy").flatMap(
     (policy) => policy.Properties.PolicyDocument.Statement ?? [],

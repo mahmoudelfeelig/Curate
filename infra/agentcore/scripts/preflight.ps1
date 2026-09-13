@@ -50,7 +50,7 @@ if ($modelBinding.Groups[2].Value -cne $BedrockModelId) {
 }
 
 $identity = Assert-AwsAccount -ExpectedAccountId $AwsAccountId -AwsRegion $AwsRegion -AwsProfile $AwsProfile
-Write-Host "Verified AWS caller account $($identity.Account) using profile '$AwsProfile'."
+Write-Host "Verified the expected AWS caller account using profile '$AwsProfile'."
 
 $null = Invoke-AwsJson -CommandArguments @(
     "bedrock-agentcore-control", "list-agent-runtimes",

@@ -186,6 +186,25 @@ describe("Feed Passport AgentCore stack", () => {
         },
       },
     });
+    const targets = template.findResources("AWS::BedrockAgentCore::GatewayTarget");
+    const runtimeTarget = Object.values(targets)[0].Properties.TargetConfiguration.Http
+      .AgentcoreRuntime;
+    assert.equal(runtimeTarget.Qualifier, "DEFAULT");
+    assert.equal(runtimeTarget.Schema, undefined);
+  });
+
+  it("rejects an unreviewed HTTP Runtime schema without a policy engine", () => {
+    const rendered = structuredClone(template.toJSON());
+    const target = Object.values(
+      rendered.Resources,
+    ).find((resource: any) => resource.Type === "AWS::BedrockAgentCore::GatewayTarget") as any;
+    target.Properties.TargetConfiguration.Http.AgentcoreRuntime.Schema = {
+      Source: { InlinePayload: "{}" },
+    };
+    assert.throws(
+      () => validateTemplate(rendered),
+      /schema must remain absent until an AgentCore policy engine is configured/,
+    );
   });
 
   it("grants only the selected Bedrock model and never enables ForUserId identity", () => {
@@ -232,6 +251,15 @@ describe("Feed Passport AgentCore stack", () => {
     assert.ok(rejection >= 0);
     assert.ok(planning > rejection);
     assert.match(deployScript, /deployment must rebuild the artifact from this clean checkout/);
+  });
+
+  it("does not print the AWS account identifier during preflight", () => {
+    const preflightScript = readFileSync(
+      path.join(__dirname, "..", "..", "scripts", "preflight.ps1"),
+      "utf8",
+    );
+    assert.doesNotMatch(preflightScript, /Write-Host[^\r\n]*identity\.Account/);
+    assert.match(preflightScript, /Verified the expected AWS caller account/);
   });
 
   it("passes the deterministic local safety validator", () => {

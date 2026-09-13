@@ -41,6 +41,8 @@ AgentCore Runtime custom JWT authorizer + gateway-only workload restriction
 
 The stack deliberately omits AgentCore workload identity/token-vault resources, DynamoDB, and Secrets Manager because the current proposal-only Runtime does not consume them. The live-platform layer remains local and owner-bound until a later runtime actually integrates those services; unused future permissions and billable resources are not deployed speculatively.
 
+The HTTP Runtime target also omits the optional Gateway API schema. AWS documents that [Runtime target schemas are optional unless a policy engine will apply Gateway guardrails](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-target-http-runtime.html); this stack creates no policy engine, and the Runtime already enforces the discriminated request contract with Pydantic before constructing a model. The template validator rejects adding a target schema until a policy engine and an independently validated, AgentCore-supported schema are introduced together. This avoids presenting application input validation as a managed Gateway policy that is not deployed.
+
 No VPC or NAT Gateway is created. Runtime uses AgentCore-managed `PUBLIC` networking, a five-minute idle timeout, and a thirty-minute maximum lifetime. `resource-inventory.json` records each synthesized resource category plus service-created or bootstrap dependencies, their billing triggers, local substitutes, and teardown behavior.
 
 ## Runtime configuration contract
@@ -64,7 +66,7 @@ The direct-code artifact requires Python 3.13 for Linux ARM64. Its entrypoint is
 
 ## What is proven locally
 
-The local suite executes the actual async Strands tool loops with a scripted, no-network model; validates JWT-subject ownership; validates the sanitized evidence boundary; rejects free text, spoofed actor IDs, and mutation-shaped commands; proves health performs no model construction; asserts the proposal-only IAM boundary and gateway-only ingress in the synthesized template; and rejects VPCs, NAT gateways, unused state/identity services, wildcard Bedrock model permissions, public client secrets, and workload-token permissions.
+The local suite executes the actual async Strands tool loops with a scripted, no-network model; validates JWT-subject ownership; validates the sanitized evidence boundary; rejects free text, spoofed actor IDs, and mutation-shaped commands; proves health performs no model construction; asserts the proposal-only IAM boundary and gateway-only ingress in the synthesized template; and rejects VPCs, NAT gateways, unused state/identity services, wildcard Bedrock model permissions, public client secrets, workload-token permissions, and an unreviewed HTTP Runtime schema without a policy engine.
 
 It cannot prove AWS account permissions, regional AgentCore availability, Cognito token validation by the managed service, Bedrock entitlement, Gateway-to-Runtime routing, credit coverage, or billing. Those require an AWS account and some checks require metered invocations.
 

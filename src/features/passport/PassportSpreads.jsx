@@ -8,8 +8,6 @@ export function OverviewSpread({
   connectedIds,
   onNavigate,
   onToggleDestination,
-  consent,
-  setConsent,
   expiry,
   setExpiry,
   onIssue,
@@ -76,18 +74,17 @@ export function OverviewSpread({
       </section>
 
       <section className="customs-ticket">
-        <div className="customs-stub"><span>CUSTOMS</span><b>DECLARATION</b><small>CONSENT REQUIRED</small></div>
+        <div className="customs-stub"><span>CUSTOMS</span><b>ITINERARY</b><small>READY TO SEAL</small></div>
         <div className="customs-form">
-          <p>I approve this agent to seal a reviewable itinerary for the selected capability manifests. Any later account action still requires its own exact preview and approval.</p>
+          <p>Seal a reviewable itinerary for the selected capability manifests. Connected-account actions are always shown as an exact plan before they can run.</p>
           <div className="customs-fields">
-            <label className="consent-check"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>Yes, issue this passport.</span></label>
             <Field label="Review window"><select value={expiry} onChange={(event) => setExpiry(event.target.value)}><option>7 days</option><option>30 days</option></select></Field>
             <div className="anchor-date"><span>Anchor date</span><b>29 AUG 2026</b></div>
           </div>
         </div>
         <div className="issue-panel">
-          <ActionButton onClick={onIssue} busy={busy} disabled={!consent}>{issued ? "RESEAL PASSPORT ITINERARY" : "SEAL PASSPORT ITINERARY"}</ActionButton>
-          <small>{connectedIds.length} destinations selected · explicit approval required</small>
+          <ActionButton onClick={onIssue} busy={busy}>{issued ? "RESEAL PASSPORT ITINERARY" : "SEAL PASSPORT ITINERARY"}</ActionButton>
+          <small>{connectedIds.length} destinations selected · review window {expiry.toLowerCase()}</small>
         </div>
         <aside className={`audit-slip${issued ? " audit-issued" : ""}`}><span>AUDIT RECORD</span><b>{latestReceipt?.id || "PENDING"}</b><small>{issued ? "SEALED AT CHECKPOINT" : "NOT YET SEALED"}</small></aside>
       </section>
@@ -178,7 +175,7 @@ export function VisaSpread({
   if (liveAuthorizeAvailable) unavailableReason = "The local OAuth registration is configured. Authorization creates an owner-bound connection only; the adapter stays Guided until a fresh exact-revision dummy-account conformance receipt passes.";
   if (connectionConfiguration === "local_keys_required") unavailableReason = "Local encrypted connection keys are not configured. The demo remains account-free and no authorization can be stored.";
   if (destination.id === "x") unavailableReason = "The X transport is implemented, but X API requests are pay-per-use. This demo leaves it disconnected to avoid an open-ended provider charge.";
-  if (destination.id === "reddit") unavailableReason = "Reddit remains approval-gated. A registered and approved external Data API app is required before dummy-account authorization.";
+  if (destination.id === "reddit") unavailableReason = "Reddit requires a registered Data API app accepted by the platform before a dummy account can connect.";
   if (destination.id === "bluesky") unavailableReason = "Bluesky authorization uses the official AT Protocol OAuth sidecar so tokens and DPoP keys never enter the agent or browser app.";
   return (
     <section className="passport-book section-book">

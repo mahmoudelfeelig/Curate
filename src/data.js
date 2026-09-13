@@ -86,9 +86,9 @@ export const DESTINATIONS = [
     status: "Guided",
     tone: "purple",
     connected: false,
-    certification: "Approval pending",
+    certification: "Registration pending",
     actions: ["Recommend communities", "Compile mute plan", "Guide native steps"],
-    limitation: "API access and account actions require explicit Reddit approval.",
+    limitation: "API access and account actions require a Reddit-accepted Data API registration.",
   },
   {
     id: "instagram",
@@ -302,7 +302,7 @@ export const INITIAL_ACTIVITY = [
   {
     id: "ACT-3003",
     actor: "You",
-    detail: "Approved version 3 with a five-percent outrage ceiling.",
+    detail: "Stamped version 3 with a five-percent outrage ceiling.",
     time: "10:05",
     state: "Recorded",
   },

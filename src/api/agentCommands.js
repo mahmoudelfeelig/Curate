@@ -43,7 +43,7 @@ export function agentArgumentsForCommand(commandName, command, passportId) {
 
 export function fixtureAgentResponseForCommand(command, nextFixtureIdentity) {
   const normalized = command.toLowerCase();
-  let response = "I can prepare a reversible plan, show capability limits, and wait for approval before any account change.";
+  let response = "I can prepare a reversible plan, show capability limits, and wait for you to run any account change.";
   if (normalized.includes("capture") || normalized.includes("snapshot")) {
     response = "Source capture is ready. In fixture mode I can create a local intent-only Passport without claiming access to a live social account.";
   } else if (normalized.includes("copy") || normalized.includes("migrat")) {
@@ -68,4 +68,3 @@ export function fixtureAgentResponseForCommand(command, nextFixtureIdentity) {
     },
   };
 }
-

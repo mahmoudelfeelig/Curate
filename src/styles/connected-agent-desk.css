@@ -477,22 +477,10 @@
   gap: 10px;
 }
 
-.connected-agent-consent label {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 9px;
-  align-items: start;
-  cursor: pointer;
-}
-
-.connected-agent-consent input {
-  margin-top: 2px;
-  accent-color: var(--green-dark);
-}
-
-.connected-agent-consent label span {
+.connected-agent-consent > p:first-child {
   display: grid;
   gap: 3px;
+  color: var(--ink);
 }
 
 .connected-agent-consent b {
@@ -505,7 +493,7 @@
   line-height: 1.45;
 }
 
-.connected-agent-consent p {
+.connected-agent-consent p[role="alert"] {
   margin: 0;
   color: #704222;
 }
@@ -631,4 +619,3 @@
     width: 100%;
   }
 }
-

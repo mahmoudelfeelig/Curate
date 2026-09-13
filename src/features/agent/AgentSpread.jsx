@@ -6,7 +6,7 @@ const MISSION_PHASES = [
   ["observe", "eye", "Observe"],
   ["evaluate", "shield-check", "Evaluate"],
   ["plan", "route", "Plan"],
-  ["consent", "lock-keyhole", "Consent"],
+  ["consent", "lock-keyhole", "Ready"],
   ["execute", "play", "Act"],
   ["adapt", "refresh-cw", "Re-observe"],
   ["receipt", "stamp", "Receipt"],
@@ -25,6 +25,15 @@ export const DEFAULT_AGENT_MISSION_FORM = {
 function metricPercent(value, inverse = false) {
   const numeric = Math.max(0, Math.min(1, Number(value || 0)));
   return Math.round((inverse ? 1 - numeric : numeric) * 100);
+}
+
+function missionDetail(value) {
+  return String(value || "")
+    .replaceAll("policy-approved", "policy-allowed")
+    .replaceAll("approved action families", "sealed action families")
+    .replaceAll("One-time approval", "One-time run token")
+    .replaceAll("approval", "run")
+    .replaceAll("consent", "ready checkpoint");
 }
 
 function MissionMetrics({ evaluation, label }) {
@@ -46,7 +55,7 @@ function MissionMetrics({ evaluation, label }) {
   );
 }
 
-export function AgentSpread({ form, setForm, mission, approvalChecked, setApprovalChecked, onPreview, onModelPreview, onRun, onCancel, onRollback, busyAction, webmcp, apiMode, schedulerStatus, modelStatus, activity }) {
+export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview, onRun, onCancel, onRollback, busyAction, webmcp, apiMode, schedulerStatus, modelStatus, activity }) {
   const externalDestinations = DESTINATIONS.filter((destination) => destination.id !== "lab");
   const trace = MISSION_PHASES.map(([stage, icon, label]) => {
     const candidates = stage === "adapt" ? ["adapt", "reobserve"] : [stage];
@@ -56,7 +65,12 @@ export function AgentSpread({ form, setForm, mission, approvalChecked, setApprov
       : ["issued", "continuing", "scoped", "enforcing"].includes(reported?.status)
         ? "completed"
         : reported?.status || "pending";
-    return { stage, icon, label, status: normalizedStatus, detail: reported?.detail || "Waiting for the previous boundary." };
+    const detail = stage === "consent" && reported
+      ? reported.status === "required"
+        ? "The bounded mission is ready to run."
+        : "The one-time run token was consumed for this mission."
+      : reported?.detail ? missionDetail(reported.detail) : "Waiting for the previous boundary.";
+    return { stage, icon, label, status: normalizedStatus, detail };
   });
   const actionEnvelope = mission?.action_envelope || mission?.plan?.actions || mission?.preview?.plan?.actions || [];
   const allowedFamilies = mission?.allowed_action_types || [...new Set(actionEnvelope.map((action) => action.action_type).filter(Boolean))];
@@ -66,6 +80,7 @@ export function AgentSpread({ form, setForm, mission, approvalChecked, setApprov
   const modelReady = apiMode === "service" && modelStatus?.online === true;
   const rollbackVerified = missionRollbackIsVerified(mission);
   const isAwaiting = mission?.status === "awaiting_approval";
+  const missionStatusLabel = isAwaiting ? "ready to run" : String(mission?.status || "pending").replaceAll("_", " ");
   const isTerminal = ["completed", "needs_human", "rolled_back", "rollback_partial", "failed_recoverable", "cancelled"].includes(mission?.status);
   const statusTone = mission?.status === "completed"
     ? "green"
@@ -80,7 +95,7 @@ export function AgentSpread({ form, setForm, mission, approvalChecked, setApprov
     <section className="passport-book section-book agent-mission-book">
       <div className="book-spine" aria-hidden="true" />
       <article className="passport-page left-page">
-        <PageHeading eyebrow="LOCAL AGENT COMMISSION" title="Set the Mission" note="Give the agent an outcome and a hard envelope. It owns the local loop; you own permission." page="21" />
+        <PageHeading eyebrow="LOCAL AGENT COMMISSION" title="Set the Mission" note="Give the agent an outcome and a hard envelope. It owns the local loop; you decide when it runs." page="21" />
         <aside className="local-twin-banner">
           <Icon name="flask-conical" size={24} />
           <div><b>LOCAL PLATFORM CONTROL TWIN</b><p>Seeded feeds, simulated native controls, zero accounts, zero network calls.</p></div>
@@ -139,20 +154,20 @@ export function AgentSpread({ form, setForm, mission, approvalChecked, setApprov
         </div>
         <aside className="agent-runtime-note">
           <Icon name="bot" size={22} />
-          <div><b>AGENT, NOT A CHAT ROUTER</b><p>The local Strands planner inspects only the selected Passport and control twin, then narrows the proposed control families. Deterministic policy seals identity, budgets, thresholds, consent, execution, and rollback.</p></div>
+          <div><b>AGENT, NOT A CHAT ROUTER</b><p>The local Strands planner inspects only the selected Passport and control twin, then narrows the proposed control families. Deterministic policy seals identity, budgets, thresholds, execution, and rollback.</p></div>
           <StatusStamp tone={schedulerStatus === "active" ? "green" : "purple"} compact>{schedulerStatus === "active" ? "LOOP READY" : "LOCAL FIXTURE"}</StatusStamp>
         </aside>
         {!mission ? (
           <div className="mission-empty">
             <Icon name="bot" size={44} />
             <b>NO MISSION SEALED</b>
-            <p>Previewing observes a seeded destination, measures it, compiles only twin-supported controls, and pauses at consent. Nothing is applied during preview.</p>
+            <p>Previewing observes a seeded destination, measures it, and compiles only twin-supported controls. Nothing is applied during preview.</p>
           </div>
         ) : (
           <div className="mission-ledger" data-mission-id={mission.id} data-mission-status={mission.status} data-planner={plannerEvidence ? "local-model" : "deterministic"}>
             <header className="mission-docket">
               <div><span>{mission.id}</span><h3>{mission.goal}</h3><p>{String(mission.platform || "local twin").replace("twin:", "").toUpperCase()} · {String(mission.environment || "local_platform_control_twin").replaceAll("_", " ")}</p></div>
-              <StatusStamp tone={statusTone}>{String(mission.status).replaceAll("_", " ")}</StatusStamp>
+              <StatusStamp tone={statusTone}>{missionStatusLabel}</StatusStamp>
             </header>
             <aside className="twin-disclaimer"><Icon name="triangle-alert" size={18} /><p>{mission.fidelity_disclaimer || "This is a deterministic control-surface simulation, not a copy of a private ranking system."}</p></aside>
             {plannerEvidence ? <section className="model-planner-evidence" aria-label="Local model planner evidence">
@@ -160,7 +175,7 @@ export function AgentSpread({ form, setForm, mission, approvalChecked, setApprov
               <div className="model-proposal-copy"><span>INTERPRETATION</span><p>{mission.goal_interpretation}</p><span>EXPLICIT RATIONALE</span><p>{plannerProposal?.rationale || "The local proposal was admitted without persisting hidden reasoning."}</p></div>
               <div className="model-proof-strip"><dl><dt>Provider</dt><dd>{plannerEvidence.provider}</dd></dl><dl><dt>Tool calls</dt><dd>{plannerEvidence.tools?.length || 0}</dd></dl><dl><dt>Tokens</dt><dd>{plannerEvidence.usage?.total_tokens || 0}</dd></dl><dl><dt>Latency</dt><dd>{plannerEvidence.duration_ms || 0} ms</dd></dl></div>
               <div className="model-tool-trace" role="list" aria-label="Sanitized local model tool trace">{(plannerEvidence.tools || []).map((item, index) => <span role="listitem" data-tool-name={item.name} data-tool-status={item.status} key={`${item.name}-${index}`}>{index + 1}. {String(item.name).replaceAll("_", " ")} · {item.status}</span>)}</div>
-              <p className="model-authority-note">Proposal only. The model received no owner ID, account ID, credentials, approval token, execution tool, or rollback authority.</p>
+              <p className="model-authority-note">Proposal only. The model received no owner ID, account ID, credentials, run token, execution tool, or rollback authority.</p>
             </section> : null}
             <div className="mission-comparison">
               <MissionMetrics evaluation={mission.before} label="OBSERVED BEFORE" />
@@ -170,18 +185,16 @@ export function AgentSpread({ form, setForm, mission, approvalChecked, setApprov
             <div className="mission-phase-track">
               {trace.map((step) => <article className={`phase-${step.status}`} key={step.stage}><Icon name={step.icon} size={17} /><div><b>{step.label}</b><p>{step.detail}</p></div><span>{step.status.replaceAll("_", " ")}</span></article>)}
             </div>
-            {actionEnvelope.length ? <details className="mission-actions" open={isAwaiting}><summary>Initial action envelope · {actionEnvelope.length} controls · {allowedFamilies.length} families</summary><div>{actionEnvelope.map((action, index) => <article key={action.id || `${action.action_type}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{String(action.action_type || action.action || "bounded control").replaceAll("_", " ")}</b><p>{action.reason || action.detail || "Compiled inside the declared twin surface."}</p></div><StatusStamp tone={action.reversible === false ? "orange" : "green"} compact>{action.reversible === false ? "MANUAL" : "REVERSIBLE"}</StatusStamp></article>)}</div><p className="mission-action-scope">Later passes may recompile targets only within these approved action families, the same Passport version, and the remaining action and iteration budgets.</p></details> : null}
-            {isAwaiting ? <section className="mission-consent" aria-label="Mission consent checkpoint"><label><input type="checkbox" checked={approvalChecked} onChange={(event) => setApprovalChecked(event.target.checked)} disabled={Boolean(busyAction)} /><span><b>I approve this bounded local mission policy.</b><small>One-time token · {allowedFamilies.length} action families · {mission.max_total_actions || form.maxTotalActions} actions maximum · {mission.max_iterations || form.maxIterations} passes maximum · expires after use</small></span></label><div><ActionButton type="button" onClick={onRun} busy={busyAction === "mission-run"} disabled={!approvalChecked || Boolean(busyAction)}><Icon name="play" size={16} />RUN LOCALLY</ActionButton><ActionButton type="button" variant="quiet" onClick={onCancel} busy={busyAction === "mission-cancel"} disabled={Boolean(busyAction)}>CANCEL</ActionButton></div></section> : null}
+            {actionEnvelope.length ? <details className="mission-actions" open={isAwaiting}><summary>Initial action envelope · {actionEnvelope.length} controls · {allowedFamilies.length} families</summary><div>{actionEnvelope.map((action, index) => <article key={action.id || `${action.action_type}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{String(action.action_type || action.action || "bounded control").replaceAll("_", " ")}</b><p>{action.reason || action.detail || "Compiled inside the declared twin surface."}</p></div><StatusStamp tone={action.reversible === false ? "orange" : "green"} compact>{action.reversible === false ? "MANUAL" : "REVERSIBLE"}</StatusStamp></article>)}</div><p className="mission-action-scope">Later passes may recompile targets only within these sealed action families, the same Passport version, and the remaining action and iteration budgets.</p></details> : null}
+            {isAwaiting ? <section className="mission-consent" aria-label="Bounded mission actions"><p><b>One bounded run</b><small>{allowedFamilies.length} action families · {mission.max_total_actions || form.maxTotalActions} actions maximum · {mission.max_iterations || form.maxIterations} passes maximum</small></p><div><ActionButton type="button" onClick={onRun} busy={busyAction === "mission-run"} disabled={Boolean(busyAction)}><Icon name="play" size={16} />RUN BOUNDED MISSION</ActionButton><ActionButton type="button" variant="quiet" onClick={onCancel} busy={busyAction === "mission-cancel"} disabled={Boolean(busyAction)}>CANCEL</ActionButton></div></section> : null}
             {iterations.length ? <section className="iteration-ledger"><span>ADAPTATION PASSES</span>{iterations.map((iteration, index) => <article key={iteration.number || index}><div><b>PASS {iteration.number || index + 1}</b><StatusStamp tone={iteration.decision === "adapt" ? "purple" : "green"} compact>{String(iteration.decision || "measured").replaceAll("_", " ")}</StatusStamp></div><p>{(iteration.actions || []).length} controls · {Math.round(Number(iteration.improvement || 0) * 100)} point distance improvement · receipt {iteration.receipt_id || "recorded"}</p></article>)}</section> : null}
             {isTerminal ? <div className="mission-terminal" role="region" aria-label="Mission terminal state" data-mission-status={mission.status}><div><b>{mission.status === "rollback_partial" || (mission.status === "rolled_back" && !rollbackVerified) ? "ROLLBACK STATUS" : "STOP REASON"}</b><span>{String(mission.status === "rollback_partial" ? mission.status : mission.stop_reason || mission.status).replaceAll("_", " ")}</span><small>{mission.status === "rollback_partial" ? mission.rollback?.verification?.state_restored === false ? "Receipt inverses completed, but local control state differs from baseline" : "Some inverse controls need inspection" : mission.status === "rolled_back" && !rollbackVerified ? "Restoration verification evidence is missing" : mission.status === "rolled_back" ? `Local control state matched · ${mission.rollback?.verification?.method || "verified local twin"}` : `${mission.remaining_actions ?? 0} actions left unused`}</small></div>{mission.rollback_available ? <ActionButton type="button" variant="danger" onClick={onRollback} busy={busyAction === "mission-rollback"} disabled={Boolean(busyAction)}><Icon name="undo-2" size={16} />{mission.status === "rollback_partial" ? "RETRY ROLLBACK" : "ROLL BACK RUN"}</ActionButton> : <StatusStamp tone={mission.status === "rolled_back" && rollbackVerified ? "blue" : mission.status === "rollback_partial" || mission.status === "rolled_back" ? "orange" : "green"}>{mission.status === "rolled_back" && rollbackVerified ? apiMode === "service" ? "STATE VERIFIED" : "FIXTURE MATCHED" : mission.status === "rollback_partial" || mission.status === "rolled_back" ? "INSPECTION NEEDED" : "BOUNDARY CLOSED"}</StatusStamp>}</div> : null}
           </div>
         )}
         <details className="recent-activity"><summary>Recent Passport activity</summary><div className="activity-ledger">{activity.slice(0, 3).map((item) => <article key={item.id}><div><span>{item.time}</span><b>{item.actor}</b></div><p>{item.detail}</p><StatusStamp tone={item.state === "Boundary kept" || item.state === "Needs attention" ? "orange" : "green"} compact>{item.state}</StatusStamp></article>)}</div></details>
-        <aside className="passport-warning">WebMCP may preview and inspect this site's bounded missions. It cannot approve itself, access a social account, or widen the action-family allowlist or budgets.</aside>
+        <aside className="passport-warning">WebMCP may preview and inspect this site's bounded missions. It cannot start a run, access a social account, or widen the action-family allowlist or budgets.</aside>
         <footer className="passport-footer"><span>OBSERVE · ACT · MEASURE</span><span>STOP HONESTLY</span><span>PAGE 22</span></footer>
       </article>
     </section>
   );
 }
-
-

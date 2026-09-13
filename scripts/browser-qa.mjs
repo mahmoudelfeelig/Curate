@@ -30,6 +30,7 @@ const sections = [
   { id: "clerk", heading: "Feature Clerk" },
   { id: "agent", heading: "Set the Mission" },
   { id: "connected-agent", heading: "Commission One Exact Trip" },
+  { id: "evidence", heading: "Inspect the Signal" },
 ];
 
 async function loadPlaywright() {
@@ -180,6 +181,12 @@ async function inspectPage(page) {
       level: Number(heading.tagName.slice(1)),
       text: heading.textContent?.trim().replace(/\s+/g, " ") || "",
     }));
+    const redundantPermissionCopy = Array.from(document.querySelectorAll("body *"))
+      .filter(visible)
+      .filter((element) => element.childElementCount === 0)
+      .map((element) => element.textContent?.trim().replace(/\s+/g, " ") || "")
+      .filter((text) => /\b(?:consent|approve|approval|approved)\b/i.test(text))
+      .slice(0, 40);
     const rollback = document.querySelector(".rollback-tab");
     const rollbackBox = rollback && visible(rollback) ? rollback.getBoundingClientRect() : null;
     const rollbackIntersections = rollbackBox
@@ -213,6 +220,7 @@ async function inspectPage(page) {
       duplicateIds,
       imagesMissingAlt,
       headings,
+      redundantPermissionCopy,
       rollbackIntersections,
       fonts: {
         libreBaskerville: document.fonts.check('16px "Libre Baskerville"'),
@@ -306,6 +314,7 @@ async function captureViewport(browser, viewport) {
     className: typeof document.activeElement?.className === "string" ? document.activeElement.className : "",
   }));
   await page.keyboard.press("Enter");
+  await page.waitForTimeout(80);
   const skipTarget = await page.evaluate(() => document.activeElement?.id || "");
   const focusPath = await inspectKeyboardFocus(page);
   const selectedSections = viewport.sections || sections.map((section) => section.id);
@@ -408,6 +417,7 @@ function gateResults(results) {
       requireEmpty(inspection.duplicateIds, `${sectionLabel} duplicate element ids`);
       requireEmpty(inspection.imagesMissingAlt, `${sectionLabel} images missing alt text`);
       requireEmpty(inspection.rollbackIntersections, `${sectionLabel} rollback control intersections`);
+      requireEmpty(inspection.redundantPermissionCopy, `${sectionLabel} redundant permission copy`);
       if (!inspection.fonts.libreBaskerville || !inspection.fonts.courierPrime) {
         violations.push(`${sectionLabel} did not load both bundled fonts`);
       }

@@ -270,10 +270,10 @@ test("the first Passport snapshot arms the guided lock before deferred service f
   await pendingHydration;
 });
 
-test("migration desk renders exact guided targets and instructions before approval", async () => {
+test("migration desk renders exact guided targets and instructions before the handoff action", async () => {
   const source = await readFile(new URL("./features/workflows/WorkflowSpreads.jsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("./styles.css", import.meta.url), "utf8");
-  assert.match(source, /EXACT PRE-APPROVAL RECORD/);
+  assert.match(source, /EXACT HANDOFF RECORD/);
   assert.match(source, /\{step\.target \|\| "TARGET MISSING"\}/);
   assert.match(source, /\{step\.instruction \|\| "Instruction missing from this preview\."\}/);
   assert.match(source, /GUIDED_PREVIEW_DISCLOSURE/);

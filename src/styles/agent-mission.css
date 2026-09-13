@@ -560,22 +560,10 @@
   gap: 10px;
 }
 
-.mission-consent label {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 9px;
-  align-items: start;
-  cursor: pointer;
-}
-
-.mission-consent input {
-  margin-top: 2px;
-  accent-color: var(--green-dark);
-}
-
-.mission-consent label span {
+.mission-consent > p {
   display: grid;
   gap: 3px;
+  margin: 0;
 }
 
 .mission-consent b {
@@ -687,4 +675,3 @@
   place-items: center;
   font-size: 9px;
 }
-

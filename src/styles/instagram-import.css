@@ -182,16 +182,14 @@
   cursor: pointer;
 }
 
-.instagram-handle-manifest input,
-.instagram-import-consent input {
+.instagram-handle-manifest input {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
   margin: 0;
 }
 
-.instagram-handle-manifest label:has(input:focus-visible),
-.instagram-import-consent:has(input:focus-visible) {
+.instagram-handle-manifest label:has(input:focus-visible) {
   outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
@@ -208,22 +206,11 @@
   line-height: 1.45;
 }
 
-.instagram-import-consent {
+.instagram-import-boundary-note {
+  margin: 0;
   padding: 9px;
   border: 1px solid var(--green-dark);
-  display: flex;
-  gap: 8px;
-  align-items: start;
   font-size: 11px;
-  cursor: pointer;
-}
-
-.instagram-import-consent span {
-  display: grid;
-  gap: 3px;
-}
-
-.instagram-import-consent small {
   color: #625b4f;
   line-height: 1.4;
 }

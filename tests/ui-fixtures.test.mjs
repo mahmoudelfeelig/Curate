@@ -45,3 +45,30 @@ test("the Visa authorization notice stays scoped to its provider", async () => {
   assert.match(visaBody, /connectionNotice\?\.platform === destination\.id/);
   assert.match(visaBody, /connectionNotice\.message/);
 });
+
+test("single-owner actions do not require redundant confirmation checkboxes", async () => {
+  const paths = [
+    "../src/App.jsx",
+    "../src/features/passport/PassportSpreads.jsx",
+    "../src/features/passport/InstagramImportDesk.jsx",
+    "../src/features/agent/AgentSpread.jsx",
+    "../src/features/agent/ConnectedAgentDesk.jsx",
+    "../src/features/agent/FeedEvidenceDesk.jsx",
+  ];
+  const sources = await Promise.all(paths.map((path) => readFile(new URL(path, import.meta.url), "utf8")));
+  const combined = sources.join("\n");
+
+  assert.doesNotMatch(combined, /\bapprovalChecked\b|\bsetApprovalChecked\b|\bfeedEvidenceApproved\b/);
+  assert.doesNotMatch(combined, /className="consent-check"|className="instagram-import-consent"/);
+  assert.doesNotMatch(combined, /I approve|CONSENT REQUIRED|APPROVE AND APPLY|APPROVE LAB CORRECTION/);
+  assert.match(combined, /RUN BOUNDED MISSION/);
+  assert.match(combined, /RUN EXACT PLAN ONCE/);
+  assert.match(combined, /ADD SELECTED TO PASSPORT/);
+});
+
+test("direct run buttons retain server-issued one-time execution tokens", async () => {
+  const source = await readFile(new URL("../src/apiClient.js", import.meta.url), "utf8");
+  assert.match(source, /live-commissions\/\$\{encodeURIComponent\(commissionId\)\}\/approval/);
+  assert.match(source, /missions\/\$\{encodeURIComponent\(missionId\)\}\/approval/);
+  assert.match(source, /approval_token: approval\.approval_token \|\| approval\.token/);
+});

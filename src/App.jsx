@@ -65,7 +65,7 @@ function AuthenticationDesk({ state, onSignIn }) {
       <div className="identity-gate-copy">
         <p className="eyebrow">OWNER BINDING REQUIRED</p>
         <h2 id="identity-gate-title">Present your private access passport</h2>
-        <p>Sign in through the configured identity provider. Feed Passport keeps the short-lived access token in browser memory only and binds every account connection, proposal, approval, receipt, and rollback to the verified token subject.</p>
+        <p>Sign in through the configured identity provider. Feed Passport keeps the short-lived access token in browser memory only and binds every account connection, proposal, run, receipt, and rollback to the verified token subject.</p>
         {state.error ? <p className="passport-warning" role="alert">{state.error}</p> : null}
       </div>
       <div className="identity-gate-action">
@@ -83,7 +83,6 @@ export function App() {
   const [connectedIds, setConnectedIds] = useState(["lab", "bluesky", "youtube"]);
   const [receipts, setReceipts] = useState(clone(INITIAL_RECEIPTS));
   const [activity, setActivity] = useState(clone(INITIAL_ACTIVITY));
-  const [consent, setConsent] = useState(false);
   const [expiry, setExpiry] = useState("7 days");
   const [issued, setIssued] = useState(false);
   const [busyAction, setBusyAction] = useState("");
@@ -120,7 +119,7 @@ export function App() {
   const [partnerCode, setPartnerCode] = useState("");
   const [blend, setBlend] = useState({ mode: "Bridge View", weight: 30, duration: "7 days", durationMinutes: null });
   const [companionInvitation, setCompanionInvitation] = useState(null);
-  const [partnerConsentConfirmed, setPartnerConsentConfirmed] = useState(false);
+  const [partnerPersonaConfirmed, setPartnerPersonaConfirmed] = useState(false);
   const [companion, setCompanion] = useState(null);
   const [drift, setDrift] = useState(clone(DRIFT_FIXTURE));
   const [driftDecisionReady, setDriftDecisionReady] = useState(false);
@@ -139,13 +138,10 @@ export function App() {
   const [instagramImportNotice, setInstagramImportNotice] = useState("");
   const [agentMissionForm, setAgentMissionForm] = useState(clone(DEFAULT_AGENT_MISSION_FORM));
   const [agentMission, setAgentMission] = useState(null);
-  const [agentMissionApproved, setAgentMissionApproved] = useState(false);
   const [connectedAgentForm, setConnectedAgentForm] = useState(clone(DEFAULT_CONNECTED_AGENT_FORM));
   const [liveCommission, setLiveCommission] = useState(null);
-  const [liveCommissionApproved, setLiveCommissionApproved] = useState(false);
   const [feedEvidenceForm, setFeedEvidenceForm] = useState(clone(DEFAULT_FEED_EVIDENCE_FORM));
   const [feedEvidenceResult, setFeedEvidenceResult] = useState(null);
-  const [feedEvidenceApproved, setFeedEvidenceApproved] = useState(false);
   const [feedEvidenceBaselineId, setFeedEvidenceBaselineId] = useState("");
   const [featureClerkRequest, setFeatureClerkRequest] = useState("Give me a reversible research-focused feed for exactly 9 hours, then return to my base Passport.");
   const [featureClerkResult, setFeatureClerkResult] = useState(null);
@@ -200,7 +196,6 @@ export function App() {
     return true;
   }, []);
   const resetPassportScopedUi = useCallback(() => {
-    setConsent(false);
     setExpiry("7 days");
     setIssued(false);
     setSavedNotice("");
@@ -216,7 +211,7 @@ export function App() {
     setPartnerCode("");
     setBlend({ mode: "Bridge View", weight: 30, duration: "7 days", durationMinutes: null });
     setCompanionInvitation(null);
-    setPartnerConsentConfirmed(false);
+    setPartnerPersonaConfirmed(false);
     setCompanion(null);
     setDrift(clone(DRIFT_FIXTURE));
     setDriftDecisionReady(false);
@@ -234,10 +229,8 @@ export function App() {
     setInstagramImportNotice("");
     setAgentMissionForm(clone(DEFAULT_AGENT_MISSION_FORM));
     setAgentMission(null);
-    setAgentMissionApproved(false);
     setConnectedAgentForm(clone(DEFAULT_CONNECTED_AGENT_FORM));
     setLiveCommission(null);
-    setLiveCommissionApproved(false);
     setFeatureClerkResult(null);
     setFeatureDeskPrefills({ migration: null, temporary: null, companion: null });
     setConnectionNotice("");
@@ -290,7 +283,7 @@ export function App() {
     const pendingCompanionConsent = data.pendingCompanionConsent || null;
     setCompanion(activeCompanion);
     setCompanionInvitation(activeCompanion ? null : pendingCompanionConsent);
-    setPartnerConsentConfirmed(false);
+    setPartnerPersonaConfirmed(false);
     if (activeCompanion) {
       setPartnerCode(activeCompanion.code || "");
       setBlend({
@@ -549,7 +542,6 @@ export function App() {
           const result = await feedPassportApi.previewAgentMission(form);
           setApiMode(result.source);
           setAgentMission(result.data);
-          setAgentMissionApproved(false);
           pushSectionHistory("agent");
           setActiveSection("agent");
           return { opened: "agent", mission: result.data, approvalGranted: false, accountAccessed: false };
@@ -584,7 +576,6 @@ export function App() {
             youtubeConnectionId: "",
           });
           setFeedEvidenceResult(result.data);
-          setFeedEvidenceApproved(false);
           setFeedEvidenceBaselineId(result.data.snapshot_id);
           pushSectionHistory("evidence");
           setActiveSection("evidence");
@@ -718,7 +709,7 @@ export function App() {
     syncSource(result.source);
     setIssued(true);
     addReceipt(result.data.receipt);
-    addActivity(`Sealed an itinerary for ${connectedIds.length} selected destinations with a ${expiry.toLowerCase()} review window.`, "Approved", "You");
+    addActivity(`Sealed an itinerary for ${connectedIds.length} selected destinations with a ${expiry.toLowerCase()} review window.`, "Recorded", "You");
   }, "Passport itinerary could not be sealed");
   const handleSaveConstitution = () => {
     if (rejectWhileGuidedHandoffActive()) return null;
@@ -736,7 +727,7 @@ export function App() {
         ? { ...result.data.receipt, _previousConstitution: clone(constitution) }
         : result.data.receipt;
       addReceipt(receipt);
-      addActivity(`Stamped constitution version ${saved.version}.`, "Approved", "You");
+      addActivity(`Stamped constitution version ${saved.version}.`, "Recorded", "You");
       setSavedNotice(`Version ${saved.version} stamped with receipt ${receipt.id}.`);
     }, "Constitution version could not be stamped");
   };
@@ -845,8 +836,8 @@ export function App() {
       setGuidedHandoff(result.data.guided_handoff || null);
       setMigrationOutcome({ kind, applied, remoteWrites, guided, skipped, failed, message });
       if (receipt) addReceipt(receipt);
-      addActivity(message, kind === "needs-attention" ? "Needs attention" : kind === "applied" || kind === "live-applied" ? "Approved" : "Boundary kept", "You");
-    }, "Migration approval could not be completed");
+      addActivity(message, kind === "needs-attention" ? "Needs attention" : kind === "applied" || kind === "live-applied" ? "Applied" : "Boundary kept", "You");
+    }, "Migration could not be completed");
   };
   const handleResolveGuidedStep = (stepId, resolution) => {
     if (!guidedHandoff?.id || rejectWhileBusy()) return;
@@ -874,23 +865,23 @@ export function App() {
     syncSource(result.source);
     setTemporaryVisas((current) => [result.data.visa, ...current]);
     addReceipt({ ...result.data.receipt, _visaId: result.data.receipt._visaId || result.data.visa.id });
-    addActivity(`Issued temporary visa ${result.data.visa.id} in ${temporaryForm.mode}.`, "Approved", "You");
+    addActivity(`Issued temporary visa ${result.data.visa.id} in ${temporaryForm.mode}.`, "Recorded", "You");
   }, "Temporary visa could not be issued");
   const handleTemporaryRevoke = (id) => runBusy("temporary-revoke", async () => {
     const result = await feedPassportApi.revokeTemporaryVisa(id);
     syncSource(result.source);
     setTemporaryVisas((current) => current.map((visa) => visa.id === id ? { ...visa, status: "Revoked", expiresAt: "REVOKED NOW" } : visa));
     addReceipt(result.data.receipt);
-    addActivity(`Revoked temporary visa ${id}.`, "Approved", "You");
+    addActivity(`Revoked temporary visa ${id}.`, "Recorded", "You");
   }, "Temporary visa could not be revoked");
   const handleCompanionInvitationCreate = () => runBusy("companion-invite", async () => {
     const result = await feedPassportApi.createCompanionInvitation({ share, partnerCode, ...blend });
     syncSource(result.source);
     setCompanionInvitation(result.data.invitation);
     setCompanion(null);
-    setPartnerConsentConfirmed(false);
+    setPartnerPersonaConfirmed(false);
     addReceipt(result.data.receipt);
-    addActivity("The first local test principal recorded one continuous consent slice. No companion blend was activated.", "Awaiting second consent", "First local test principal");
+    addActivity("The first local test principal shared a bounded slice. No companion blend was activated.", "Waiting for second person", "First local test principal");
   }, "Companion invitation could not be created");
   const handleCompanionInvitationAccept = () => runBusy("companion-accept", async () => {
     try {
@@ -901,14 +892,13 @@ export function App() {
       syncSource(result.source);
       setCompanionInvitation(result.data.invitation);
       setCompanion(result.data.companion);
-      setPartnerConsentConfirmed(false);
+      setPartnerPersonaConfirmed(false);
       addReceipt({ ...result.data.receipt, _companionId: result.data.receipt._companionId || result.data.companion.id });
-      addActivity(`The second local test principal separately consented; continuous sync ${result.data.companion.id} activated at revision ${result.data.companion.syncRevision}.`, "Approved", "Second local test principal");
+      addActivity(`The second local test principal activated continuous sync ${result.data.companion.id} at revision ${result.data.companion.syncRevision}.`, "Activated", "Second local test principal");
     } catch (error) {
-      setPartnerConsentConfirmed(false);
       throw error;
     }
-  }, "Second-person consent or companion activation failed");
+  }, "Second-person companion activation failed");
   const handleCompanionInvitationRevoke = () => {
     const pending = companionInvitation;
     if (!pending || companion) return null;
@@ -916,10 +906,10 @@ export function App() {
       const result = await feedPassportApi.revokeCompanionInvitation(pending);
       syncSource(result.source);
       setCompanionInvitation(null);
-      setPartnerConsentConfirmed(false);
+      setPartnerPersonaConfirmed(false);
       addReceipt(result.data.receipt);
-      addActivity("The first local test principal revoked the pending consent before any companion existed.", "Approved", "First local test principal");
-    }, "Pending companion consent could not be revoked");
+      addActivity("The first local test principal withdrew the pending invitation before any companion existed.", "Recorded", "First local test principal");
+    }, "Pending companion invitation could not be revoked");
   };
   const handleCompanionRevoke = () => {
     const previous = companion;
@@ -929,10 +919,10 @@ export function App() {
       syncSource(result.source);
       setCompanion(null);
       setCompanionInvitation(null);
-      setPartnerConsentConfirmed(false);
+      setPartnerPersonaConfirmed(false);
       setPartnerCode("");
       addReceipt(result.data.receipt);
-      addActivity("Revoked the companion overlay by withdrawing its consent slice.", "Approved", "You");
+      addActivity("Revoked the companion overlay and stopped its shared slice.", "Recorded", "You");
     }, "Companion blend could not be revoked");
   };
   const handleDriftCheck = () => runBusy("drift-check", async () => {
@@ -949,14 +939,14 @@ export function App() {
     setDriftDecisionReady(needsDecision);
     addActivity(
       needsDecision
-        ? `Measured policy alignment at ${result.data.score} out of 100; a Lab correction now requires approval.`
+        ? `Measured policy alignment at ${result.data.score} out of 100; a Lab correction is ready to inspect.`
         : `Measured policy alignment at ${result.data.score} out of 100; no correction was required.`,
       "Verified",
     );
   }, "Fresh Lab drift check could not be completed");
   const handleDriftCorrection = () => {
     if (!driftDecisionReady) {
-      setActionError("Run a fresh Lab drift check that returns a decision-required proposal before approving a correction.");
+      setActionError("Run a fresh Lab drift check that returns a decision-required proposal before applying a correction.");
       return null;
     }
     return runBusy("drift-correct", async () => {
@@ -972,9 +962,9 @@ export function App() {
         simulated
           ? "Simulated the bounded correction plan in the deterministic fixture; no Lab or external account state was changed."
           : applied
-            ? "Applied the approved source-diversity correction to the certified Lab overlay."
+            ? "Applied the reviewed source-diversity correction to the certified Lab overlay."
             : "The fresh service result was already aligned; no correction was applied.",
-        applied ? "Approved" : "Verified",
+        applied ? "Applied" : "Verified",
         "You",
       );
     }, "Lab drift correction could not be completed");
@@ -990,7 +980,7 @@ export function App() {
     });
     syncSource(result.source);
     setDriftMonitor(result.data);
-    addActivity(`Started an expiring ${monitorConfig.mode === "bounded_auto" ? "bounded Lab" : "alert-only"} drift monitor.`, "Approved", "You");
+    addActivity(`Started an expiring ${monitorConfig.mode === "bounded_auto" ? "bounded Lab" : "alert-only"} drift monitor.`, "Started", "You");
   }, "Drift monitor could not be started");
   const handleStopMonitor = () => {
     if (!driftMonitor) return null;
@@ -998,7 +988,7 @@ export function App() {
       const result = await feedPassportApi.stopDriftMonitor(driftMonitor.id);
       syncSource(result.source);
       setDriftMonitor(result.data);
-      addActivity(`Emergency stop closed drift monitor ${driftMonitor.id}.`, "Approved", "You");
+      addActivity(`Emergency stop closed drift monitor ${driftMonitor.id}.`, "Stopped", "You");
     }, "Drift monitor could not be stopped");
   };
   const handlePreserveCreator = (creator) => runBusy(`creator-${creator.id}`, async () => {
@@ -1006,7 +996,7 @@ export function App() {
     syncSource(result.source);
     setPreservedCreators((current) => current.includes(creator.id) ? current : [...current, creator.id]);
     addReceipt({ ...result.data.receipt, _creatorId: result.data.receipt._creatorId || creator.id });
-    addActivity(`Preserved the reviewed public identity match for ${creator.name}.`, "Approved", "You");
+    addActivity(`Preserved the reviewed public identity match for ${creator.name}.`, "Recorded", "You");
   }, `Creator continuity for ${creator.name} could not be preserved`);
   const handleTemplateApply = (template) => {
     if (rejectWhileBusy() || rejectWhileGuidedHandoffActive("constitution")) return;
@@ -1033,7 +1023,6 @@ export function App() {
     if (rollbackComplete) {
       if (/passport itinerary/i.test(receipt.type)) {
         setIssued(false);
-        setConsent(false);
       }
       if (/migration/i.test(receipt.type)) setMigrationOutcome(null);
       if (/drift correction/i.test(receipt.type)) {
@@ -1072,7 +1061,7 @@ export function App() {
       if (receipt._companionId || receipt._sliceId) {
         setCompanion(null);
         setCompanionInvitation(null);
-        setPartnerConsentConfirmed(false);
+        setPartnerPersonaConfirmed(false);
         setPartnerCode("");
       }
     }
@@ -1082,7 +1071,7 @@ export function App() {
       addActivity(detail, "Needs attention");
       return;
     }
-    addActivity(`Approved rollback of ${receipt.id}; the active Passport state was reconciled with the resulting rollback receipt.`, "Approved", "You");
+    addActivity(`Rolled back ${receipt.id}; the active Passport state was reconciled with the resulting rollback receipt.`, "Restored", "You");
     }, "Rollback could not be completed");
   };
   const handleCheckpoint = () => runBusy("checkpoint", async () => {
@@ -1102,7 +1091,7 @@ export function App() {
     };
     addReceipt(receipt);
     setPortabilityNotice(`Checkpoint ${checkpoint.id} is ready to restore.`);
-    addActivity(`Created checkpoint ${checkpoint.id} for Passport version ${checkpoint.passport_version}.`, "Approved", "You");
+    addActivity(`Created checkpoint ${checkpoint.id} for Passport version ${checkpoint.passport_version}.`, "Recorded", "You");
   }, "Checkpoint could not be created");
   const handleRestoreCheckpoint = (checkpoint) => {
     if (rejectWhileGuidedHandoffActive()) return null;
@@ -1121,7 +1110,7 @@ export function App() {
     };
     addReceipt(receipt);
     setPortabilityNotice(`Restored ${checkpoint.id} as version ${result.data.constitution.version}; history was preserved.`);
-    addActivity(`Restored checkpoint ${checkpoint.id} as a new version.`, "Approved", "You");
+    addActivity(`Restored checkpoint ${checkpoint.id} as a new version.`, "Restored", "You");
     }, "Checkpoint could not be restored");
   };
   const handleExportPassport = () => runBusy("export", async () => {
@@ -1174,7 +1163,7 @@ export function App() {
       setMigrationDestination("youtube");
       setReceipts([receipt]);
       setSelectedReceipt(receipt);
-      setActivity([{ id: `ACT-IMPORT-${importedId}`, actor: "Passport agent", detail: `Imported a strict portable policy document as ${importedId}.`, time: "NOW", state: "Approved" }]);
+      setActivity([{ id: `ACT-IMPORT-${importedId}`, actor: "Passport agent", detail: `Imported a strict portable policy document as ${importedId}.`, time: "NOW", state: "Recorded" }]);
       setPortabilityNotice(`Imported as ${importedId}. This is a new local Passport identity.`);
     }, "Passport import was rejected");
     input.value = "";
@@ -1207,7 +1196,7 @@ export function App() {
       });
       const appliedCount = Number(result.data.applied_count || selectedHandles.length);
       setInstagramImportNotice(`${appliedCount} explicitly selected Instagram creators were added to Passport version ${result.data.constitution.version}.`);
-      addActivity(`Added ${appliedCount} user-selected Instagram creator preferences; no Instagram account or recommendation feed was changed.`, "Approved", "You");
+      addActivity(`Added ${appliedCount} user-selected Instagram creator preferences; no Instagram account or recommendation feed was changed.`, "Recorded", "You");
     }, "Instagram creator intent could not be added");
   };
   const handleInstagramImportDiscard = () => {
@@ -1261,8 +1250,7 @@ export function App() {
       const result = await feedPassportApi.previewAgentMission(agentMissionForm);
       syncSource(result.source);
       setAgentMission(result.data);
-      setAgentMissionApproved(false);
-      addActivity(`Mission ${result.data.id} observed a seeded ${agentMissionForm.platform} control twin, measured it, and stopped for scoped consent.`, "Plan only");
+      addActivity(`Mission ${result.data.id} observed a seeded ${agentMissionForm.platform} control twin, measured it, and prepared a bounded run.`, "Plan only");
     }, "Local mission preview failed");
   };
   const handleModelMissionPreview = (event) => {
@@ -1272,22 +1260,20 @@ export function App() {
       const result = await feedPassportApi.previewAgentMissionWithModel(agentMissionForm);
       syncSource(result.source);
       setAgentMission(result.data);
-      setAgentMissionApproved(false);
       const evidence = result.data.planner_evidence;
       addActivity(
-        `${evidence.model_id} completed ${evidence.tools?.length || 0} proposal-only Strands tool calls; deterministic policy narrowed and sealed mission ${result.data.id} before consent.`,
+        `${evidence.model_id} completed ${evidence.tools?.length || 0} proposal-only Strands tool calls; deterministic policy narrowed and sealed mission ${result.data.id} before execution.`,
         "Plan only",
         "Local model clerk",
       );
     }, "Local model mission planning failed");
   };
   const handleMissionRun = () => {
-    if (!agentMission?.id || !agentMissionApproved || rejectWhileBusy()) return;
+    if (!agentMission?.id || rejectWhileBusy()) return;
     return runBusy("mission-run", async () => {
       const result = await feedPassportApi.runAgentMission(agentMission.id);
       syncSource(result.source);
       setAgentMission(result.data);
-      setAgentMissionApproved(false);
       const receiptIds = result.data.receipt_ids || [];
       const receipt = {
         id: receiptIds.at(-1) || `MISSION-${result.data.id}`,
@@ -1300,7 +1286,7 @@ export function App() {
         _missionId: result.data.id,
       };
       addReceipt(receipt);
-      addActivity(`${result.data.id} executed only the approved local policy scope, re-observed the twin, and stopped at ${String(result.data.stop_reason || result.data.status).replaceAll("_", " ")}.`, result.data.status === "completed" ? "Verified" : "Boundary kept");
+      addActivity(`${result.data.id} executed only the sealed local policy scope, re-observed the twin, and stopped at ${String(result.data.stop_reason || result.data.status).replaceAll("_", " ")}.`, result.data.status === "completed" ? "Verified" : "Boundary kept");
     }, "Local mission execution failed");
   };
   const handleMissionCancel = () => {
@@ -1309,7 +1295,6 @@ export function App() {
       const result = await feedPassportApi.cancelAgentMission(agentMission.id);
       syncSource(result.source);
       setAgentMission(result.data);
-      setAgentMissionApproved(false);
       addActivity(`Mission ${result.data.id} was cancelled before local execution.`, "Boundary kept");
     }, "Mission cancellation failed");
   };
@@ -1356,17 +1341,15 @@ export function App() {
     return runBusy("live-commission-preview", async () => {
       const result = await feedPassportApi.previewLiveCommission(connectedAgentForm);
       setLiveCommission(result.data);
-      setLiveCommissionApproved(false);
-      addActivity(`Connected commission ${result.data.id} sealed an exact one-shot plan and stopped for owner approval.`, "Plan only", "Local model clerk");
+      addActivity(`Connected commission ${result.data.id} sealed an exact one-shot plan and is ready to run.`, "Plan only", "Local model clerk");
     }, "Connected commission preview failed");
   };
   const handleLiveCommissionRun = () => {
-    if (!liveCommission?.id || !liveCommissionApproved || rejectWhileBusy()) return;
+    if (!liveCommission?.id || rejectWhileBusy()) return;
     return runBusy("live-commission-run", async () => {
       const result = await feedPassportApi.runLiveCommission(liveCommission.id);
       setLiveCommission(result.data);
-      setLiveCommissionApproved(false);
-      addActivity(`Connected commission ${result.data.id} completed its single approved provider pass and recorded the outcome.`, "Receipt recorded", "You");
+      addActivity(`Connected commission ${result.data.id} completed its single sealed provider pass and recorded the outcome.`, "Receipt recorded", "You");
     }, "Connected commission execution stopped");
   };
   const handleLiveCommissionReconcile = () => {
@@ -1382,7 +1365,6 @@ export function App() {
     return runBusy("live-commission-cancel", async () => {
       const result = await feedPassportApi.cancelLiveCommission(liveCommission.id);
       setLiveCommission(result.data);
-      setLiveCommissionApproved(false);
       addActivity(`Connected commission ${result.data.id} was cancelled before provider execution.`, "Boundary kept", "You");
     }, "Connected commission cancellation failed");
   };
@@ -1391,7 +1373,7 @@ export function App() {
     return runBusy("live-commission-rollback", async () => {
       const result = await feedPassportApi.rollbackLiveCommission(liveCommission.id);
       setLiveCommission(result.data);
-      addActivity(`Connected commission ${result.data.id} attempted the separately approved inverse controls from its receipt.`, result.data.status === "rolled_back" ? "Restored" : "Needs attention", "You");
+      addActivity(`Connected commission ${result.data.id} attempted the exact inverse controls from its receipt.`, result.data.status === "rolled_back" ? "Restored" : "Needs attention", "You");
     }, "Connected commission rollback failed");
   };
 
@@ -1407,7 +1389,6 @@ export function App() {
         baselineSnapshotId: stage === "after" ? feedEvidenceBaselineId : null,
       });
       setFeedEvidenceResult(result.data);
-      setFeedEvidenceApproved(false);
       if (stage === "before") setFeedEvidenceBaselineId(result.data.snapshot_id);
       addActivity(
         `Recorded ${links.length} owner-selected ${stage} links and separated provider facts from deterministic inference.`,
@@ -1425,7 +1406,6 @@ export function App() {
         feedEvidenceResult.passport_version,
       );
       setFeedEvidenceResult(result.data);
-      setFeedEvidenceApproved(false);
       addActivity(
         `The feed evidence agent completed ${result.data.agent_evidence?.tools?.length || 0} proposal-only tool calls. No Passport or social account changed.`,
         "Agent proposal attached",
@@ -1435,14 +1415,13 @@ export function App() {
   };
 
   const handleFeedEvidenceApply = () => {
-    if (!feedEvidenceResult?.id || !feedEvidenceApproved || rejectWhileBusy()) return;
+    if (!feedEvidenceResult?.id || rejectWhileBusy()) return;
     return runBusy("evidence-apply", async () => {
       const result = await feedPassportApi.applyFeedEvidence(
         feedEvidenceResult.id,
         feedEvidenceResult.passport_version,
       );
       setFeedEvidenceResult(result.data);
-      setFeedEvidenceApproved(false);
       setConstitution(result.data.constitution);
       addReceipt({
         id: `EVIDENCE-${result.data.id}`,
@@ -1498,12 +1477,11 @@ export function App() {
       setFeatureDeskPrefills((current) => ({ ...current, temporary: mapped.values }));
     } else if (mapped.section === "companion") {
       if (companionInvitation || companion) {
-        setActionError("A Companion consent flow already exists. Revoke or finish that flow before pre-filling a different proposal; no consent state was changed.");
+        setActionError("A Companion sharing flow already exists. Revoke or finish that flow before pre-filling a different proposal; no sharing state was changed.");
         return;
       }
       setShare(mapped.values.share);
       setBlend(mapped.values.blend);
-      setPartnerConsentConfirmed(false);
       setFeatureDeskPrefills((current) => ({
         ...current,
         companion: {
@@ -1516,7 +1494,7 @@ export function App() {
     }
     setActionError("");
     addActivity(
-      `Prefilled the ${mapped.section} desk from a proposal only. No consent, approval, receipt, overlay, companion, migration, or account action was created.`,
+      `Prefilled the ${mapped.section} desk from a proposal only. No receipt, overlay, companion, migration, or account action was created.`,
       "Plan only",
       "Local Feature Clerk",
     );
@@ -1550,16 +1528,16 @@ export function App() {
     case "visas": content = <VisaSpread connectedIds={connectedIds} onToggle={toggleDestination} selectedVisa={selectedVisa} setSelectedVisa={setSelectedVisa} connections={accountConnections} oauthProviders={oauthProviders} connectionConfiguration={connectionConfiguration} connectionNotice={connectionNotice} onAuthorize={handleAuthorizeConnection} onRevoke={handleRevokeConnection} busyAction={busyAction} platformProfiles={platformProfiles} instagramImport={instagramImport} instagramImportSelection={instagramImportSelection} setInstagramImportSelection={setInstagramImportSelection} instagramImportNotice={instagramImportNotice} onInstagramImportPreview={handleInstagramImportPreview} onInstagramImportApply={handleInstagramImportApply} onInstagramImportDiscard={handleInstagramImportDiscard} serviceAvailable={apiMode === "service"} />; break;
     case "migration": content = <MigrationSpread source={migrationSource} setSource={handleMigrationSourceChange} destination={migrationDestination} setDestination={handleMigrationDestinationChange} preview={migrationPreview} onCapture={handleMigrationCapture} onPreview={handleMigrationPreview} onApply={handleMigrationApply} busyAction={busyAction} outcome={migrationOutcome} captureNotice={migrationCaptureNotice} constitutionVersion={constitution.version} proposalPrefill={featureDeskPrefills.migration} guidedHandoff={guidedHandoff} onResolveGuidedStep={handleResolveGuidedStep} onFinalizeGuidedHandoff={handleFinalizeGuidedHandoff} />; break;
     case "temporary": content = <TemporarySpread form={temporaryForm} setForm={setTemporaryForm} visas={temporaryVisas} onIssue={handleTemporaryIssue} onRevoke={handleTemporaryRevoke} busy={busyAction.startsWith("temporary")} proposalPrefill={featureDeskPrefills.temporary} />; break;
-    case "companion": content = <CompanionSpread share={share} setShare={setShare} partnerShare={partnerShare} setPartnerShare={setPartnerShare} partnerCode={partnerCode} setPartnerCode={setPartnerCode} blend={blend} setBlend={setBlend} invitation={companionInvitation} partnerConfirmed={partnerConsentConfirmed} setPartnerConfirmed={setPartnerConsentConfirmed} companion={companion} onCreateInvitation={handleCompanionInvitationCreate} onAcceptInvitation={handleCompanionInvitationAccept} onRevokeInvitation={handleCompanionInvitationRevoke} onRevokeCompanion={handleCompanionRevoke} busy={busyAction.startsWith("companion")} passportId={passportId} proposalPrefill={featureDeskPrefills.companion} />; break;
+    case "companion": content = <CompanionSpread share={share} setShare={setShare} partnerShare={partnerShare} setPartnerShare={setPartnerShare} partnerCode={partnerCode} setPartnerCode={setPartnerCode} blend={blend} setBlend={setBlend} invitation={companionInvitation} partnerConfirmed={partnerPersonaConfirmed} setPartnerConfirmed={setPartnerPersonaConfirmed} companion={companion} onCreateInvitation={handleCompanionInvitationCreate} onAcceptInvitation={handleCompanionInvitationAccept} onRevokeInvitation={handleCompanionInvitationRevoke} onRevokeCompanion={handleCompanionRevoke} busy={busyAction.startsWith("companion")} passportId={passportId} proposalPrefill={featureDeskPrefills.companion} />; break;
     case "drift": content = <DriftSpread drift={drift} onCheck={handleDriftCheck} onCorrect={handleDriftCorrection} busy={busyAction.startsWith("drift")} correctionApplied={correctionApplied} correctionSimulated={correctionSimulated} canCorrect={driftDecisionReady} monitor={driftMonitor} monitorConfig={monitorConfig} setMonitorConfig={setMonitorConfig} onCreateMonitor={handleCreateMonitor} onStopMonitor={handleStopMonitor} />; break;
     case "continuity": content = <CreatorSpread query={creatorQuery} setQuery={setCreatorQuery} creators={CREATOR_FIXTURES} preserved={preservedCreators} onPreserve={handlePreserveCreator} busy={busyAction.startsWith("creator")} />; break;
     case "templates": content = <TemplatesSpread onApply={handleTemplateApply} appliedTemplate={appliedTemplate} />; break;
     case "history": content = <HistorySpread receipts={receipts} selectedReceipt={selectedReceipt} setSelectedReceipt={setSelectedReceipt} onRollback={handleRollback} checkpoints={checkpoints} onCheckpoint={handleCheckpoint} onRestore={handleRestoreCheckpoint} onExport={handleExportPassport} onImport={handleImportPassport} portabilityNotice={portabilityNotice} busyAction={busyAction} />; break;
     case "clerk": content = <FeatureClerkSpread request={featureClerkRequest} setRequest={setFeatureClerkRequest} result={featureClerkResult} ready={featureClerkReady} readinessReason={featureClerkReadinessReason} busy={busyAction === "feature-clerk-plan"} onPlan={handleFeatureClerkPlan} onApply={handleFeatureClerkApply} />; break;
-    case "agent": content = <AgentSpread form={agentMissionForm} setForm={setAgentMissionForm} mission={agentMission} approvalChecked={agentMissionApproved} setApprovalChecked={setAgentMissionApproved} onPreview={handleMissionPreview} onModelPreview={handleModelMissionPreview} onRun={handleMissionRun} onCancel={handleMissionCancel} onRollback={handleMissionRollback} busyAction={busyAction} webmcp={webmcp} apiMode={apiMode} schedulerStatus={schedulerStatus} modelStatus={modelStatus} activity={activity} />; break;
-    case "connected-agent": content = <ConnectedAgentDesk form={connectedAgentForm} setForm={setConnectedAgentForm} eligibleConnections={accountConnections} commission={liveCommission} approvalChecked={liveCommissionApproved} setApprovalChecked={setLiveCommissionApproved} onPreview={handleLiveCommissionPreview} onRun={handleLiveCommissionRun} onReconcile={handleLiveCommissionReconcile} onRollback={handleLiveCommissionRollback} onCancel={handleLiveCommissionCancel} busyAction={busyAction} modelStatus={modelStatus} apiMode={apiMode} />; break;
-    case "evidence": content = <FeedEvidenceDesk form={feedEvidenceForm} setForm={setFeedEvidenceForm} result={feedEvidenceResult} approved={feedEvidenceApproved} setApproved={setFeedEvidenceApproved} onAnalyze={handleFeedEvidenceAnalyze} onModelPlan={handleFeedEvidenceModelPlan} onApply={handleFeedEvidenceApply} onOpenConnectedAgent={() => navigate("connected-agent")} eligibleConnections={accountConnections} busyAction={busyAction} apiMode={apiMode} baselineSnapshotId={feedEvidenceBaselineId} modelStatus={modelStatus} />; break;
-    default: content = <OverviewSpread constitution={constitution} connectedIds={connectedIds} onNavigate={navigate} onToggleDestination={toggleDestination} consent={consent} setConsent={setConsent} expiry={expiry} setExpiry={setExpiry} onIssue={handleIssue} busy={busyAction === "issue"} issued={issued} latestReceipt={latestReceipt} passportId={passportId} />;
+    case "agent": content = <AgentSpread form={agentMissionForm} setForm={setAgentMissionForm} mission={agentMission} onPreview={handleMissionPreview} onModelPreview={handleModelMissionPreview} onRun={handleMissionRun} onCancel={handleMissionCancel} onRollback={handleMissionRollback} busyAction={busyAction} webmcp={webmcp} apiMode={apiMode} schedulerStatus={schedulerStatus} modelStatus={modelStatus} activity={activity} />; break;
+    case "connected-agent": content = <ConnectedAgentDesk form={connectedAgentForm} setForm={setConnectedAgentForm} eligibleConnections={accountConnections} commission={liveCommission} onPreview={handleLiveCommissionPreview} onRun={handleLiveCommissionRun} onReconcile={handleLiveCommissionReconcile} onRollback={handleLiveCommissionRollback} onCancel={handleLiveCommissionCancel} busyAction={busyAction} modelStatus={modelStatus} apiMode={apiMode} />; break;
+    case "evidence": content = <FeedEvidenceDesk form={feedEvidenceForm} setForm={setFeedEvidenceForm} result={feedEvidenceResult} onAnalyze={handleFeedEvidenceAnalyze} onModelPlan={handleFeedEvidenceModelPlan} onApply={handleFeedEvidenceApply} onOpenConnectedAgent={() => navigate("connected-agent")} eligibleConnections={accountConnections} busyAction={busyAction} apiMode={apiMode} baselineSnapshotId={feedEvidenceBaselineId} modelStatus={modelStatus} />; break;
+    default: content = <OverviewSpread constitution={constitution} connectedIds={connectedIds} onNavigate={navigate} onToggleDestination={toggleDestination} expiry={expiry} setExpiry={setExpiry} onIssue={handleIssue} busy={busyAction === "issue"} issued={issued} latestReceipt={latestReceipt} passportId={passportId} />;
   }
   if (authState.required && !authState.authenticated) {
     content = <AuthenticationDesk state={authState} onSignIn={handleSignIn} />;

@@ -111,7 +111,7 @@ export function commissionPresentation(commission) {
 
 const STATUS_VIEWS = Object.freeze({
   awaiting_approval: {
-    label: "Awaiting exact approval",
+    label: "Ready to run",
     tone: "purple",
     detail: "The one-shot sequence is sealed. No account control has run.",
     action: "approve",
@@ -179,7 +179,7 @@ const STATUS_VIEWS = Object.freeze({
   rolled_back: {
     label: "Receipt rolled back",
     tone: "green",
-    detail: "The separately approved inverse controls completed and the receipt is closed.",
+    detail: "The exact inverse controls completed and the receipt is closed.",
     action: "terminal",
   },
   rollback_partial: {

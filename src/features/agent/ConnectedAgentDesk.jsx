@@ -16,7 +16,7 @@ function ModelProposalEvidence({ commission, evidence }) {
         <Icon name="bot" size={20} />
         <div>
           <b>MODEL PROPOSAL NOT RECORDED</b>
-          <p>A connected commission cannot be approved until its proposal evidence passes deterministic validation.</p>
+          <p>A connected commission cannot run until its proposal evidence passes deterministic validation.</p>
         </div>
       </aside>
     );
@@ -56,7 +56,7 @@ function ModelProposalEvidence({ commission, evidence }) {
         </div>
       ) : null}
       <p className="connected-agent-authority">
-        Priority only. The local model can order certified action families; it cannot omit families, choose identity or targets, approve, access credentials, execute, reconcile, or roll back.
+        Priority only. The local model can order certified action families; it cannot omit families, choose identity or targets, start a run, access credentials, execute, reconcile, or roll back.
       </p>
     </section>
   );
@@ -98,7 +98,7 @@ function ExactActionPlan({ presentation }) {
         </ol>
       ) : (
         <p className="connected-agent-plan-missing">
-          No exact actions exist under <code>approval_scope.executable_plan.actions</code>. This desk will not fall back to another plan.
+          No exact actions exist in the sealed executable plan. This desk will not fall back to another plan.
         </p>
       )}
       <div className="connected-agent-certified-set">
@@ -140,8 +140,6 @@ function TranslationBoundaries({ limitations }) {
 function CommissionControls({
   commission,
   presentation,
-  approvalChecked,
-  setApprovalChecked,
   onPreview,
   onRun,
   onReconcile,
@@ -152,29 +150,19 @@ function CommissionControls({
   serviceReady,
 }) {
   const statusView = commissionStatusView(commission?.status);
-  const exactApprovalReady = serviceReady
+  const exactRunReady = serviceReady
     && Boolean(boundConnection)
     && presentation.certificationValid
     && presentation.exactPlanValid
     && presentation.allActionsCertified;
   if (statusView.action === "approve") {
     return (
-      <section className="connected-agent-consent" aria-label="Exact connected account approval">
-        <label>
-          <input
-            type="checkbox"
-            checked={approvalChecked}
-            onChange={(event) => setApprovalChecked(event.target.checked)}
-            disabled={Boolean(busyAction) || !exactApprovalReady}
-          />
-          <span>
-            <b>I approve these exact controls and targets on the account identity shown above.</b>
-            <small>
-              One shot · {presentation.actions.length} controls · no added passes · no action-family expansion · approval expires with this sealed scope
-            </small>
-          </span>
-        </label>
-        {!exactApprovalReady ? (
+      <section className="connected-agent-consent" aria-label="Exact connected account actions">
+        <p>
+          <b>One exact provider run</b>
+          <small>{presentation.actions.length} controls · no added passes · no action-family expansion</small>
+        </p>
+        {!exactRunReady ? (
           <p role="alert">Execution stays locked until the active connection, passed live certificate, exact count, and every action type agree.</p>
         ) : null}
         <div>
@@ -182,7 +170,7 @@ function CommissionControls({
             type="button"
             onClick={onRun}
             busy={busyAction === "live-commission-run"}
-            disabled={!approvalChecked || !exactApprovalReady || Boolean(busyAction)}
+            disabled={!exactRunReady || Boolean(busyAction)}
           >
             <Icon name="play" size={16} />RUN EXACT PLAN ONCE
           </ActionButton>
@@ -244,8 +232,6 @@ export function ConnectedAgentDesk({
   setForm,
   eligibleConnections = [],
   commission,
-  approvalChecked,
-  setApprovalChecked,
   onPreview,
   onRun,
   onReconcile,
@@ -295,7 +281,7 @@ export function ConnectedAgentDesk({
           <div>
             <b>{serviceReady ? "CONNECTED SERVICE MODE" : "SERVICE MODE REQUIRED"}</b>
             <p>{serviceReady
-              ? "Only active, owner-bound YouTube or Bluesky connections are eligible. Confirm the exact account identity before approval."
+              ? "Only active, owner-bound YouTube or Bluesky connections are eligible. Confirm the exact account identity before running."
               : "This desk has no browser-fixture fallback and will not render a fixture commission as live."}</p>
           </div>
           <StatusStamp tone={serviceReady ? "green" : "orange"} compact>{serviceReady ? "NO FALLBACK" : "LOCKED"}</StatusStamp>
@@ -328,7 +314,7 @@ export function ConnectedAgentDesk({
             />
           </Field>
           <div className="connected-agent-envelope">
-            <span><Icon name="lock-keyhole" size={14} />Exact action types and targets require a separate checkbox after preview.</span>
+            <span><Icon name="lock-keyhole" size={14} />Exact action types and targets are shown before the run button is available.</span>
             <span><Icon name="shield-check" size={14} />Only the live certificate intersection can enter the sealed plan.</span>
             <span><Icon name="undo-2" size={14} />Rollback is shown only when the resulting receipt declares it available.</span>
           </div>
@@ -385,8 +371,6 @@ export function ConnectedAgentDesk({
             <CommissionControls
               commission={safeCommission}
               presentation={presentation}
-              approvalChecked={approvalChecked}
-              setApprovalChecked={setApprovalChecked}
               onPreview={onPreview}
               onRun={onRun}
               onReconcile={onReconcile}

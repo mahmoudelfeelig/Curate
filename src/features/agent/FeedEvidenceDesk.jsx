@@ -59,8 +59,6 @@ export function FeedEvidenceDesk({
   form,
   setForm,
   result,
-  approved,
-  setApproved,
   onAnalyze,
   onModelPlan,
   onApply,
@@ -123,7 +121,7 @@ export function FeedEvidenceDesk({
           <span><i className="source-note" />Owner note</span>
           <span><i className="source-inference" />Deterministic inference</span>
         </div>
-        <aside className="passport-warning">Applying a proposal changes only the portable Passport. Any connected-account write still needs its own exact plan, consent checkpoint, provider receipt, verification, and rollback.</aside>
+        <aside className="passport-warning">Applying a proposal changes only the portable Passport. Any connected-account write still needs its own exact plan, provider receipt, verification, and rollback.</aside>
         <footer className="passport-footer"><span>SELECT · VERIFY · INFER</span><span>{apiMode === "service" ? "LOCAL SERVICE" : "SERVICE REQUIRED"}</span><span>PAGE 25</span></footer>
       </article>
 
@@ -135,7 +133,7 @@ export function FeedEvidenceDesk({
           <div className="evidence-ledger" data-proposal-id={result.id} data-proposal-status={result.status}>
             <header className="evidence-docket">
               <div><span>{result.id}</span><h3>{proposal.goal_interpretation}</h3></div>
-              <StatusStamp tone={result.status === "applied_to_passport" ? "green" : "purple"}>{result.status.replaceAll("_", " ")}</StatusStamp>
+              <StatusStamp tone={result.status === "applied_to_passport" ? "green" : "purple"}>{result.status === "awaiting_owner_consent" ? "ready to apply" : result.status.replaceAll("_", " ")}</StatusStamp>
             </header>
             <EvidenceMetrics metrics={proposal.observed_metrics} label={comparison ? "OBSERVED AFTER" : "OBSERVED BEFORE"} />
             {comparison ? (
@@ -157,8 +155,8 @@ export function FeedEvidenceDesk({
               <>
                 <section className="evidence-agent-offer"><div><b>OPTIONAL MODEL INTERPRETATION</b><small>{modelReady ? "The model sees sanitized evidence only and cannot apply or execute." : "Local model unavailable; the deterministic proposal remains inspectable."}</small></div><ActionButton type="button" variant="quiet" onClick={onModelPlan} busy={busyAction === "evidence-model-plan"} disabled={!modelReady || Boolean(busyAction) || Boolean(result.agent_evidence)}>{result.agent_evidence ? "AGENT PLAN ATTACHED" : "ASK LOCAL STRANDS AGENT"}</ActionButton></section>
                 <section className="evidence-consent">
-                  <label><input type="checkbox" checked={approved} onChange={(event) => setApproved(event.target.checked)} disabled={Boolean(busyAction)} /><span><b>I reviewed this versioned Passport proposal.</b><small>No social account action is included in this consent.</small></span></label>
-                  <ActionButton type="button" onClick={onApply} busy={busyAction === "evidence-apply"} disabled={!approved || Boolean(busyAction)}>APPLY TO PASSPORT</ActionButton>
+                  <p><b>Portable policy only</b><small>No social account action is included.</small></p>
+                  <ActionButton type="button" onClick={onApply} busy={busyAction === "evidence-apply"} disabled={Boolean(busyAction)}>APPLY TO PASSPORT</ActionButton>
                 </section>
               </>
             ) : result.status === "applied_to_passport" ? (

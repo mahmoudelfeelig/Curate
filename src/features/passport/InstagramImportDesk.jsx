@@ -23,7 +23,6 @@ export function InstagramImportDesk({
   serviceAvailable,
 }) {
   const [query, setQuery] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
   const view = useMemo(() => instagramImportPresentation(session), [session]);
   const handles = view.followedHandles;
   const availableHandles = useMemo(() => new Set(handles), [handles]);
@@ -42,7 +41,6 @@ export function InstagramImportDesk({
   const working = Boolean(busyAction);
 
   useEffect(() => {
-    setConfirmed(false);
     setQuery("");
   }, [view.phase, view.sessionId]);
 
@@ -175,9 +173,9 @@ export function InstagramImportDesk({
           </fieldset>
           {filtered.length > visible.length ? <p className="instagram-import-truncation">Showing the first {visible.length} of {filtered.length} matches. Narrow the search to review the rest.</p> : null}
           <p className="instagram-import-selection" role="status" aria-live="polite" aria-atomic="true"><b>{selected.size}</b> selected. {view.hasCapacityHint ? <>This preview reports a limit of <b>{selectionLimit}</b> selections.</> : <>The service permits at most <b>{selectionLimit}</b> per import.</>} The service rechecks remaining Passport capacity before applying.</p>
-          <label className="instagram-import-consent"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} disabled={working || !selected.size} /><span><b>I chose these creators as portable intent.</b><small>This revises creator preferences only. It does not claim feed access, ranking access, or an Instagram account mutation.</small></span></label>
+          <p className="instagram-import-boundary-note">Selected creators become portable preferences only. This does not claim feed access, ranking access, or an Instagram account mutation.</p>
           <div className="instagram-import-actions">
-            <ActionButton type="button" onClick={() => onApply?.([...selected].sort((left, right) => left.localeCompare(right)))} busy={busyAction === "instagram-import-apply"} disabled={!confirmed || !selected.size || working}>ADD SELECTED TO PASSPORT</ActionButton>
+            <ActionButton type="button" onClick={() => onApply?.([...selected].sort((left, right) => left.localeCompare(right)))} busy={busyAction === "instagram-import-apply"} disabled={!selected.size || working}>ADD SELECTED TO PASSPORT</ActionButton>
             <ActionButton type="button" variant="quiet" onClick={onDiscard} busy={busyAction === "instagram-import-discard"} disabled={working}>DISCARD PREVIEW</ActionButton>
           </div>
         </>

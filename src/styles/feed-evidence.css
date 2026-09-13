@@ -56,8 +56,7 @@
 .evidence-agent-offer > div { display: grid; gap: 3px; }
 .evidence-agent-offer b { font: 800 9px/1.3 var(--font-mono); letter-spacing: .08em; }
 .evidence-agent-offer small { color: var(--ink-muted); font-size: 9px; }
-.evidence-consent label { display: flex; gap: 8px; align-items: flex-start; }
-.evidence-consent label span, .evidence-applied div { display: grid; gap: 3px; }
+.evidence-consent p, .evidence-applied div { display: grid; gap: 3px; margin: 0; }
 .evidence-consent b, .evidence-applied b { font-size: 11px; }
 .evidence-consent small, .evidence-applied span { font-size: 9px; color: var(--ink-muted); }
 .evidence-comparison { padding: 10px; border-left: 3px solid var(--green); background: rgba(207, 229, 214, .35); }

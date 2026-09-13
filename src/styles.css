@@ -912,22 +912,9 @@ dd {
 
 .customs-fields {
   display: grid;
-  grid-template-columns: 1.4fr 120px 120px;
+  grid-template-columns: minmax(150px, 1fr) 120px;
   gap: 16px;
   align-items: end;
-}
-
-.consent-check {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-weight: 700;
-}
-
-.consent-check input {
-  width: 24px;
-  height: 24px;
-  accent-color: var(--coral);
 }
 
 .anchor-date {
@@ -1020,6 +1007,11 @@ dd {
   text-align: center;
   color: var(--blue-dark);
   font-size: 9px;
+}
+
+.audit-slip > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .audit-slip b {
@@ -1947,6 +1939,13 @@ dd {
   line-height: 1.45;
 }
 
+.second-person-boundary {
+  margin: -3px 0 12px;
+  color: #625f56;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .blend-ticket {
   margin-bottom: 23px;
   border: 2px dashed #76674f;
@@ -2501,6 +2500,14 @@ dd {
   background: rgba(236, 225, 195, 0.52);
   position: relative;
   z-index: 1;
+}
+
+.receipt-detail-page {
+  min-width: 0;
+}
+
+.receipt-detail-page .page-heading .eyebrow {
+  overflow-wrap: anywhere;
 }
 
 .receipt-detail-stamp {

@@ -125,7 +125,7 @@ export function FeatureClerkSpread({
     <section className="passport-book section-book feature-clerk-book" data-feature-clerk>
       <div className="book-spine" aria-hidden="true" />
       <article className="passport-page left-page">
-        <ClerkHeading eyebrow="LOCAL LANGUAGE-MODEL INTAKE" title="Feature Clerk" note="Describe an outcome. The model selects typed parameters; the server renders the explanation and binds capability. Neither can grant consent or execute." page="CLERK A" />
+        <ClerkHeading eyebrow="LOCAL LANGUAGE-MODEL INTAKE" title="Feature Clerk" note="Describe an outcome. The model selects typed parameters; the server renders the explanation and binds capability. Neither can execute." page="CLERK A" />
         <section className={`clerk-readiness ${ready ? "clerk-ready" : "clerk-stopped"}`}>
           <Status tone={ready ? "green" : "orange"}>{ready ? "LOCAL MODEL READY" : "DESK LOCKED"}</Status>
           <div>
@@ -144,11 +144,11 @@ export function FeatureClerkSpread({
             onChange={(event) => setRequest(event.target.value)}
             placeholder="For example: Give me a reversible research-focused feed for exactly 9 hours, then return to my base Passport."
           />
-          <span className="field-hint">The request goes only to the configured loopback model. Account identities, credentials, consent, approvals, and execution resources remain server-locked.</span>
+          <span className="field-hint">The request goes only to the configured loopback model. Account identities, credentials, run tokens, and execution resources remain server-locked.</span>
         </label>
         <div className="clerk-authority-ticket">
           <b>THIS WINDOW CAN</b><span>Inspect the selected Passport</span><span>Inspect a safe capability catalog</span><span>Return one typed proposal</span>
-          <b>THIS WINDOW CANNOT</b><span>Create consent</span><span>Approve or execute</span><span>Touch a social account</span>
+          <b>THIS WINDOW CANNOT</b><span>Start a run</span><span>Execute controls</span><span>Touch a social account</span>
         </div>
         <button
           type="button"
@@ -161,7 +161,7 @@ export function FeatureClerkSpread({
       </article>
 
       <article className="passport-page right-page">
-        <ClerkHeading eyebrow={proposal ? "TYPED PROPOSAL READY" : "AWAITING REQUEST"} title="Proposal Docket" note="Applying a proposal only pre-fills the named deterministic desk. That desk keeps all of its existing consent and execution gates." page="CLERK B" />
+        <ClerkHeading eyebrow={proposal ? "TYPED PROPOSAL READY" : "AWAITING REQUEST"} title="Proposal Docket" note="Applying a proposal only pre-fills the named deterministic desk. That desk keeps its execution boundaries." page="CLERK B" />
         {!proposal || !evidence ? (
           <div className="clerk-empty">
             <b>NO PROPOSAL FILED</b>
@@ -177,7 +177,7 @@ export function FeatureClerkSpread({
             <div className="clerk-rendered-explanation"><span>DETERMINISTIC SERVER-RENDERED EXPLANATION</span><blockquote>{proposal.rationale}</blockquote></div>
             <CapabilityTruth capability={capability} />
             <PlannerEvidence evidence={evidence} />
-            <aside className="clerk-apply-boundary"><b>APPLY MEANS PREFILL</b><p>No consent, approval, migration, temporary overlay, companion, receipt, or account mutation is created by the next button.</p></aside>
+            <aside className="clerk-apply-boundary"><b>APPLY MEANS PREFILL</b><p>No migration, temporary overlay, companion, receipt, or account mutation is created by the next button.</p></aside>
             <button type="button" className="action-button action-primary" data-feature-apply-to-desk onClick={onApply} disabled={busy}>APPLY TO DETERMINISTIC DESK</button>
           </div>
         )}

@@ -359,8 +359,8 @@ class AgentCoreRuntimeTests(unittest.TestCase):
                     "submit_feed_goal_proposal",
                     {
                         "target_topic_weights": {
-                            "pet_science": 0.6,
-                            "cute_drawing": 0.2,
+                            "pet_science": 0.5,
+                            "cute_drawing": 0.3,
                             "exploration": 0.2,
                         },
                         "hard_exclusions": ["ragebait"],
@@ -408,6 +408,8 @@ class AgentCoreRuntimeTests(unittest.TestCase):
 
         self.assertEqual(response["kind"], "feed_goal_proposal")
         self.assertEqual(response["proposal"]["target_topic_weights"]["pet_science"], 0.6)
+        self.assertEqual(response["proposal"]["target_topic_weights"]["cute_drawing"], 0.2)
+        self.assertTrue(response["evidence"]["explicit_percentages_enforced"])
         self.assertFalse(response["evidence"]["mutation_tools_exposed"])
         self.assertFalse(response["evidence"]["links_transmitted"])
         self.assertFalse(response["evidence"]["account_identifier_fields_transmitted"])

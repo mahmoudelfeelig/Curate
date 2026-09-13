@@ -14,6 +14,7 @@ from strands.hooks import BeforeToolCallEvent, HookRegistry
 from strands.models import Model
 
 from feed_passport.domain import FeedPassport
+from feed_passport.domain.feed_goal import has_explicit_topic_targets, target_topics_for_goal
 
 from .model_provider import ModelExecutionProfile
 
@@ -109,6 +110,7 @@ class FeedGoalEvidence(StrictPlannerModel):
     paid_model_calls: bool
     authority: Literal["proposal_only"] = "proposal_only"
     mutation_tools_exposed: Literal[False] = False
+    explicit_percentages_enforced: bool = False
     links_transmitted: Literal[False] = False
     account_identifier_fields_transmitted: Literal[False] = False
     stop_reason: Annotated[str, StringConstraints(min_length=1, max_length=80)]
@@ -207,6 +209,11 @@ class FeedGoalPlanner:
             raise ValueError("provide between one and twelve sanitized evidence items")
         events: list[dict[str, str]] = []
         proposals: list[FeedGoalProposal] = []
+        locked_targets = (
+            target_topics_for_goal(request, passport.topic_targets)
+            if has_explicit_topic_targets(request)
+            else None
+        )
 
         def require_prefix(expected: tuple[str, ...]) -> None:
             if tuple(item["name"] for item in events) != expected:
@@ -223,6 +230,10 @@ class FeedGoalPlanner:
                 "hard_exclusions": sorted(passport.hard_exclusions),
                 "max_outrage": passport.max_outrage,
                 "allowed_new_exclusions": sorted(_ALLOWED_EXCLUSIONS),
+                "server_locked_topic_targets": locked_targets or {},
+                "target_instruction": (
+                    "Copy server_locked_topic_targets exactly when it is non-empty."
+                ),
                 "claim_boundary": "No identity, resource, account, URL, credential, or history data.",
             }
 
@@ -322,12 +333,16 @@ class FeedGoalPlanner:
         ] or len(proposals) != 1:
             raise FeedGoalPlannerError("the evidence model did not complete the exact proposal protocol")
         usage = dict(result.metrics.accumulated_usage)
+        proposal = proposals[0]
+        if locked_targets is not None and proposal.target_topic_weights != locked_targets:
+            proposal = proposal.model_copy(update={"target_topic_weights": locked_targets})
         evidence_record = FeedGoalEvidence(
             provider=self.profile.provider,
             model_id=self.profile.model_id,
             endpoint_scope=self.profile.endpoint_scope,
             external_model_calls=self.profile.external_model_calls,
             paid_model_calls=self.profile.paid_model_calls,
+            explicit_percentages_enforced=locked_targets is not None,
             stop_reason=str(result.stop_reason),
             duration_ms=max(0, round((time.perf_counter() - started) * 1000)),
             cycles=int(result.metrics.cycle_count),
@@ -344,4 +359,4 @@ class FeedGoalPlanner:
                 "execution_and_rollback",
             ),
         )
-        return FeedGoalResult(proposal=proposals[0], evidence=evidence_record)
+        return FeedGoalResult(proposal=proposal, evidence=evidence_record)

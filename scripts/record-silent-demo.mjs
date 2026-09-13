@@ -130,7 +130,8 @@ async function openDesk(section) {
 }
 
 try {
-  await page.goto(baseUrl, { waitUntil: "networkidle" });
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
+  await page.locator(".desk-tabs").waitFor({ state: "visible", timeout: 30_000 });
   await pause(5_500);
   await openDesk("constitution");
   await pause(4_000);
@@ -156,9 +157,7 @@ try {
 
   await page.getByRole("button", { name: "ASK LOCAL STRANDS AGENT" }).click();
   await page.getByText("STRANDS AGENT PROPOSAL").waitFor({ timeout: localModelWaitMs });
-  await pause(10_000);
-  await page.getByRole("checkbox", { name: /I reviewed this versioned Passport proposal/ }).check();
-  await pause(3_000);
+  await pause(13_000);
   await page.getByRole("button", { name: "APPLY TO PASSPORT" }).click();
   await page.getByText(/PASSPORT VERSION \d+ SEALED/).waitFor({ timeout: 10_000 });
   await pause(7_000);
@@ -175,10 +174,8 @@ try {
   });
   await page.getByRole("region", { name: "Local model planner evidence" }).waitFor();
   missionProof.planned_with_local_model = true;
-  await pause(8_000);
-  await page.getByRole("checkbox", { name: /I approve this bounded local mission policy/ }).check();
-  await pause(2_500);
-  await page.getByRole("button", { name: "RUN LOCALLY" }).click();
+  await pause(10_500);
+  await page.getByRole("button", { name: "RUN BOUNDED MISSION" }).click();
   await page.locator(
     '.mission-ledger[data-mission-status="completed"], '
       + '.mission-ledger[data-mission-status="needs_human"]',

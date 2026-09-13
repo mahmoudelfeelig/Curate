@@ -346,7 +346,7 @@ To activate a successful receipt, set `FEED_PASSPORT_LIVE_CERTIFICATIONS_DIR` to
 
 ## AWS, AgentCore, and Builder ID
 
-The AgentCore implementation is prepared but not deployed. Local source tests prove the proposal-only Strands loops with a scripted no-network model, strict `health`/`plan_feature`/`plan_feed` commands, sanitized feed-evidence handling, JWT-subject ownership, and a narrowly scoped synthesized stack. They do not prove managed JWT validation, Gateway routing, Bedrock entitlement, regional service availability, promotional-credit coverage, or billing.
+The repository prepares but does not keep an AgentCore application deployment alive. Local source tests prove the proposal-only Strands loops with a scripted no-network model, strict `health`/`plan_feature`/`plan_feed` commands, sanitized feed-evidence handling, JWT-subject ownership, and a narrowly scoped synthesized stack. Managed JWT validation, Gateway routing, Bedrock entitlement, and regional service behavior count as proven only when a redacted owner-run receipt for the exact revision records the managed checks; credit coverage and billing remain separate account facts even then. The application stack is destroyed in the same evidence session while the shared CDK bootstrap is preserved.
 
 There is no honest zero-dollar deployment guarantee. AgentCore Runtime, Gateway, Bedrock, Cognito, S3 deployment assets, and CloudWatch can be consumption-based. AWS credits and Budgets are not hard spend caps. The currently authorized live proof is bounded by a USD 5 monthly alert budget, the smallest stack in this repository, one `health` invocation, one `plan_feed` invocation, seven-day logs, and same-session teardown. Stop if that boundary cannot be established exactly.
 

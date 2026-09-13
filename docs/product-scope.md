@@ -2,7 +2,7 @@
 
 ## Product promise
 
-Feed Passport gives a person a portable, inspectable policy for the recommendation environment they want. In deterministic Feed Passport Lab and ten account-free platform control twins it translates that policy, applies only approved local controls, measures the result, adapts within fixed action and iteration budgets, and leaves auditable rollback receipts. Real external destinations remain Guided in the current evidence set. Bounded owner-authenticated transport candidates exist for YouTube, X, Reddit, and Bluesky, but none is loaded without external configuration and a fresh signed authorized-dummy-account conformance receipt; generic migrations cannot execute a live adapter.
+Feed Passport gives a person a portable, inspectable policy for the recommendation environment they want. In deterministic Feed Passport Lab and ten account-free platform control twins it translates that policy, applies only approved local controls, measures the result, adapts within fixed action and iteration budgets, and leaves auditable rollback receipts. Real external destinations remain Guided in the public default configuration. Bounded owner-authenticated transport candidates exist for YouTube, X, Reddit, and Bluesky, but none is loaded without external configuration and a fresh signed authorized-dummy-account conformance receipt for the exact revision; generic migrations cannot execute a live adapter.
 
 The product transfers intent and observable preferences. It never claims to copy proprietary model weights, hidden embeddings, watch history, or an exact platform algorithm.
 

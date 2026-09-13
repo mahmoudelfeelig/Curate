@@ -6,6 +6,7 @@ import pickle
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 
 from feed_passport.adapters.platforms.live.bluesky import (
@@ -36,7 +37,7 @@ from feed_passport.domain import (
 )
 from feed_passport.domain.connections import AuthorizedConnection, ConnectionStatus
 from feed_passport.ports.credentials import OAuthCredentialLease
-from feed_passport.ports.live_platform import ValidatedLiveCertification
+from feed_passport.ports.live_platform import HttpxNoAmbientClient, ValidatedLiveCertification
 
 
 NOW = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
@@ -163,6 +164,29 @@ def test_oauth_credential_lease_is_redacted_and_nonserializable() -> None:
         copy.copy(lease)
     with pytest.raises(ValueError, match="HTTPS"):
         lease.authorization_headers(method="GET", url="http://example.test/resource")
+
+
+def test_http_client_preserves_query_embedded_in_url_when_params_are_omitted() -> None:
+    requested_urls: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requested_urls.append(str(request.url))
+        return httpx.Response(200, json={"items": [{"id": "channel-one"}]})
+
+    client = HttpxNoAmbientClient()
+    client.close()
+    client._client = httpx.Client(transport=httpx.MockTransport(respond), trust_env=False)
+    try:
+        client.request(
+            "GET",
+            "https://www.googleapis.com/youtube/v3/channels?part=id&mine=true",
+        )
+    finally:
+        client.close()
+
+    assert requested_urls == [
+        "https://www.googleapis.com/youtube/v3/channels?part=id&mine=true"
+    ]
 
 
 def test_dpop_lease_requires_and_uses_request_bound_proof() -> None:

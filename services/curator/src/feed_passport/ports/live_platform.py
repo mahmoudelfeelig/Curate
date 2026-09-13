@@ -252,7 +252,7 @@ class HttpxNoAmbientClient:
             method,
             url,
             headers=dict(headers or {}),
-            params=dict(params or {}),
+            params=dict(params) if params is not None else None,
             json=json,
             data=dict(data or {}) if data is not None else None,
         )

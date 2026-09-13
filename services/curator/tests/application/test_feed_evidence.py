@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -162,6 +163,27 @@ class FeedEvidenceServiceTests(unittest.TestCase):
         self.assertIn("not the platform's private FYP", self.store.get_projection(
             "feed_evidence_snapshots", result["snapshot_id"]
         )[1]["claim_boundary"])
+
+    def test_analyze_turns_a_vague_request_into_a_measurable_topic_shift(self) -> None:
+        result = self.service.analyze(
+            actor_id="person-a",
+            passport_id=self.passport.id,
+            goal="I want less ragebait and more science-based pages.",
+            stage="before",
+            links=(
+                EvidenceLink(
+                    "https://www.instagram.com/p/science123/",
+                    "A calm explanation of a recent astronomy observation.",
+                ),
+            ),
+        )
+
+        targets = result["proposal"]["target_topic_weights"]
+        changes = result["proposal"]["passport_changes"]
+        self.assertGreater(targets["science"], 0)
+        self.assertTrue(math.isclose(sum(targets.values()), 1.0, abs_tol=0.000001))
+        self.assertIn("ragebait", changes["hard_exclusions"])
+        self.assertEqual(changes["max_outrage"], 0.03)
 
     def test_apply_requires_unchanged_version_and_records_versioned_result(self) -> None:
         result = self.service.analyze(

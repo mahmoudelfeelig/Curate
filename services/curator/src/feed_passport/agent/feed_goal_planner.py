@@ -14,7 +14,11 @@ from strands.hooks import BeforeToolCallEvent, HookRegistry
 from strands.models import Model
 
 from feed_passport.domain import FeedPassport
-from feed_passport.domain.feed_goal import has_explicit_topic_targets, target_topics_for_goal
+from feed_passport.domain.feed_goal import (
+    has_explicit_topic_targets,
+    has_relative_topic_directions,
+    target_topics_for_goal,
+)
 
 from .model_provider import ModelExecutionProfile
 
@@ -153,7 +157,9 @@ Translate explicit percentages exactly and make target_topic_weights total 1. Us
 names. When percentages leave a remainder described as exploratory, assign it to exploration. Otherwise
 preserve useful existing topics proportionally. Prefer evidence-supported topics but do not claim the sample
 represents a complete feed or proves how a platform ranks. Only choose hard exclusions from the
-server-provided allowlist.
+server-provided allowlist. Treat phrases such as "more science" and "less ragebait" as real directional
+requests even when the owner does not provide percentages; the server may supply a normalized mix that
+locks those directions while you explain the evidence and choose supported exclusions.
 """.strip()
 
 
@@ -209,9 +215,11 @@ class FeedGoalPlanner:
             raise ValueError("provide between one and twelve sanitized evidence items")
         events: list[dict[str, str]] = []
         proposals: list[FeedGoalProposal] = []
+        explicit_targets = has_explicit_topic_targets(request)
+        relative_targets = has_relative_topic_directions(request)
         locked_targets = (
             target_topics_for_goal(request, passport.topic_targets)
-            if has_explicit_topic_targets(request)
+            if explicit_targets or relative_targets
             else None
         )
 
@@ -342,7 +350,7 @@ class FeedGoalPlanner:
             endpoint_scope=self.profile.endpoint_scope,
             external_model_calls=self.profile.external_model_calls,
             paid_model_calls=self.profile.paid_model_calls,
-            explicit_percentages_enforced=locked_targets is not None,
+            explicit_percentages_enforced=explicit_targets,
             stop_reason=str(result.stop_reason),
             duration_ms=max(0, round((time.perf_counter() - started) * 1000)),
             cycles=int(result.metrics.cycle_count),

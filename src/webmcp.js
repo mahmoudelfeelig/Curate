@@ -32,6 +32,27 @@ export function validateTemporaryVisaInput(input = {}) {
   return { purpose, duration };
 }
 
+export function validateFeedEvidenceInput(input = {}) {
+  const goal = String(input.goal || "").trim();
+  const links = Array.isArray(input.links) ? input.links : [];
+  if (!goal || goal.length > 1200) {
+    throw new TypeError("A feed evidence goal must contain between one and 1200 characters.");
+  }
+  if (!links.length || links.length > 12) {
+    throw new TypeError("Feed evidence requires between one and 12 selected links.");
+  }
+  const normalized = links.map((item) => {
+    const url = String(item?.url || "").trim();
+    const note = String(item?.note || "").trim();
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || note.length > 600) {
+      throw new TypeError("Feed evidence links must use HTTPS and notes must not exceed 600 characters.");
+    }
+    return { url, note };
+  });
+  return { goal, links: normalized };
+}
+
 function bindSourcePassport(sourcePassport, routeSource) {
   const id = String(sourcePassport?.id ?? "").trim();
   const version = Number(sourcePassport?.version);
@@ -157,6 +178,35 @@ const TOOL_DEFINITIONS = [
       "Inspect the currently open local agent mission, including its trace, budgets, measurements, stop reason, and receipts. This tool cannot approve or execute it.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: "inspectAgentMission",
+  },
+  {
+    name: "feed_passport.preview_feed_evidence",
+    description:
+      "Inspect up to 12 owner-selected YouTube, Bluesky, or Instagram links and open a Passport-only proposal. This cannot approve or change a social account.",
+    inputSchema: {
+      type: "object",
+      required: ["goal", "links"],
+      properties: {
+        goal: { type: "string", minLength: 1, maxLength: 1200 },
+        links: {
+          type: "array",
+          minItems: 1,
+          maxItems: 12,
+          items: {
+            type: "object",
+            required: ["url"],
+            properties: {
+              url: { type: "string", minLength: 12, maxLength: 2048 },
+              note: { type: "string", maxLength: 600 },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    handler: "previewFeedEvidence",
+    validate: validateFeedEvidenceInput,
   },
 ];
 

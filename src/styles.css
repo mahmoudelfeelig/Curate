@@ -2,6 +2,8 @@
 @import "./styles/feature-clerk.css";
 @import "./styles/guided-handoff.css";
 @import "./styles/instagram-import.css";
+@import "./styles/connected-agent-desk.css";
+@import "./styles/feed-evidence.css";
 
 @font-face {
   font-family: "Libre Baskerville";

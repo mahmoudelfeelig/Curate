@@ -6,6 +6,10 @@ const UI_TO_API_TOPIC = {
   local_culture: "local",
   research: "research",
 };
+const API_TO_UI_TOPIC = Object.fromEntries(
+  Object.entries(UI_TO_API_TOPIC).map(([ui, api]) => [api, ui]),
+);
+const TOPIC_COLORS = ["green", "blue", "gold", "coral", "purple"];
 export function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -66,10 +70,20 @@ export function serverConstitution(passport, current = INITIAL_CONSTITUTION) {
   next.version = Number(passport.version || current.version);
   next.title = passport.name || current.title;
   next.intent = passport.intent || current.intent;
-  next.topics = current.topics.map((topic) => ({
-    ...topic,
-    percent: Math.round(Number(passport.topic_targets?.[UI_TO_API_TOPIC[topic.id] || topic.id] || 0) * 100),
-  }));
+  if (passport.topic_targets && Object.keys(passport.topic_targets).length) {
+    next.topics = Object.entries(passport.topic_targets)
+      .filter(([, value]) => Number(value) > 0)
+      .map(([apiId, value], index) => {
+        const id = API_TO_UI_TOPIC[apiId] || apiId;
+        const existing = current.topics.find((topic) => topic.id === id);
+        return {
+          id,
+          label: existing?.label || id.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+          percent: Math.round(Number(value) * 100),
+          color: existing?.color || TOPIC_COLORS[index % TOPIC_COLORS.length],
+        };
+      });
+  }
   next.serendipity = Math.round(Number(passport.serendipity ?? current.serendipity / 100) * 100);
   next.outrageCeiling = Math.round(Number(passport.max_outrage ?? current.outrageCeiling / 100) * 100);
   next.sourceDiversity = Math.round((1 - Number(passport.max_source_share ?? 0.3)) * 100);

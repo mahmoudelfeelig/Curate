@@ -175,8 +175,9 @@ export function VisaSpread({
     ? String(manifest.evidence_level).replaceAll("_", " ").toUpperCase()
     : destination.status.toUpperCase();
   let unavailableReason = "This destination currently has a Guided manifest only; no supported account OAuth transport is claimed.";
+  if (liveAuthorizeAvailable) unavailableReason = "The local OAuth registration is configured. Authorization creates an owner-bound connection only; the adapter stays Guided until a fresh exact-revision dummy-account conformance receipt passes.";
   if (connectionConfiguration === "local_keys_required") unavailableReason = "Local encrypted connection keys are not configured. The demo remains account-free and no authorization can be stored.";
-  if (destination.id === "x") unavailableReason = "The X transport is implemented, but X API requests are pay-per-use. Zero-spend mode leaves it disconnected until credits and explicit approval exist.";
+  if (destination.id === "x") unavailableReason = "The X transport is implemented, but X API requests are pay-per-use. This demo leaves it disconnected to avoid an open-ended provider charge.";
   if (destination.id === "reddit") unavailableReason = "Reddit remains approval-gated. A registered and approved external Data API app is required before dummy-account authorization.";
   if (destination.id === "bluesky") unavailableReason = "Bluesky authorization uses the official AT Protocol OAuth sidecar so tokens and DPoP keys never enter the agent or browser app.";
   return (

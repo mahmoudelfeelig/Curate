@@ -2096,6 +2096,86 @@ export const feedPassportApi = {
     return { source: "service", data: proposal, platforms };
   },
 
+  async analyzeFeedEvidence(spec) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(
+        503,
+        "Feed evidence inspection requires the local Curator service; fixture mode will not invent provider metadata.",
+        { fallback_permitted: false },
+      );
+    }
+    await ensureServiceContext();
+    const proposal = await requestJson("/api/agent/feed-evidence/analyze", {
+      method: "POST",
+      body: JSON.stringify({
+        actor_id: runtime.actorId,
+        passport_id: runtime.passportId,
+        goal: String(spec.goal || "").trim(),
+        stage: spec.stage || "before",
+        links: spec.links,
+        youtube_connection_id: spec.youtubeConnectionId || null,
+        baseline_snapshot_id: spec.baselineSnapshotId || null,
+      }),
+      timeoutMs: 30_000,
+    });
+    return { source: "service", data: proposal };
+  },
+
+  async applyFeedEvidence(proposalId, expectedPassportVersion) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(
+        503,
+        "Feed evidence proposals require the local Curator service.",
+        { fallback_permitted: false },
+      );
+    }
+    await ensureServiceContext();
+    const result = await requestJson(
+      `/api/agent/feed-evidence/${encodeURIComponent(proposalId)}/apply`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          actor_id: runtime.actorId,
+          expected_passport_version: Number(expectedPassportVersion),
+        }),
+      },
+    );
+    if (!result.passport) {
+      throw new CuratorApiError(502, "Curator API omitted the revised Passport", result);
+    }
+    runtime.passport = { ...runtime.passport, ...result.passport };
+    return {
+      source: "service",
+      data: {
+        ...result,
+        constitution: serverConstitution(runtime.passport, runtime.fixtureConstitution),
+      },
+    };
+  },
+
+  async planFeedEvidenceWithModel(proposalId, expectedPassportVersion) {
+    if (!serviceAvailable) {
+      throw new CuratorApiError(
+        503,
+        "The feed evidence agent requires the configured loopback-only Curator model service.",
+        { fallback_permitted: false },
+      );
+    }
+    await ensureServiceContext();
+    const result = await requestJson(
+      `/api/agent/feed-evidence/${encodeURIComponent(proposalId)}/model-plan`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          actor_id: runtime.actorId,
+          expected_passport_version: Number(expectedPassportVersion),
+        }),
+        timeoutMs: 150_000,
+      },
+    );
+    return { source: "service", data: result };
+  },
+
   async previewAgentMissionWithModel(spec) {
     if (!serviceAvailable) {
       throw new CuratorApiError(

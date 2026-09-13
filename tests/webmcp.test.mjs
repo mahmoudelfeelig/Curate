@@ -27,19 +27,37 @@ test("WebMCP exposes preview and inspect boundaries but no self-approval or exec
         accountAccessed: false,
       }),
       inspectAgentMission: async () => ({ mission: null, approvalGranted: false }),
+      previewFeedEvidence: async ({ goal, links }) => ({
+        opened: "evidence",
+        goal,
+        links,
+        approvalGranted: false,
+        passportChanged: false,
+        accountAccessed: false,
+      }),
     });
 
     assert.equal(registration.supported, true);
-    assert.equal(registration.registered, 6);
+    assert.equal(registration.registered, 7);
     const names = registered.map((tool) => tool.name);
     assert.ok(names.includes("feed_passport.preview_local_agent_mission"));
     assert.ok(names.includes("feed_passport.inspect_local_agent_mission"));
+    assert.ok(names.includes("feed_passport.preview_feed_evidence"));
     assert.equal(names.some((name) => /approve|execute|run_mission/.test(name)), false);
 
     const previewTool = registered.find((tool) => tool.name === "feed_passport.preview_local_agent_mission");
     const result = await previewTool.execute({ goal: "Curate my local twin", platform: "youtube" });
     assert.equal(result.approvalGranted, false);
     assert.equal(result.accountAccessed, false);
+    const evidenceTool = registered.find((tool) => tool.name === "feed_passport.preview_feed_evidence");
+    const evidenceResult = await evidenceTool.execute({
+      goal: "Reduce ragebait",
+      links: [{ url: "https://www.instagram.com/reel/example/", note: "calm drawing" }],
+    });
+    assert.equal(evidenceResult.opened, "evidence");
+    assert.equal(evidenceResult.approvalGranted, false);
+    assert.equal(evidenceResult.passportChanged, false);
+    assert.equal(evidenceResult.accountAccessed, false);
   } finally {
     if (previous === undefined) delete globalThis.webmcp;
     else globalThis.webmcp = previous;

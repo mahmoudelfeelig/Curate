@@ -6,6 +6,7 @@ import {
   TEMPORARY_VISA_DURATIONS,
   prepareWebMcpMigrationPreview,
   registerFeedPassportTools,
+  validateFeedEvidenceInput,
   validateTemporaryVisaInput,
 } from "./webmcp.js";
 import { webMcpTemporaryVisaForm } from "./api/clientProjections.js";
@@ -126,6 +127,23 @@ test("temporary visa WebMCP input cannot retain stale exact minutes or invent du
     { purpose: "WebMCP", duration: "48 hours", durationMinutes: null, mode: "Isolated Lab" },
   );
   assert.deepEqual(TEMPORARY_VISA_DURATIONS, ["6 hours", "48 hours", "7 days"]);
+});
+
+test("feed evidence WebMCP accepts only bounded HTTPS samples", () => {
+  assert.deepEqual(
+    validateFeedEvidenceInput({
+      goal: "  Reduce ragebait.  ",
+      links: [{ url: "https://bsky.app/profile/pets.example/post/3abc", note: " pet science " }],
+    }),
+    {
+      goal: "Reduce ragebait.",
+      links: [{ url: "https://bsky.app/profile/pets.example/post/3abc", note: "pet science" }],
+    },
+  );
+  assert.throws(
+    () => validateFeedEvidenceInput({ goal: "Research", links: [{ url: "http://example.com" }] }),
+    /must use HTTPS/,
+  );
 });
 
 test("migration preview rejects unsupported or self-routes before calling the API", async () => {

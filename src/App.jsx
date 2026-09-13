@@ -22,6 +22,8 @@ import { mapFeatureProposalToDesk } from "./features/featureClerk.js";
 import { AgentSpread, DEFAULT_AGENT_MISSION_FORM } from "./features/agent/AgentSpread.jsx";
 import { ConnectedAgentDesk } from "./features/agent/ConnectedAgentDesk.jsx";
 import { DEFAULT_CONNECTED_AGENT_FORM } from "./features/agent/connectedAgentDesk.js";
+import { FeedEvidenceDesk } from "./features/agent/FeedEvidenceDesk.jsx";
+import { DEFAULT_FEED_EVIDENCE_FORM, parseEvidenceLines } from "./features/agent/feedEvidence.js";
 import { CreatorSpread, DriftSpread, HistorySpread, TemplatesSpread } from "./features/operations/OperationsSpreads.jsx";
 import { ConstitutionSpread, OverviewSpread, VisaSpread } from "./features/passport/PassportSpreads.jsx";
 import { CompanionSpread, MigrationSpread, TemporarySpread } from "./features/workflows/WorkflowSpreads.jsx";
@@ -141,6 +143,10 @@ export function App() {
   const [connectedAgentForm, setConnectedAgentForm] = useState(clone(DEFAULT_CONNECTED_AGENT_FORM));
   const [liveCommission, setLiveCommission] = useState(null);
   const [liveCommissionApproved, setLiveCommissionApproved] = useState(false);
+  const [feedEvidenceForm, setFeedEvidenceForm] = useState(clone(DEFAULT_FEED_EVIDENCE_FORM));
+  const [feedEvidenceResult, setFeedEvidenceResult] = useState(null);
+  const [feedEvidenceApproved, setFeedEvidenceApproved] = useState(false);
+  const [feedEvidenceBaselineId, setFeedEvidenceBaselineId] = useState("");
   const [featureClerkRequest, setFeatureClerkRequest] = useState("Give me a reversible research-focused feed for exactly 9 hours, then return to my base Passport.");
   const [featureClerkResult, setFeatureClerkResult] = useState(null);
   const [featureDeskPrefills, setFeatureDeskPrefills] = useState({ migration: null, temporary: null, companion: null });
@@ -545,6 +551,43 @@ export function App() {
         approvalGranted: false,
         accountAccessed: false,
       }),
+      previewFeedEvidence: async ({ goal, links }) => {
+        if (!appRef.current.authenticated) return { opened: null, approvalGranted: false, accountAccessed: false, reason: "Owner sign-in is required." };
+        if (appRef.current.hydrationPending) return { opened: null, approvalGranted: false, accountAccessed: false, reason: INITIAL_HYDRATION_NOTICE };
+        if (rejectWhileGuidedHandoffActive("evidence")) return { opened: "migration", approvalGranted: false, accountAccessed: false, reason: ACTIVE_GUIDED_HANDOFF_NOTICE };
+        if (busyRef.current) return { opened: null, approvalGranted: false, accountAccessed: false, reason: "Another Passport operation is working." };
+        busyRef.current = true;
+        setBusyAction("evidence-before");
+        try {
+          const result = await feedPassportApi.analyzeFeedEvidence({
+            goal,
+            links,
+            stage: "before",
+            youtubeConnectionId: "",
+            baselineSnapshotId: null,
+          });
+          setFeedEvidenceForm({
+            goal,
+            linksText: links.map((item) => `${item.url}${item.note ? ` | ${item.note}` : ""}`).join("\n"),
+            youtubeConnectionId: "",
+          });
+          setFeedEvidenceResult(result.data);
+          setFeedEvidenceApproved(false);
+          setFeedEvidenceBaselineId(result.data.snapshot_id);
+          pushSectionHistory("evidence");
+          setActiveSection("evidence");
+          return {
+            opened: "evidence",
+            proposal: result.data,
+            approvalGranted: false,
+            passportChanged: false,
+            accountAccessed: false,
+          };
+        } finally {
+          busyRef.current = false;
+          setBusyAction("");
+        }
+      },
     });
     setWebmcp({ supported: registration.supported, registered: registration.registered });
     return registration.cleanup;
@@ -1324,6 +1367,72 @@ export function App() {
     }, "Connected commission rollback failed");
   };
 
+  const handleFeedEvidenceAnalyze = (stage) => {
+    if (rejectWhileBusy()) return;
+    return runBusy(`evidence-${stage}`, async () => {
+      const links = parseEvidenceLines(feedEvidenceForm.linksText);
+      const result = await feedPassportApi.analyzeFeedEvidence({
+        goal: feedEvidenceForm.goal,
+        links,
+        stage,
+        youtubeConnectionId: feedEvidenceForm.youtubeConnectionId,
+        baselineSnapshotId: stage === "after" ? feedEvidenceBaselineId : null,
+      });
+      setFeedEvidenceResult(result.data);
+      setFeedEvidenceApproved(false);
+      if (stage === "before") setFeedEvidenceBaselineId(result.data.snapshot_id);
+      addActivity(
+        `Recorded ${links.length} owner-selected ${stage} links and separated provider facts from deterministic inference.`,
+        "Evidence sealed",
+        "Evidence service",
+      );
+    }, "Feed evidence analysis failed");
+  };
+
+  const handleFeedEvidenceModelPlan = () => {
+    if (!feedEvidenceResult?.id || rejectWhileBusy()) return;
+    return runBusy("evidence-model-plan", async () => {
+      const result = await feedPassportApi.planFeedEvidenceWithModel(
+        feedEvidenceResult.id,
+        feedEvidenceResult.passport_version,
+      );
+      setFeedEvidenceResult(result.data);
+      setFeedEvidenceApproved(false);
+      addActivity(
+        `The feed evidence agent completed ${result.data.agent_evidence?.tools?.length || 0} proposal-only tool calls. No Passport or social account changed.`,
+        "Agent proposal attached",
+        "Local Strands agent",
+      );
+    }, "Feed evidence agent planning failed");
+  };
+
+  const handleFeedEvidenceApply = () => {
+    if (!feedEvidenceResult?.id || !feedEvidenceApproved || rejectWhileBusy()) return;
+    return runBusy("evidence-apply", async () => {
+      const result = await feedPassportApi.applyFeedEvidence(
+        feedEvidenceResult.id,
+        feedEvidenceResult.passport_version,
+      );
+      setFeedEvidenceResult(result.data);
+      setFeedEvidenceApproved(false);
+      setConstitution(result.data.constitution);
+      addReceipt({
+        id: `EVIDENCE-${result.data.id}`,
+        type: "Evidence proposal applied",
+        detail: `Passport version ${result.data.result_passport_version} now carries the reviewed target mix; no social account was changed.`,
+        time: "NOW",
+        status: "Succeeded",
+        reversible: false,
+        checkpoint: `v${result.data.result_passport_version}`,
+      });
+      addActivity(
+        "Applied the reviewed evidence proposal to the portable Passport only.",
+        "Passport revised",
+        "You",
+      );
+    }, "Feed evidence proposal could not be applied");
+  };
+
   const handleFeatureClerkPlan = () => {
     if (!featureClerkRequest.trim() || rejectWhileBusy()) return;
     return runBusy("feature-clerk-plan", async () => {
@@ -1421,6 +1530,7 @@ export function App() {
     case "clerk": content = <FeatureClerkSpread request={featureClerkRequest} setRequest={setFeatureClerkRequest} result={featureClerkResult} ready={featureClerkReady} readinessReason={featureClerkReadinessReason} busy={busyAction === "feature-clerk-plan"} onPlan={handleFeatureClerkPlan} onApply={handleFeatureClerkApply} />; break;
     case "agent": content = <AgentSpread form={agentMissionForm} setForm={setAgentMissionForm} mission={agentMission} approvalChecked={agentMissionApproved} setApprovalChecked={setAgentMissionApproved} onPreview={handleMissionPreview} onModelPreview={handleModelMissionPreview} onRun={handleMissionRun} onCancel={handleMissionCancel} onRollback={handleMissionRollback} busyAction={busyAction} webmcp={webmcp} apiMode={apiMode} schedulerStatus={schedulerStatus} modelStatus={modelStatus} activity={activity} />; break;
     case "connected-agent": content = <ConnectedAgentDesk form={connectedAgentForm} setForm={setConnectedAgentForm} eligibleConnections={accountConnections} commission={liveCommission} approvalChecked={liveCommissionApproved} setApprovalChecked={setLiveCommissionApproved} onPreview={handleLiveCommissionPreview} onRun={handleLiveCommissionRun} onReconcile={handleLiveCommissionReconcile} onRollback={handleLiveCommissionRollback} onCancel={handleLiveCommissionCancel} busyAction={busyAction} modelStatus={modelStatus} apiMode={apiMode} />; break;
+    case "evidence": content = <FeedEvidenceDesk form={feedEvidenceForm} setForm={setFeedEvidenceForm} result={feedEvidenceResult} approved={feedEvidenceApproved} setApproved={setFeedEvidenceApproved} onAnalyze={handleFeedEvidenceAnalyze} onModelPlan={handleFeedEvidenceModelPlan} onApply={handleFeedEvidenceApply} onOpenConnectedAgent={() => navigate("connected-agent")} eligibleConnections={accountConnections} busyAction={busyAction} apiMode={apiMode} baselineSnapshotId={feedEvidenceBaselineId} modelStatus={modelStatus} />; break;
     default: content = <OverviewSpread constitution={constitution} connectedIds={connectedIds} onNavigate={navigate} onToggleDestination={toggleDestination} consent={consent} setConsent={setConsent} expiry={expiry} setExpiry={setExpiry} onIssue={handleIssue} busy={busyAction === "issue"} issued={issued} latestReceipt={latestReceipt} passportId={passportId} />;
   }
   if (authState.required && !authState.authenticated) {

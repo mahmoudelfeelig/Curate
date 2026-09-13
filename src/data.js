@@ -12,6 +12,7 @@ export const NAV_ITEMS = [
   ["clerk", "Feature clerk"],
   ["agent", "Agent mission"],
   ["connected-agent", "Connected agent"],
+  ["evidence", "Feed evidence"],
 ];
 
 export const INITIAL_CONSTITUTION = {

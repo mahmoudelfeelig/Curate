@@ -17,7 +17,7 @@ export function StatusStamp({ children, tone = "blue", compact = false }) {
 export function PageHeading({ eyebrow, title, note, page }) {
   return (
     <header className="page-heading">
-      <Icon name="stamp" size={14} className="page-star" />
+      <img className="page-brand-mark" src="/assets/brand/curate-favicon.png" alt="" />
       <div>
         <p className="eyebrow">{eyebrow}</p>
         <h2>{title}</h2>
@@ -41,7 +41,7 @@ export function Field({ label, hint, children, className = "" }) {
 export function ActionButton({ children, variant = "primary", busy = false, disabled = false, ...props }) {
   return (
     <button {...props} className={`action-button action-${variant}`} disabled={busy || disabled}>
-      {busy ? "WORKING" : children}
+      {busy ? <span className="button-working"><i aria-hidden="true" />CURATING</span> : children}
     </button>
   );
 }

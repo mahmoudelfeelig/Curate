@@ -2,6 +2,16 @@
 
 Retrieved 30 August 2026. The application code remains under the repository license; the assets below retain their own licenses. No AI-generated or unprovenanced image is stored or shipped by the web application.
 
+## Curate elephant logo
+
+- Shipped files: `public/assets/brand/curate-elephant.png`, `curate-icon-192.png`, and `curate-favicon.png`
+- Source: owner-supplied project artwork, `Red 1.png`
+- License: used with the project owner's permission; not offered under the repository's MIT license
+- Transformation: whitespace trimmed, white background made transparent, and resized into web and favicon variants by `scripts/prepare-brand-assets.ps1`
+- SHA-256 (`curate-elephant.png`): `B45A867EA69702D4A12E6382989E46BB67555EAAAF63B557E0EB45CE0BC6457C`
+- SHA-256 (`curate-icon-192.png`): `2EE7A558EBA3628EE898AD71F383B387184C43C1B1ED0CF1ECD17DDFF6AACCE6`
+- SHA-256 (`curate-favicon.png`): `E542464A5F1BC884D085280679C6F0CB0F9972AE16FD1B2D940ED140FCC2FD69`
+
 ## Rough Linen
 
 - Shipped file: `public/assets/licensed/rough-linen-1k.jpg`

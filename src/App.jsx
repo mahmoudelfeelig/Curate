@@ -36,7 +36,7 @@ import { prepareWebMcpMigrationPreview, registerFeedPassportTools } from "./webm
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const DEFAULT_SECTION = "overview";
-const INITIAL_HYDRATION_NOTICE = "Feed Passport is still loading the authoritative owner state. Wait for that check to finish before changing this Passport.";
+const INITIAL_HYDRATION_NOTICE = "Curate is opening your Passport. Try again in a moment.";
 const isKnownSection = (section) => NAV_ITEMS.some(([id]) => id === section);
 const sectionFromLocation = () => {
   if (typeof window === "undefined") return DEFAULT_SECTION;
@@ -61,16 +61,16 @@ const replaceSectionHistory = (section) => {
 function AuthenticationDesk({ state, onSignIn }) {
   return (
     <section className="identity-gate" aria-labelledby="identity-gate-title">
-      <div className="identity-gate-stub"><span>IDENTITY</span><b>CONTROL</b><small>OIDC + PKCE</small></div>
+      <div className="identity-gate-stub"><img src="/assets/brand/curate-elephant.png" alt="" /><span>JUDGE</span><b>PASS</b></div>
       <div className="identity-gate-copy">
-        <p className="eyebrow">OWNER BINDING REQUIRED</p>
-        <h2 id="identity-gate-title">Present your private access passport</h2>
-        <p>Sign in through the configured identity provider. Feed Passport keeps the short-lived access token in browser memory only and binds every account connection, proposal, run, receipt, and rollback to the verified token subject.</p>
+        <p className="eyebrow">CURATE DEMO ACCESS</p>
+        <h2 id="identity-gate-title">Stamp in to explore Curate</h2>
+        <p>Use the private judge credentials to try natural-language feed planning and the interactive Passport.</p>
         {state.error ? <p className="passport-warning" role="alert">{state.error}</p> : null}
       </div>
       <div className="identity-gate-action">
-        <button type="button" className="action-button action-ink" onClick={onSignIn} disabled={!state.configured}>SIGN IN WITH PKCE</button>
-        <small>{state.configured ? "No client secret is stored in the browser." : "The OIDC browser configuration is incomplete."}</small>
+        <button type="button" className="action-button action-ink" onClick={onSignIn} disabled={!state.configured}>ENTER CURATE</button>
+        <small>{state.configured ? "Access lasts for this browser session." : "Judge access is not configured yet."}</small>
       </div>
     </section>
   );
@@ -1545,19 +1545,19 @@ export function App() {
 
   return (
     <main className="passport-workbench">
-      <a className="skip-link" href="#workspace">Skip to the open Passport desk</a>
-      <h1 className="sr-only">Feed Passport</h1>
+      <a className="skip-link" href="#workspace">Skip to the open Curate desk</a>
+      <h1 className="sr-only">Curate</h1>
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Opened {sectionTitle} desk.</p>
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{activity[0]?.detail || "Passport ready."}</p>
       <header className="site-masthead">
-        <button type="button" className="brand-lockup" onClick={() => navigate("overview")} aria-label="Open passport overview" disabled={workspaceLocked}><span className="brand-monogram">FP</span><span><b>FEED PASSPORT</b><small>YOUR FEED. YOUR RULES. ANYWHERE.</small></span></button>
-        {authState.required && authState.authenticated ? <div className="credential-tag identity-tag"><span>OWNER SESSION VERIFIED</span><button type="button" onClick={handleSignOut}>SIGN OUT</button></div> : <div className="credential-tag"><span>YOUR INTENT TRAVELS.</span><b>YOUR CREDENTIALS DO NOT.</b></div>}
+        <button type="button" className="brand-lockup" onClick={() => navigate("overview")} aria-label="Open Curate passport" disabled={workspaceLocked}><span className="brand-monogram"><img src="/assets/brand/curate-elephant.png" alt="" /></span><span><b>CURATE</b><small>YOUR FEED, ON YOUR TERMS.</small></span></button>
+        {authState.required && authState.authenticated ? <div className="credential-tag identity-tag"><span>JUDGE PASS STAMPED</span><button type="button" onClick={handleSignOut}>SIGN OUT</button></div> : <div className="credential-tag"><span>DESCRIBE THE FEED.</span><b>CURATE MAKES THE ROUTE.</b></div>}
       </header>
-      <nav className="desk-tabs" aria-label="Feed Passport desks">{NAV_ITEMS.map(([id, label], index) => <button type="button" key={id} data-section={id} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigate(id)} disabled={workspaceLocked || (authState.required && !authState.authenticated)}><span>{String(index + 1).padStart(2, "0")}</span>{label}</button>)}</nav>
+      <nav className="desk-tabs" aria-label="Curate passport desks">{NAV_ITEMS.map(([id, label], index) => <button type="button" key={id} data-section={id} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigate(id)} disabled={workspaceLocked || (authState.required && !authState.authenticated)}><span>{String(index + 1).padStart(2, "0")}</span>{label}</button>)}</nav>
       <div className="section-placard"><span>NOW OPEN</span><b>{sectionTitle.toUpperCase()}</b><small>{apiMode === "service" ? "LOCAL SERVICE" : apiMode === "checking" ? "CHECKING SERVICE" : apiMode === "sign_in_required" ? "SIGN IN REQUIRED" : "DETERMINISTIC DEMO"}</small></div>
       {actionError ? <aside className="passport-warning" role="alert"><strong>Operation stopped</strong><p>{actionError}</p><button type="button" className="text-link" onClick={() => setActionError("")}>Dismiss</button></aside> : null}
       <div id="workspace" className="workspace-stage" tabIndex="-1" aria-label={`${sectionTitle} workspace`} inert={workspaceLocked} aria-busy={workspaceLocked}>{content}{activeSection !== "history" ? <button className="rollback-tab" type="button" onClick={() => navigate("history")} disabled={workspaceLocked}><span>ROLLBACK & HISTORY</span><b>{receipts.length}</b></button> : null}</div>
-      <footer className="site-footer"><p>Feed Passport demo · capability claims follow the attached evidence level · no credentials or raw private history enter model context.</p><div><button type="button" onClick={() => navigate("agent")} disabled={workspaceLocked || (authState.required && !authState.authenticated)}>Open agent desk</button><button type="button" onClick={() => navigate("history")} disabled={workspaceLocked || (authState.required && !authState.authenticated)}>Inspect receipts</button>{authState.required && authState.authenticated ? <button type="button" onClick={handleSignOut} disabled={Boolean(busyAction)}>Sign out</button> : null}</div></footer>
+      <footer className="site-footer"><p>Curate · carry your taste from one feed to the next.</p><div><button type="button" onClick={() => navigate("evidence")} disabled={workspaceLocked || (authState.required && !authState.authenticated)}>Tune my feed</button><button type="button" onClick={() => navigate("history")} disabled={workspaceLocked || (authState.required && !authState.authenticated)}>View receipts</button>{authState.required && authState.authenticated ? <button type="button" onClick={handleSignOut} disabled={Boolean(busyAction)}>Sign out</button> : null}</div></footer>
     </main>
   );
 }

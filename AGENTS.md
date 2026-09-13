@@ -8,6 +8,12 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Durable Feed Passport decisions
 
+- The public product name is **Curate**. Keep `feed_passport` only for established protocol, package, schema, and infrastructure identifiers where renaming would break compatibility.
+- Use the owner-supplied red elephant artwork as the Curate brand mark, favicon, masthead icon, and passport-page watermark. Do not replace it with generated or approximate artwork.
+- Make the visible before/after feed the main proof in the agent journey. Keep implementation evidence available in optional receipt details rather than leading with it.
+- Prefer plain-language labels such as "practice feed", "starting feed", and "tune my feed" over internal terms such as "control twin", "seeded scenario", or "agent ledger" in the primary UI.
+- During model work, show one compact waiting state; do not expose internal tool stages while the user has no action to take.
+
 - The public visual source of truth is the live DOM/CSS implementation and curated browser captures; retain no unprovenanced visual references.
 - Ship no AI-generated or unprovenanced images. Every raster, font, and icon must have a compatible license and an entry in `THIRD_PARTY_NOTICES.md`; the UI should use live DOM and CSS for tickets, stamps, status, charts, and stateful controls.
 - Preserve the 2009-2013 travel-document desktop utility: navy cloth work surface, open paper passport, destination stamps, customs declaration, perforated tickets, coral action accents, muted green, customs yellow, and typewriter details.

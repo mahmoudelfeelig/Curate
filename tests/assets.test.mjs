@@ -38,10 +38,13 @@ test("the shipping tree contains only the declared licensed asset families", asy
   const rasterFiles = visualFiles.filter((file) => !file.endsWith(".svg"));
 
   assert.deepEqual(rasterFiles.sort(), [
+    "public/assets/brand/curate-elephant.png",
+    "public/assets/brand/curate-favicon.png",
+    "public/assets/brand/curate-icon-192.png",
     "public/assets/licensed/paper006-color-1k.jpg",
     "public/assets/licensed/rough-linen-1k.jpg",
   ]);
-  assert.ok(visualFiles.every((file) => file.startsWith("public/assets/licensed/")));
+  assert.ok(visualFiles.every((file) => file.startsWith("public/assets/licensed/") || file.startsWith("public/assets/brand/")));
   assert.ok(publicFiles.filter((file) => /\.(?:otf|ttf|woff2?)$/i.test(file)).every((file) => file.startsWith("public/fonts/")));
 
   const shippingSources = [

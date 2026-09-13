@@ -39,8 +39,9 @@
   --ink: #17243a;
   --paper: #eee4ca;
   --paper-dark: #d8c6a0;
-  --coral: #bd5b4d;
-  --coral-dark: #7d342d;
+  --coral: #bd2d35;
+  --coral-dark: #7d111b;
+  --brand-red: #a00612;
   --green: #53735d;
   --green-dark: #304f3b;
   --blue: #335f91;
@@ -195,6 +196,13 @@ dd {
   font-size: 24px;
   letter-spacing: -2px;
   box-shadow: inset 0 0 0 4px rgba(237, 229, 209, 0.08);
+}
+
+.brand-monogram img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35));
 }
 
 .brand-lockup > span:last-child {
@@ -400,6 +408,13 @@ dd {
   letter-spacing: 0.08em;
 }
 
+.identity-gate-stub img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  transform: rotate(180deg);
+}
+
 .identity-gate-copy,
 .identity-gate-action {
   padding: clamp(36px, 5vw, 74px);
@@ -488,10 +503,8 @@ dd {
   top: 50%;
   width: 180px;
   height: 180px;
-  background: var(--green);
-  opacity: 0.045;
-  -webkit-mask: url("/assets/licensed/icon-stamp.svg") center / contain no-repeat;
-  mask: url("/assets/licensed/icon-stamp.svg") center / contain no-repeat;
+  background: transparent url("/assets/brand/curate-elephant.png") center / contain no-repeat;
+  opacity: 0.032;
   transform: rotate(-24deg);
   pointer-events: none;
 }
@@ -522,8 +535,10 @@ dd {
   z-index: 1;
 }
 
-.page-star {
-  color: var(--coral);
+.page-brand-mark {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
   transform: rotate(-8deg);
 }
 
@@ -970,6 +985,23 @@ dd {
   background: #a94b41;
   transform: translateY(-1px);
 }
+
+.button-working {
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.button-working i {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: curate-spin 0.8s linear infinite;
+}
+
+@keyframes curate-spin { to { transform: rotate(360deg); } }
 
 .action-ink {
   border-color: #182e4d;
@@ -3325,4 +3357,6 @@ dd {
     scroll-behavior: auto !important;
     transition: none !important;
   }
+
+  .button-working i { animation: none; }
 }

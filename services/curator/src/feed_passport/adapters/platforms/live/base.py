@@ -297,7 +297,12 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
             now=now,
         )
         try:
-            after_state = self._read_action_state(connection, prepared.action, now=now)
+            after_state = self._read_action_state_after_mutation(
+                connection,
+                prepared.action,
+                prepared.desired_state,
+                now=now,
+            )
         except LivePlatformError as exc:
             raise RemoteOutcomeUnknown(
                 platform=self.platform,
@@ -396,7 +401,12 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
                         current_state=current,
                         now=now,
                     )
-                verified = self._read_action_state(connection, action, now=now)
+                verified = self._read_action_state_after_mutation(
+                    connection,
+                    action,
+                    outcome.before_state,
+                    now=now,
+                )
                 if self._state_matches(verified, outcome.before_state):
                     restored.append(action.id)
                 else:
@@ -724,6 +734,23 @@ class CertifiedLivePlatformAdapter(ManifestPlatformAdapter):
         now: datetime,
     ) -> Mapping[str, Any]:
         raise NotImplementedError
+
+    def _read_action_state_after_mutation(
+        self,
+        connection: ConnectedAccount,
+        action: ProposedAction,
+        desired_state: Mapping[str, Any],
+        *,
+        now: datetime,
+    ) -> Mapping[str, Any]:
+        """Observe a completed write without replaying it.
+
+        Most providers are read-after-write consistent. Adapters for providers
+        with bounded projection lag may override this hook while preserving the
+        base adapter's outcome-unknown behavior when verification never agrees.
+        """
+        del desired_state
+        return self._read_action_state(connection, action, now=now)
 
     def _desired_state(
         self,

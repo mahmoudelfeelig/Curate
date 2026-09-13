@@ -703,6 +703,108 @@ def test_reconcile_observes_without_replaying_a_remote_write() -> None:
     assert not http.responses
 
 
+def test_follow_verification_tolerates_bounded_appview_projection_lag() -> None:
+    follow_uri = f"at://{OWNER_DID}/app.bsky.graph.follow/follow-lagged"
+    present = {"did": TARGET_DID, "viewer": {"following": follow_uri}}
+    http = QueueHttpClient(
+        [
+            restore_response("a"),
+            operation_response(AtprotoSidecarOperation.GET_FOLLOWS, {"follows": []}),
+            restore_response("b"),
+            operation_response(
+                AtprotoSidecarOperation.FOLLOW,
+                {"uri": follow_uri, "cid": "cid-lagged"},
+            ),
+            restore_response("c"),
+            operation_response(AtprotoSidecarOperation.GET_FOLLOWS, {"follows": []}),
+            restore_response("d"),
+            operation_response(AtprotoSidecarOperation.GET_FOLLOWS, {"follows": []}),
+            restore_response("e"),
+            operation_response(AtprotoSidecarOperation.GET_FOLLOWS, {"follows": [present]}),
+        ]
+    )
+    delays: list[float] = []
+    bound = FakeConnection()
+    live = AtprotoSidecarLiveAdapter(
+        connections={bound.id: bound},
+        sidecar_client=client(http),
+        certification=certification(frozenset({ActionType.FOLLOW_CREATOR})),
+        sleeper=delays.append,
+    )
+
+    prepared = live.prepare_remote_action(
+        bound.id,
+        proposed(ActionType.FOLLOW_CREATOR),
+        now=NOW,
+    )
+    outcome = live.apply_prepared_action(prepared, now=NOW)
+
+    assert outcome.status is ActionStatus.EXECUTED
+    assert outcome.after_state["remote_ref"] == follow_uri
+    assert delays == [0.5, 0.5]
+    operations = [
+        call["json"].get("operation")
+        for call in http.calls
+        if call["url"].endswith("/sessions/execute")
+    ]
+    assert operations.count("graph.follow") == 1
+    assert operations == [
+        "graph.get_follows",
+        "graph.follow",
+        "graph.get_follows",
+        "graph.get_follows",
+        "graph.get_follows",
+    ]
+    assert not http.responses
+
+
+def test_post_write_projection_lag_still_fails_closed_when_exhausted() -> None:
+    follow_uri = f"at://{OWNER_DID}/app.bsky.graph.follow/follow-unknown"
+    http = QueueHttpClient(
+        [
+            restore_response("a"),
+            operation_response(AtprotoSidecarOperation.GET_FOLLOWS, {"follows": []}),
+            restore_response("b"),
+            operation_response(
+                AtprotoSidecarOperation.FOLLOW,
+                {"uri": follow_uri, "cid": "cid-unknown"},
+            ),
+            restore_response("c"),
+            operation_response(AtprotoSidecarOperation.GET_FOLLOWS, {"follows": []}),
+            restore_response("d"),
+            operation_response(AtprotoSidecarOperation.GET_FOLLOWS, {"follows": []}),
+            restore_response("e"),
+            operation_response(AtprotoSidecarOperation.GET_FOLLOWS, {"follows": []}),
+        ]
+    )
+    delays: list[float] = []
+    bound = FakeConnection()
+    live = AtprotoSidecarLiveAdapter(
+        connections={bound.id: bound},
+        sidecar_client=client(http),
+        certification=certification(frozenset({ActionType.FOLLOW_CREATOR})),
+        sleeper=delays.append,
+    )
+    live.POST_WRITE_READ_ATTEMPTS = 3
+    prepared = live.prepare_remote_action(
+        bound.id,
+        proposed(ActionType.FOLLOW_CREATOR),
+        now=NOW,
+    )
+
+    with pytest.raises(RemoteOutcomeUnknown, match="could not be reconciled"):
+        live.apply_prepared_action(prepared, now=NOW)
+
+    assert delays == [0.5, 0.5]
+    operations = [
+        call["json"].get("operation")
+        for call in http.calls
+        if call["url"].endswith("/sessions/execute")
+    ]
+    assert operations.count("graph.follow") == 1
+    assert not http.responses
+
+
 def test_rollback_uses_the_inverse_operation_and_verifies_state() -> None:
     follow_uri = f"at://{OWNER_DID}/app.bsky.graph.follow/follow-one"
     present = {"did": TARGET_DID, "viewer": {"following": follow_uri}}

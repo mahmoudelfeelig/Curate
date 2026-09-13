@@ -8,6 +8,7 @@ import re
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from enum import StrEnum
+from time import sleep
 from typing import Any, ClassVar
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -606,6 +607,9 @@ class _NoDirectPlatformHttp:
 class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
     """Journal-compatible Bluesky adapter backed only by curated sidecar operations."""
 
+    POST_WRITE_READ_ATTEMPTS = 11
+    POST_WRITE_RETRY_DELAY_SECONDS = 0.5
+
     PROFILE = BLUESKY_PROFILE
     platform = BLUESKY_PROFILE.platform
     CANDIDATE_ACTIONS = frozenset(
@@ -631,6 +635,7 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
         certification: ValidatedLiveCertification | None = None,
         observations: Mapping[str, AccountObservation] | None = None,
         clock: Callable[[], datetime] | None = None,
+        sleeper: Callable[[float], None] | None = None,
     ) -> None:
         if not isinstance(sidecar_client, AtprotoSidecarClient):
             raise TypeError("an AT Protocol sidecar client is required")
@@ -655,6 +660,7 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
             clock=clock,
         )
         self._sidecar = sidecar_client
+        self._sleep = sleeper or sleep
 
     def bind_connection(self, connection: ConnectedAccount) -> None:
         _reject_connection_credentials(connection)
@@ -864,6 +870,25 @@ class AtprotoSidecarLiveAdapter(CertifiedLivePlatformAdapter):
             "target_id": before_state["target_id"],
             "relationship": before_state["relationship"],
         }
+
+    def _read_action_state_after_mutation(
+        self,
+        connection: ConnectedAccount,
+        action: ProposedAction,
+        desired_state: Mapping[str, Any],
+        *,
+        now: datetime,
+    ) -> Mapping[str, Any]:
+        """Bound AppView projection lag without ever replaying the write."""
+        observed: Mapping[str, Any] | None = None
+        for attempt in range(self.POST_WRITE_READ_ATTEMPTS):
+            observed = self._read_action_state(connection, action, now=now)
+            if self._state_matches(observed, desired_state):
+                return observed
+            if attempt + 1 < self.POST_WRITE_READ_ATTEMPTS:
+                self._sleep(self.POST_WRITE_RETRY_DELAY_SECONDS)
+        assert observed is not None
+        return observed
 
     def _mutate_to_state(
         self,

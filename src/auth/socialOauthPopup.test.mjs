@@ -4,8 +4,17 @@ import test from "node:test";
 import {
   SOCIAL_OAUTH_CALLBACK_MESSAGE,
   relaySocialOAuthPopupCallback,
+  useSameTabSocialOAuth,
   waitForSocialOAuthPopup,
 } from "./socialOauthPopup.js";
+
+test("same-tab social OAuth is an explicit loopback-only harness", () => {
+  assert.equal(useSameTabSocialOAuth({ hostname: "127.0.0.1", search: "?oauth=direct-youtube" }, "youtube"), true);
+  assert.equal(useSameTabSocialOAuth({ hostname: "localhost", search: "?oauth=direct-bluesky" }, "bluesky"), true);
+  assert.equal(useSameTabSocialOAuth({ hostname: "passport.example", search: "?oauth=direct-youtube" }, "youtube"), false);
+  assert.equal(useSameTabSocialOAuth({ hostname: "127.0.0.1", search: "?oauth=direct-youtube" }, "bluesky"), false);
+  assert.equal(useSameTabSocialOAuth({ hostname: "127.0.0.1", search: "?oauth=direct-../youtube" }, "../youtube"), false);
+});
 
 function messageWindow() {
   const listeners = new Set();

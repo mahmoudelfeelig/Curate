@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { feedPassportApi, missionRollbackIsVerified } from "./apiClient";
 import { webMcpTemporaryVisaForm } from "./api/clientProjections.js";
 import { browserOidcSession } from "./auth/browserOidc.js";
-import { waitForSocialOAuthPopup } from "./auth/socialOauthPopup.js";
+import { useSameTabSocialOAuth, waitForSocialOAuthPopup } from "./auth/socialOauthPopup.js";
 import {
   applyingInstagramImportSession,
   expiredInstagramImportSession,
@@ -636,12 +636,15 @@ export function App() {
   };
   const handleAuthorizeConnection = (platform, handle = "") => {
     if (rejectWhileBusy() || rejectWhileGuidedHandoffActive("visas")) return null;
-    const popup = globalThis.open?.(
-      "about:blank",
-      "_blank",
-      "popup=yes,width=560,height=760,resizable=yes,scrollbars=yes",
-    );
-    if (!popup) {
+    const sameTab = useSameTabSocialOAuth(globalThis.location, platform);
+    const popup = sameTab
+      ? null
+      : globalThis.open?.(
+        "about:blank",
+        "_blank",
+        "popup=yes,width=560,height=760,resizable=yes,scrollbars=yes",
+      );
+    if (!sameTab && !popup) {
       setActionError("Account authorization could not start: allow a one-time popup for this site.");
       return null;
     }
@@ -653,6 +656,10 @@ export function App() {
           throw new Error("The platform returned an unsafe authorization URL");
         }
         setConnectionNotice(`Complete ${platform} authorization in the separate window. The signed-in Passport stays open here.`);
+        if (sameTab) {
+          globalThis.location.assign(authorization.toString());
+          return started;
+        }
         popup.location.replace(authorization.toString());
         const callbackQuery = await waitForSocialOAuthPopup(popup);
         const callback = new URLSearchParams(callbackQuery);
@@ -673,7 +680,7 @@ export function App() {
         setActiveSection("visas");
         return connected;
       } finally {
-        if (!popup.closed) popup.close();
+        if (popup && !popup.closed) popup.close();
       }
     }, "Account authorization could not be completed");
   };

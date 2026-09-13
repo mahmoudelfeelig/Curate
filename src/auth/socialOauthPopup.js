@@ -2,6 +2,17 @@ export const SOCIAL_OAUTH_CALLBACK_MESSAGE = "feed-passport:social-oauth-callbac
 
 const CALLBACK_PATH = "/oauth/callback";
 const MAX_CALLBACK_QUERY_LENGTH = 16_384;
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost"]);
+
+export function useSameTabSocialOAuth(location, platform) {
+  if (!location || !LOOPBACK_HOSTS.has(String(location.hostname || "").toLowerCase())) {
+    return false;
+  }
+  const selectedPlatform = String(platform || "").trim().toLowerCase();
+  if (!/^[a-z][a-z0-9_-]{0,31}$/.test(selectedPlatform)) return false;
+  return new URLSearchParams(String(location.search || "")).get("oauth")
+    === `direct-${selectedPlatform}`;
+}
 
 function isSocialCallback(location) {
   const path = String(location?.pathname || "").replace(/\/$/, "");

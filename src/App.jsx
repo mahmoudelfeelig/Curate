@@ -95,7 +95,7 @@ export function App() {
   const [accountConnections, setAccountConnections] = useState([]);
   const [oauthProviders, setOauthProviders] = useState([]);
   const [connectionConfiguration, setConnectionConfiguration] = useState("checking");
-  const [connectionNotice, setConnectionNotice] = useState("");
+  const [connectionNotice, setConnectionNotice] = useState(null);
   const [modelStatus, setModelStatus] = useState({
     configured: false,
     online: false,
@@ -388,7 +388,10 @@ export function App() {
           const state = query.get("state");
           const platform = globalThis.sessionStorage?.getItem("feed-passport-oauth-platform") || "";
           if (callbackError) {
-            setConnectionNotice("Authorization was declined or rejected by the platform. No connection was stored.");
+            setConnectionNotice({
+              platform,
+              message: "Authorization was declined or rejected by the platform. No connection was stored.",
+            });
           } else if (code && state && platform) {
             try {
               const connected = await feedPassportApi.completeOAuthConnection({
@@ -397,12 +400,21 @@ export function App() {
                 state,
                 callbackQuery: globalThis.location.search.replace(/^\?/, ""),
               });
-              setConnectionNotice(`${connected.data.platform} account authorization completed and bound to this Passport owner.`);
+              setConnectionNotice({
+                platform: connected.data.platform,
+                message: `${connected.data.platform} account authorization completed and bound to this Passport owner.`,
+              });
             } catch (error) {
-              setConnectionNotice(`Account authorization could not be completed: ${error.message}`);
+              setConnectionNotice({
+                platform,
+                message: `Account authorization could not be completed: ${error.message}`,
+              });
             }
           } else {
-            setConnectionNotice("The OAuth callback was incomplete. Start account authorization again.");
+            setConnectionNotice({
+              platform,
+              message: "The OAuth callback was incomplete. Start account authorization again.",
+            });
           }
           globalThis.history?.replaceState({ feedPassportSection: "visas" }, "", `${basePath}#visas`);
           setActiveSection("visas");
@@ -655,7 +667,10 @@ export function App() {
         if (authorization.protocol !== "https:") {
           throw new Error("The platform returned an unsafe authorization URL");
         }
-        setConnectionNotice(`Complete ${platform} authorization in the separate window. The signed-in Passport stays open here.`);
+        setConnectionNotice({
+          platform,
+          message: `Complete ${platform} authorization in the separate window. The signed-in Passport stays open here.`,
+        });
         if (sameTab) {
           globalThis.location.assign(authorization.toString());
           return started;
@@ -676,7 +691,10 @@ export function App() {
           connected.data,
           ...current.filter((item) => item.id !== connected.data.id),
         ]);
-        setConnectionNotice(`${connected.data.platform} account authorization completed and remained bound to this signed-in Passport owner.`);
+        setConnectionNotice({
+          platform: connected.data.platform,
+          message: `${connected.data.platform} account authorization completed and remained bound to this signed-in Passport owner.`,
+        });
         setActiveSection("visas");
         return connected;
       } finally {
@@ -689,7 +707,10 @@ export function App() {
     return runBusy("oauth-revoke", async () => {
       const revoked = await feedPassportApi.revokeOAuthConnection(connection);
       setAccountConnections((current) => current.map((item) => item.id === revoked.data.id ? revoked.data : item));
-      setConnectionNotice(`${revoked.data.platform} authorization was revoked and its local credential was destroyed.`);
+      setConnectionNotice({
+        platform: revoked.data.platform,
+        message: `${revoked.data.platform} authorization was revoked and its local credential was destroyed.`,
+      });
     }, "Account authorization could not be revoked");
   };
   const handleIssue = () => runBusy("issue", async () => {

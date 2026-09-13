@@ -142,7 +142,7 @@ export function VisaSpread({
   connections = [],
   oauthProviders = [],
   connectionConfiguration = "checking",
-  connectionNotice = "",
+  connectionNotice = null,
   onAuthorize,
   onRevoke,
   busyAction = "",
@@ -200,7 +200,7 @@ export function VisaSpread({
         <section className="connection-office" aria-live="polite">
           <div className="connection-office-heading"><div><p className="eyebrow">OWNER-BOUND ACCOUNT ACCESS</p><h3>Authorization desk</h3></div><StatusStamp tone={connection?.status === "active" ? "green" : "orange"} compact>{connection?.status === "active" ? "AUTHORIZED" : destination.id === "lab" ? "NOT REQUIRED" : "NOT AUTHORIZED"}</StatusStamp></div>
           {destination.id === "lab" ? <p>The Proof Lab uses deterministic fixtures. It never asks for a social account.</p> : connection?.status === "active" ? <><dl><div><dt>Account subject</dt><dd>{connection.external_subject}</dd></div><div><dt>Granted scopes</dt><dd>{connection.granted_scopes.join(", ") || "None recorded"}</dd></div><div><dt>Capability evidence</dt><dd>{evidenceStatus}</dd></div><div><dt>Credential location</dt><dd>Broker only; never model context</dd></div></dl><ActionButton variant="danger" onClick={() => onRevoke?.(connection)} busy={busyAction === "oauth-revoke"} disabled={Boolean(busyAction) && busyAction !== "oauth-revoke"}>REVOKE AUTHORIZATION</ActionButton></> : <><p>{unavailableReason}</p>{destination.id === "bluesky" && liveAuthorizeAvailable ? <label className="connection-handle"><span>Dummy account handle</span><input value={blueskyHandle} onChange={(event) => setBlueskyHandle(event.target.value)} placeholder="name.bsky.social" autoComplete="off" spellCheck="false" /></label> : null}{liveAuthorizeAvailable ? <ActionButton variant="ink" onClick={() => onAuthorize?.(destination.id, blueskyHandle)} busy={busyAction === "oauth-connect"} disabled={(Boolean(busyAction) && busyAction !== "oauth-connect") || (destination.id === "bluesky" && !blueskyHandle.trim())}>AUTHORIZE A DUMMY ACCOUNT</ActionButton> : <small>{connectionConfiguration === "checking" ? "Checking the local credential boundary." : "No authorization action is available in this configuration."}</small>}</>}
-          {connectionNotice ? <p className="success-note">{connectionNotice}</p> : null}
+          {connectionNotice?.platform === destination.id ? <p className="success-note">{connectionNotice.message}</p> : null}
         </section>
         {destination.id === "instagram" ? <InstagramImportDesk session={instagramImport} selectedHandles={instagramImportSelection} setSelectedHandles={setInstagramImportSelection} onPreview={onInstagramImportPreview} onApply={onInstagramImportApply} onDiscard={onInstagramImportDiscard} busyAction={busyAction} notice={instagramImportNotice} serviceAvailable={serviceAvailable} /> : null}
         <div className="evidence-note"><p className="eyebrow">LIMITATION ON THE RECORD</p><p>{destination.limitation}</p></div>

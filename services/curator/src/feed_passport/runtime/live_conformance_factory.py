@@ -374,6 +374,44 @@ class _ExactConformanceCapabilityMixin:
             certified_at=None,
         )
 
+    def _capabilities_at(
+        self,
+        account_id: str,
+        *,
+        now: datetime,
+    ) -> PlatformCapabilityManifest:
+        self._require_aware_now(now)
+        return self.capabilities(account_id)
+
+    def _require_active_certification(self, now: datetime) -> None:
+        """Use the factory gate as authority while producing its own proof."""
+
+        self._require_aware_now(now)
+
+    def _validate_prepared(
+        self,
+        prepared: Any,
+        *,
+        now: datetime,
+        require_current_certification: bool,
+    ) -> None:
+        del require_current_certification
+        self._require_aware_now(now)
+        if prepared.platform != self.platform:
+            raise ValueError("prepared action belongs to a different platform")
+        connection = self._connection(prepared.connection_id)
+        required_scopes = self.ACTION_SCOPES.get(
+            prepared.action.action_type,
+            _ATPROTO_REQUIRED_SCOPES if self.platform == "bluesky" else frozenset(),
+        )
+        if (
+            prepared.action.action_type not in self._conformance_actions
+            or not required_scopes <= frozenset(connection.granted_scopes)
+        ):
+            raise LiveConformanceGateError(
+                "prepared action is outside the exact conformance gate"
+            )
+
 
 class _YouTubeConformanceAdapter(_ExactConformanceCapabilityMixin, YouTubeLiveAdapter):
     pass

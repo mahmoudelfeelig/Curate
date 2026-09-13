@@ -10,7 +10,7 @@ import pytest
 
 from feed_passport.application.oauth import OAuthProviderCatalog
 from feed_passport.domain.connections import ConnectionStatus
-from feed_passport.domain.models import ActionType, CapabilityLevel
+from feed_passport.domain.models import ActionType, CapabilityLevel, ProposedAction
 from feed_passport.infrastructure.connection_registry import EncryptedConnectionRegistry
 from feed_passport.infrastructure.crypto import AesGcmKeyring
 from feed_passport.infrastructure.oauth_vault import LocalEncryptedOAuthVault
@@ -42,6 +42,24 @@ class NoNetworkHttpClient:
 
     def close(self) -> None:
         self.closed = True
+
+
+class JsonResponse:
+    status_code = 200
+    headers: dict[str, str] = {}
+    text = "json"
+
+    def __init__(self, payload: dict[str, object]) -> None:
+        self.payload = payload
+
+    def json(self) -> dict[str, object]:
+        return self.payload
+
+
+class ReadOnlyHttpClient(NoNetworkHttpClient):
+    def request(self, *args: object, **kwargs: object) -> JsonResponse:
+        self.calls.append((*args, kwargs))
+        return JsonResponse({"items": []})
 
 
 def encoded(value: bytes) -> str:
@@ -236,6 +254,50 @@ def test_builtin_factory_restores_standard_vault_and_exact_action_without_networ
     finally:
         runtime.close()
     assert http.closed is True
+
+
+def test_builtin_factory_exact_gate_can_prepare_its_own_uncertified_candidate(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "youtube-prepare.db"
+    connection_id = "connection-youtube-dummy"
+    seed_standard_database(database, connection_id=connection_id)
+    http = ReadOnlyHttpClient()
+    factory = BuiltInLiveConformanceFactory(
+        http_client_factory=lambda _timeout: http,
+        clock=lambda: NOW,
+        checkout_verifier=lambda _request: None,
+    )
+    gated = request(
+        tmp_path,
+        platform="youtube",
+        connection_id=connection_id,
+        action=ActionType.SUBSCRIBE_CREATOR,
+    )
+    action = ProposedAction(
+        id="conformance-action",
+        destination_id=connection_id,
+        action_type=ActionType.SUBSCRIBE_CREATOR,
+        target="UCkRfArvrzheW2E7b6SVT7vQ",
+        reason="authorized dummy-account live conformance",
+        idempotency_key="conformance-action",
+        reversible=True,
+    )
+
+    with patch.dict(os.environ, standard_environment(database), clear=True):
+        runtime = factory(gated)
+        try:
+            prepared = runtime.adapter.prepare_remote_action(
+                connection_id,
+                action,
+                now=NOW,
+            )
+        finally:
+            runtime.close()
+
+    assert prepared.before_state["present"] is False
+    assert prepared.desired_state["present"] is True
+    assert len(http.calls) == 1
 
 
 def test_builtin_factory_uses_token_isolated_atproto_sidecar_without_network(

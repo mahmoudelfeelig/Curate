@@ -1,20 +1,20 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-13T21:40:00Z",
+  "generated_at": "2026-09-13T22:00:00Z",
   "source": {
     "branch": "main",
-    "commit_count": 96,
+    "commit_count": 100,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
     "snapshot_file_count": 369,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "5db90f46508370d786904b0e00cb077f0528ffc4bd3afc2f5db8929dd824bb81",
+    "snapshot_sha256": "6d52683c3709760a83191a9cd66d5e8d5d3a07249853c4e4eb10b2dd615ea370",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,
     "history_rewritten_to_logical_commits": true,
     "sanitized_baseline_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
     "sanitized_baseline_commit_count": 40,
-    "append_only_commits_after_sanitized_baseline": 56
+    "append_only_commits_after_sanitized_baseline": 60
   },
   "environment": {
     "operating_system": "win32-x64",
@@ -83,7 +83,7 @@
       "gate": "node",
       "command": "npm test",
       "status": "passed",
-      "tests": 92
+      "tests": 93
     },
     {
       "gate": "independent_live_recovery_security_focus",
@@ -319,9 +319,9 @@
       "sha256": "afef6aa878e9b37b3fb2c65acc30df1b55957147c77a1f76643d4fa7aa125b5f"
     },
     {
-      "path": "artifacts/evidence/screenshots/model-consent.png",
-      "bytes": 1147434,
-      "sha256": "a013f3d9385d8ca5420bef1d46a2c0b12282d9dcf52aa346fea01f1cef64c6ac"
+      "path": "artifacts/evidence/screenshots/model-planning.png",
+      "bytes": 913258,
+      "sha256": "d3c2b784cba5e6d40109e9a2b41f0107cea86fd79373afd5b8ed4d0479c7cbe2"
     },
     {
       "path": "artifacts/evidence/screenshots/model-rolled-back.png",

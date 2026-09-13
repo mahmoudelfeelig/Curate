@@ -346,9 +346,11 @@ To activate a successful receipt, set `FEED_PASSPORT_LIVE_CERTIFICATIONS_DIR` to
 
 ## AWS, AgentCore, and Builder ID
 
-The AgentCore implementation is prepared but not deployed. Local source tests prove the proposal-only Strands loop with a scripted no-network model, strict `health`/`plan_feature` commands, JWT-subject ownership handling, and a narrowly scoped synthesized stack. They do not prove managed JWT validation, Gateway routing, Bedrock entitlement, regional service availability, promotional-credit coverage, or billing.
+The AgentCore implementation is prepared but not deployed. Local source tests prove the proposal-only Strands loops with a scripted no-network model, strict `health`/`plan_feature`/`plan_feed` commands, sanitized feed-evidence handling, JWT-subject ownership, and a narrowly scoped synthesized stack. They do not prove managed JWT validation, Gateway routing, Bedrock entitlement, regional service availability, promotional-credit coverage, or billing.
 
-There is no honest zero-dollar deployment guarantee. AgentCore Runtime, Gateway, Bedrock, Cognito, S3 deployment assets, and CloudWatch can be consumption-based. AWS credits and Budgets are not hard spend caps. Under the current zero-spend requirement, do not bootstrap, deploy, create a Cognito user, invoke Runtime health, invoke Bedrock, or tear down resources that were never created.
+There is no honest zero-dollar deployment guarantee. AgentCore Runtime, Gateway, Bedrock, Cognito, S3 deployment assets, and CloudWatch can be consumption-based. AWS credits and Budgets are not hard spend caps. The currently authorized live proof is bounded by a USD 5 monthly alert budget, the smallest stack in this repository, one `health` invocation, one `plan_feed` invocation, seven-day logs, and same-session teardown. Stop if that boundary cannot be established exactly.
+
+Use [the USD 5 demonstration runbook](aws-five-dollar-runbook.md) as the controlling cost checklist. Create its fixed budget and confirm the alert subscriber before bootstrap. Inspect promotional credits separately, but never describe credits as a guarantee that the proof is free.
 
 The safe source and template checks are:
 
@@ -375,9 +377,9 @@ The entrant must personally complete the external identity steps:
 
 A conventional Builder ID alone cannot authenticate the AWS CLI. If the account is enrolled in AWS's limited new-account experience, the available credential path may differ; follow only the account's own IAM guidance and keep using a dedicated least-privilege profile.
 
-An unrelated existing AWS profile must never be reused. After the user has authenticated the dedicated profile and explicitly authorizes a read-only check, the repository's `infra/agentcore/scripts/preflight.ps1 -Mode AwsReadOnly` can confirm caller identity and service/model metadata without invoking Runtime or Bedrock. Deployment and invocation still require separate potential-charge acknowledgements and remain prohibited under zero spend.
+An unrelated existing AWS profile must never be reused. After the user has authenticated the dedicated profile, the repository's `infra/agentcore/scripts/preflight.ps1 -Mode AwsReadOnly` can confirm caller identity and service/model metadata without invoking Runtime or Bedrock. Deployment and invocation retain separate exact potential-charge acknowledgements and must stay inside the documented USD 5 demonstration boundary.
 
-AgentCore `plan_feature` is proposal-only. It derives the actor only from the Runtime-validated JWT `sub`, uses one explicitly configured Bedrock model with no fallback, and exposes no execute, approval, rollback, credential, browser-control, or live-platform mutation operation. Even a successful deployment would not by itself prove a social account was changed.
+AgentCore `plan_feature` and `plan_feed` are proposal-only. They derive the actor only from the Runtime-validated JWT `sub`, use one explicitly configured Bedrock model with no fallback, and expose no execute, approval, rollback, credential, browser-control, or live-platform mutation operation. `plan_feed` receives sanitized evidence without source URLs, account identifiers, or exact social targets. Even a successful deployment would not by itself prove a social account was changed.
 
 If deployment is later authorized despite the charge risk, use only the gated `infra/agentcore/scripts/deploy.ps1` flow. The current CloudFormation Runtime resource cannot set `metadataConfiguration.requireMMDSV2`; the deployment script must perform a post-deploy `UpdateAgentRuntime`, wait for `READY`, read the Runtime back, and fail unless `requireMMDSV2=true`. A stack creation result without that verified post-deploy update is not deployment-ready evidence.
 
@@ -394,6 +396,6 @@ The user does not need to give anyone a password or secret. The irreducibly pers
 - a Bluesky dummy account and an HTTPS/private-sidecar hosting choice;
 - a decision to leave X live testing disabled under zero spend;
 - an AWS account, Builder ID, and dedicated local SSO login if the event requires them;
-- a later, separate decision accepting potential AWS charges before any deployment or invocation.
+- an action-time confirmation to create the fixed USD 5 AWS Budget after its exact account, subscriber, and non-cap warning are visible.
 
 Once those exist, the user can provide only non-secret identifiers and explicit scope. The project can then run read-only preflights first and produce a signed conformance receipt from one separately approved reversible dummy-account action at a time. The shipped owner-authenticated Connected Agent API and desk expose preview, exact-plan approval, execution, reconciliation, and rollback for a certified live adapter; generic migrations remain blocked from live execution.

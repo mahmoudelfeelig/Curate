@@ -1,27 +1,17 @@
-# Feed Passport short voiceover
+# Curate short voiceover
 
-Target read: about two minutes and thirty seconds. The matching silent capture is intentionally under three minutes.
+Target read: about one minute and forty-five seconds. Read conversationally and leave a short breath wherever the screen changes.
 
-## 0:00-0:25
+Recommendation feeds learn us over years, but that work disappears when we open a new account or move platforms. Curate gives that history a portable shape: tell it what you want, inspect what it understood, and carry those preferences forward.
 
-Recommendation feeds take years to tune, but that work disappears when we open a new account or move platforms. Feed Passport lets a person describe the feed they want once, keep it as portable policy, and translate it into only the controls each destination actually supports.
+I can start loosely. “I want less ragebait and more science-based pages.” These are a few examples from my starting feed. Curate separates what I supplied from what it inferred, then turns the request into a feed I can actually compare.
 
-## 0:25-0:58
+It also understands precision. Here I ask for fifty percent astronomy, fifteen percent coding, twelve percent drawing, three percent anime, ten percent Naruto, five percent One Piece, and five percent perfumes. That is a complete one-hundred-percent mix, but the input still feels like a sentence, not a settings form.
 
-Here I give the agent a few owner-selected examples and a natural-language goal: reduce ragebait, make the feed sixty percent pet science and twenty percent cute drawing, and leave the rest exploratory. The product separates provider metadata, my notes, and its own inference. It turns that evidence into measurable targets without claiming it downloaded a private For You feed.
+The local agent plans within the controls available for this destination. Then it runs on a practice feed, measures the result, and stops when the feed is close enough or its action budget is spent.
 
-## 0:58-1:28
+The difference is visible, not just a score. The starting feed is dominated by outrage, drama, and unsupported claims. The curated feed brings forward astronomy, programming, source-backed science, drawing, anime analysis, and fragrance chemistry. Curate still records the measurements and action receipts for anyone who wants to inspect them.
 
-The local Strands agent proposes the change through a typed tool sequence. It can inspect the selected Passport and sanitized evidence, then submit a proposal. It cannot approve itself, access credentials, or mutate a social account. Applying this result creates a new version of my Passport; the button I press is the action boundary.
+Every practice-feed change has a return route. One click restores the starting state and verifies the match.
 
-## 1:28-1:58
-
-Now the same goal becomes a bounded agent mission against a deterministic YouTube control twin. The model chooses only from supported action families. Deterministic code owns identity, budgets, stopping rules, execution, measurement, and rollback. After the run, Feed Passport measures the simulated feed, records every inverse, and proves rollback by matching the original state fingerprint.
-
-## 1:58-2:20
-
-Connected Agent shows the honest platform boundary. YouTube and Bluesky can use owner OAuth only when a fresh dummy-account certification matches the running code. Instagram currently imports an owner-provided Accounts Center export and prepares a guided handoff; it does not pretend an unavailable consumer recommendation API exists.
-
-## 2:20-2:35
-
-The same portable policy powers account migration, temporary feeds, and two-person companion sync. Feed Passport gives agents real work while keeping authority legible and reversible: your feed, your rules, wherever the platform permits.
+Curate is a passport for your taste: natural language in, a measurable feed out, and a clear translation for every platform that supports it.

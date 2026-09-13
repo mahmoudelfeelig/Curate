@@ -1,24 +1,25 @@
-# Silent demo and voiceover transcript
+# Curate silent demo and transcript
 
-Target: about 2 minutes 30 seconds. Record the browser without audio at 1440×900. Keep pointer movement slow, pause on evidence labels, and never expose emails, account handles, OAuth tokens, AWS account IDs, or private feed content.
+Target: **1:45 to 2:15**, silent, 1440 by 900. The exact timing follows the UI response, while inactive local-model wait time is removed by the recorder and disclosed in its report.
 
 | Time | Silent screen action | Voiceover |
 | --- | --- | --- |
-| 0:00–0:15 | Open the Passport overview, then the Constitution. | “Recommendation feeds take years to tune, then disappear when we switch accounts or platforms. Feed Passport turns what I want into a portable, inspectable policy.” |
-| 0:15–0:48 | Open Feed evidence. Show three owner-selected links and the goal: “60% pet science, 20% cute drawing, keep the rest exploratory, and reduce ragebait.” Capture before and linger on each provenance badge. | “I select a few posts I actually saw. Feed Passport never claims to read the platform’s private algorithm. It keeps provider metadata, my notes, and deterministic inference separate. A request-bound Strands agent sees a sanitized version, calls exactly three proposal tools, and turns my language into measurable targets and guardrails.” |
-| 0:48–1:03 | Show the target mix and YouTube, Bluesky, and Instagram translation cards. Approve and apply the Passport revision. | “Each platform gets only the controls it really supports, and missing capabilities stay visible. This consent revises my Passport only; it does not authorize a social action.” |
-| 1:03–1:43 | Open Agent mission. Run the local model planner, show its three-tool trace and fixed action budget, approve the local twin run, inspect the measured after-state, then roll it back and show State verified. | “A second Strands planner proposes the control strategy. Deterministic code owns identity, budgets, approval, execution, measurement, and rollback. The local twin performs the complete loop, then proves the original control-state fingerprint was restored. It tests real agent behavior without impersonating a private recommender.” |
-| 1:43–2:03 | Open Connected Agent, Temporary Visa, and Companion. | “Live YouTube or Bluesky actions need owner OAuth, a fresh dummy-account certification, and separate consent to exact reversible targets. Temporary and shared feeds reuse the same expiring, revocable policy boundary.” |
-| 2:03–2:20 | Return to Feed evidence, replace the links with the after-sample, and click Compare after. | “After a change, I sample again. Feed Passport measures the association, reports uncertainty, and never calls a small sample proof of ranking causation.” |
-| 2:20–2:30 | End on the Passport overview. | “One portable intent, honest capability translation, human consent, evidence, and rollback. Your feed, your rules, anywhere platforms permit.” |
+| 0:00–0:12 | Open on the Curate passport, then choose **Tune my feed**. | “Recommendation feeds learn us over years, but that work disappears when we open a new account or move platforms. Curate gives that history a portable shape.” |
+| 0:12–0:35 | Type “I want less ragebait and more science-based pages.” Show the six starting-feed links, capture, and center the starting content cards. | “I can start loosely. These are a few examples from my starting feed. Curate separates what I supplied from what it inferred, then turns the request into a feed I can actually compare.” |
+| 0:35–0:48 | Show the inferred preference mix, then save it to the Passport. | “A conversational request becomes useful preferences without forcing me to invent percentages.” |
+| 0:48–1:08 | Open the agent mission and type the exact seven-topic, 100% request. Briefly show the planning animation; cut directly to the returned local-model proposal. | “It also understands precision. This complete one-hundred-percent mix still feels like a sentence, not a settings form. The local agent plans within the controls available for this destination.” |
+| 1:08–1:28 | Run on the **Practice feed**. Center the visible starting and curated content cards, then their summary metrics. | “The difference is visible, not just a score. Outrage, drama, and unsupported claims give way to astronomy, programming, source-backed science, drawing, anime analysis, and fragrance chemistry.” |
+| 1:28–1:38 | Restore the starting state and pause on the verified restoration mark. | “Every practice-feed change has a return route. One click restores the starting state and verifies the match.” |
+| 1:38–1:58 | Return to **Tune my feed**, paste the after-sample, compare, and hold on both feed columns. | “Afterward, Curate compares the content itself and keeps the measurements and receipts available for inspection.” |
+| 1:58–2:08 | End on the Curate passport cover. | “Curate is a passport for your taste: natural language in, a measurable feed out, and a clear translation for every platform that supports it.” |
 
-The silent capture should include no narration text burned into the video beyond the product UI. Record the voiceover cleanly against this timing and send the audio as WAV or high-bitrate MP3; final editing can trim pauses and add captions without changing the underlying proof claims.
+The final video must not show narration text burned into the product UI. Record the voiceover as WAV or high-bitrate MP3. Captions may be added during final editing as long as they do not cover the content cards or alter the meaning of the proof.
 
-With the local API and verified loopback model already running, generate the source-free capture with:
+With the local API and verified loopback model already running, generate the capture with:
 
 ```powershell
 $env:FEED_PASSPORT_DEMO_RECORDING_ACK="REVISE ONLY THE LOCAL DEMO PASSPORT"
 npm run demo:record
 ```
 
-The capture blocks non-loopback browser requests, refuses an external or paid model, and writes its WebM video and JSON report under the operating-system temporary directory by default. Set `FEED_PASSPORT_DEMO_OUTPUT_DIR` to another non-repository output directory when needed. The report records that no social account was accessed and requires a local-model mission, local-twin execution, and verified rollback before it can pass. The flow does revise the selected local demo Passport once, so use a disposable local database for the final recording.
+The script records a raw WebM for auditability and a condensed WebM for the submission. Its JSON report lists every removed wait interval, hashes the final video, records both natural-language goals, blocks non-loopback browser traffic, and can pass only after local-model planning, practice-feed execution, verified rollback, visible starting and curated feed cards, and a sub-three-minute final cut. The local capture accesses no social account and performs no platform action. Use a disposable local database because the flow revises one local Passport.

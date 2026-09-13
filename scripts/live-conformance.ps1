@@ -86,7 +86,7 @@ if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
 
 $arguments = @(
     '-m'
-    'feed_passport.runtime.live_conformance'
+    'feed_passport.runtime.live_conformance_cli'
     '--acknowledge-authorized-dummy-account-mutations'
     '--owner-id'
     $OwnerId

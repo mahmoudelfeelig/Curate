@@ -36,6 +36,7 @@ from feed_passport.runtime.live_conformance import (
     run_live_conformance,
     verify_clean_checkout,
 )
+from feed_passport.runtime.live_conformance_cli import main as cli_main
 
 
 NOW = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
@@ -343,6 +344,9 @@ class LiveConformanceRunnerTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertEqual(factory_calls, [])
         self.assertFalse(self.output.exists())
+
+    def test_cli_wrapper_uses_the_canonical_conformance_module(self) -> None:
+        self.assertIs(cli_main, main)
 
     def test_checkout_verifier_rejects_a_revision_other_than_head(self) -> None:
         root, revision = self.git_checkout()

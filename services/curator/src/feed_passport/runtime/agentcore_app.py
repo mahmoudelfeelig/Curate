@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import urlsplit
 
 from bedrock_agentcore import BedrockAgentCoreApp, RequestContext
+from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 
 from feed_passport.agent.feature_intent_planner import FeatureIntentPlanner, SafeFeatureCatalog
 from feed_passport.agent.feed_goal_planner import FeedGoalPlanner
@@ -27,6 +31,33 @@ PlannerFactory = Callable[[], FeatureIntentPlanner]
 FeedPlannerFactory = Callable[[], FeedGoalPlanner]
 
 
+def _allowed_browser_origins() -> list[str]:
+    origins: list[str] = []
+    for raw in os.environ.get("CURATE_ALLOWED_ORIGINS", "").split(","):
+        value = raw.strip()
+        if not value:
+            continue
+        parsed = urlsplit(value)
+        loopback = parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+        if (
+            (parsed.scheme != "https" and not (loopback and parsed.scheme == "http"))
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+            or "*" in value
+        ):
+            raise ValueError(
+                "CURATE_ALLOWED_ORIGINS must contain only HTTPS origins or loopback HTTP origins"
+            )
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if origin not in origins:
+            origins.append(origin)
+    return origins
+
+
 def create_agentcore_app(
     *,
     planner_factory: PlannerFactory | None = None,
@@ -46,6 +77,24 @@ def create_agentcore_app(
     selected_catalog = feature_catalog or default_agentcore_feature_catalog()
     selected_identity_resolver = identity_resolver or RuntimeGatewaySubjectResolver()
     application = BedrockAgentCoreApp()
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=_allowed_browser_origins(),
+        allow_credentials=False,
+        allow_methods=["POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        max_age=600,
+    )
+
+    async def invocation_preflight(_request: Any) -> Response:
+        return Response(status_code=204)
+
+    application.add_route(
+        "/invocations",
+        invocation_preflight,
+        methods=["OPTIONS"],
+        include_in_schema=False,
+    )
 
     @application.entrypoint
     async def handler(

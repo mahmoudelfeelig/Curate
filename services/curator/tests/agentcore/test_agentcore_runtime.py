@@ -9,6 +9,7 @@ from typing import Any
 from unittest.mock import patch
 
 from bedrock_agentcore import RequestContext
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from strands.models import Model
 
@@ -233,6 +234,64 @@ class AgentCoreBedrockConfigurationTests(unittest.TestCase):
 class AgentCoreRuntimeTests(unittest.TestCase):
     identity_resolver = RuntimeGatewaySubjectResolver()
 
+    def test_runtime_cors_allows_only_configured_curate_origins(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"CURATE_ALLOWED_ORIGINS": "https://curate.elfeel.me,http://127.0.0.1:5173"},
+            clear=False,
+        ):
+            application, _ = create_agentcore_app(identity_resolver=self.identity_resolver)
+        with TestClient(application) as client:
+            allowed = client.options(
+                "/invocations",
+                headers={
+                    "Origin": "https://curate.elfeel.me",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "authorization,content-type",
+                },
+            )
+            denied = client.options(
+                "/invocations",
+                headers={
+                    "Origin": "https://attacker.example",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "authorization,content-type",
+                },
+            )
+        self.assertEqual(allowed.status_code, 200)
+        self.assertEqual(allowed.headers["access-control-allow-origin"], "https://curate.elfeel.me")
+        self.assertNotIn("access-control-allow-credentials", allowed.headers)
+        self.assertNotIn("access-control-allow-origin", denied.headers)
+
+    def test_runtime_cors_defaults_to_no_cross_origin_access(self) -> None:
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("CURATE_ALLOWED_ORIGINS", None)
+            application, _ = create_agentcore_app(identity_resolver=self.identity_resolver)
+        with TestClient(application) as client:
+            response = client.options(
+                "/invocations",
+                headers={
+                    "Origin": "https://curate.elfeel.me",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "authorization,content-type",
+                },
+            )
+        self.assertNotIn("access-control-allow-origin", response.headers)
+
+    def test_runtime_cors_rejects_wildcards_paths_and_non_loopback_http(self) -> None:
+        for value in (
+            "*",
+            "https://curate.elfeel.me/invocations",
+            "http://curate.elfeel.me",
+        ):
+            with self.subTest(value=value), patch.dict(
+                os.environ,
+                {"CURATE_ALLOWED_ORIGINS": value},
+                clear=False,
+            ):
+                with self.assertRaisesRegex(ValueError, "only HTTPS origins"):
+                    create_agentcore_app(identity_resolver=self.identity_resolver)
+
     def _planner(self, model: ScriptedFeatureModel) -> FeatureIntentPlanner:
         return FeatureIntentPlanner(
             model_factory=lambda: model,
@@ -397,6 +456,59 @@ class AgentCoreRuntimeTests(unittest.TestCase):
                 "submit_feed_goal_proposal",
             },
         )
+
+    def test_plan_feed_server_locks_vague_relative_directions(self) -> None:
+        model = ScriptedFeatureModel(
+            [
+                ("inspect_selected_passport", {}),
+                ("inspect_sanitized_evidence", {}),
+                (
+                    "submit_feed_goal_proposal",
+                    {
+                        "target_topic_weights": {"research": 0.7, "engineering": 0.3},
+                        "hard_exclusions": ["ragebait"],
+                        "rationale": "The selected sample supports a calmer science direction.",
+                    },
+                ),
+            ]
+        )
+        _, handler = create_agentcore_app(
+            planner_factory=lambda: self._planner(
+                ScriptedFeatureModel(scripted_calls("migration", {"destination": "youtube"}))
+            ),
+            feed_planner_factory=lambda: self._feed_planner(model),
+            feature_catalog=_catalog(),
+            identity_resolver=self.identity_resolver,
+        )
+
+        response = asyncio.run(
+            handler(
+                {
+                    "kind": "plan_feed",
+                    "passport": _passport_payload(),
+                    "request": "Show me less research and more science-based pages.",
+                    "evidence": [
+                        {
+                            "platform": "youtube",
+                            "metadata_source": "youtube_data_api_v3",
+                            "metadata_verified": True,
+                            "title": "A calm astronomy explainer",
+                            "description": "Evidence-led science for curious viewers.",
+                            "inferred_topics": ["science", "astronomy"],
+                            "ragebait_signal": False,
+                            "confidence": 0.9,
+                        }
+                    ],
+                },
+                _request_context(subject="cognito-user-123"),
+            )
+        )
+
+        targets = response["proposal"]["target_topic_weights"]
+        self.assertIn("science", targets)
+        self.assertLess(targets["research"], 0.7)
+        self.assertFalse(response["evidence"]["explicit_percentages_enforced"])
+
     def test_runtime_rejects_mutation_commands_free_text_and_actor_spoofing(self) -> None:
         _, handler = create_agentcore_app(
             planner_factory=lambda: self._planner(

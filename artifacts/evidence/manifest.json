@@ -1,20 +1,20 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-13T15:41:49Z",
+  "generated_at": "2026-09-13T16:00:49Z",
   "source": {
     "branch": "main",
-    "commit_count": 82,
+    "commit_count": 84,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
     "snapshot_file_count": 368,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "16c07f3e27e566278e6ca5ee8225c5d90e450dcba9ee1517fd433f63e31a616f",
+    "snapshot_sha256": "e5b0016b67cfc5ab2f65df66e010b20471d566f54052dbdac00e1732e92fb9ec",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,
     "history_rewritten_to_logical_commits": true,
     "sanitized_baseline_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
     "sanitized_baseline_commit_count": 40,
-    "append_only_commits_after_sanitized_baseline": 42
+    "append_only_commits_after_sanitized_baseline": 44
   },
   "environment": {
     "operating_system": "win32-x64",
@@ -74,8 +74,8 @@
       "gate": "python",
       "command": ".\\services\\curator\\.venv\\Scripts\\python.exe -m pytest services/curator/tests -o addopts= -q -p no:cacheprovider",
       "status": "passed",
-      "tests": 529,
-      "subtests": 155,
+      "tests": 532,
+      "subtests": 156,
       "warnings": 2,
       "warning_scope": "upstream Starlette and Pydantic deprecations"
     },
@@ -143,7 +143,7 @@
       "gate": "agentcore_package",
       "command": "isolated TypeScript compile, CDK tests, and Python artifact validation",
       "status": "passed",
-      "typescript_tests": 10,
+      "typescript_tests": 12,
       "python_packaging_tests": 2,
       "linux_arm64_archive_validation": "passed",
       "default_packaging_backend": "PipCrossPlatform",
@@ -171,7 +171,7 @@
       "source_files": 368,
       "tracked_tree_clean": true,
       "byte_source": "git-index-blobs",
-      "commit_count": 82
+      "commit_count": 84
     },
     {
       "gate": "deterministic_evaluation",

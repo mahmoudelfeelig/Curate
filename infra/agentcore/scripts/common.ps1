@@ -83,3 +83,30 @@ function Convert-StackOutputsToMap {
     }
     return $values
 }
+
+function Invoke-ProjectNpm {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$CommandArguments
+    )
+
+    $node = (Get-Command node -ErrorAction Stop).Source
+    $npmCli = Join-Path (Split-Path -Parent $node) "node_modules\npm\bin\npm-cli.js"
+    if (-not (Test-Path -LiteralPath $npmCli -PathType Leaf)) {
+        throw "The npm CLI bundled with the active Node.js installation is unavailable"
+    }
+    & $node $npmCli @CommandArguments
+}
+
+function Invoke-ProjectCdk {
+    param(
+        [Parameter(Mandatory = $true)][string]$InfraRoot,
+        [Parameter(Mandatory = $true)][string[]]$CommandArguments
+    )
+
+    $cdkCli = Join-Path $InfraRoot "node_modules\aws-cdk\bin\cdk"
+    if (-not (Test-Path -LiteralPath $cdkCli -PathType Leaf)) {
+        throw "The project-pinned AWS CDK CLI is unavailable. Install the locked AgentCore dependencies first."
+    }
+    $node = (Get-Command node -ErrorAction Stop).Source
+    & $node $cdkCli @CommandArguments
+}

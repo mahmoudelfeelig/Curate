@@ -27,10 +27,31 @@ test("the AgentCore bootstrap cannot execute the deployment application", async 
     "utf8",
   );
 
-  assert.match(script, /node_modules\\aws-cdk\\bin\\cdk/);
+  assert.match(script, /Invoke-ProjectCdk/);
   assert.match(script, /feed-passport-cdk-bootstrap-/);
   assert.match(script, /StartsWith\([\s\S]*\$temporaryRoot/);
   assert.match(script, /Push-Location \$temporaryDirectory/);
   assert.doesNotMatch(script, /Push-Location \$infraRoot/);
   assert.doesNotMatch(script, /& npx cdk bootstrap/);
+});
+
+test("AgentCore scripts use only the active Node npm and project-pinned CDK", async () => {
+  const scriptDirectory = path.join(projectRoot, "infra", "agentcore", "scripts");
+  const [common, plan, deploy, dryRun] = await Promise.all([
+    fs.readFile(path.join(scriptDirectory, "common.ps1"), "utf8"),
+    fs.readFile(path.join(scriptDirectory, "plan.ps1"), "utf8"),
+    fs.readFile(path.join(scriptDirectory, "deploy.ps1"), "utf8"),
+    fs.readFile(path.join(scriptDirectory, "local-dry-run.ps1"), "utf8"),
+  ]);
+
+  assert.match(common, /node_modules\\npm\\bin\\npm-cli\.js/);
+  assert.match(common, /node_modules\\aws-cdk\\bin\\cdk/);
+  for (const script of [plan, deploy, dryRun]) {
+    assert.doesNotMatch(script, /&\s+npx\b/);
+    assert.doesNotMatch(script, /&\s+npm\b/);
+  }
+  assert.match(plan, /Invoke-ProjectNpm/);
+  assert.match(plan, /Invoke-ProjectCdk/);
+  assert.match(deploy, /Invoke-ProjectCdk/);
+  assert.match(dryRun, /Invoke-ProjectNpm/);
 });

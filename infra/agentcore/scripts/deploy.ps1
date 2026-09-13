@@ -76,12 +76,14 @@ $context = @(
 
 Push-Location $infraRoot
 try {
-    & npx cdk deploy FeedPassportAgentCore `
-        --app "node dist/bin/app.js" `
-        --profile $AwsProfile `
-        --require-approval never `
-        --outputs-file $outputsFile `
-        @context
+    $deployArguments = @(
+        "deploy", "FeedPassportAgentCore",
+        "--app", "node dist/bin/app.js",
+        "--profile", $AwsProfile,
+        "--require-approval", "never",
+        "--outputs-file", $outputsFile
+    ) + $context
+    Invoke-ProjectCdk -InfraRoot $infraRoot -CommandArguments $deployArguments
     if ($LASTEXITCODE -ne 0) {
         throw "CDK deploy failed with exit code $LASTEXITCODE"
     }

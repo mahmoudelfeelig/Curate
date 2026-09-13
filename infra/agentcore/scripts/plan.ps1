@@ -48,10 +48,10 @@ if ([string]::IsNullOrWhiteSpace($BedrockModelId)) {
 Push-Location $infraRoot
 try {
     if (-not $SkipNpmInstall) {
-        & npm ci --ignore-scripts --no-audit --no-fund
+        Invoke-ProjectNpm -CommandArguments @("ci", "--ignore-scripts", "--no-audit", "--no-fund")
         if ($LASTEXITCODE -ne 0) { throw "npm ci failed with exit code $LASTEXITCODE" }
     }
-    & npm test
+    Invoke-ProjectNpm -CommandArguments @("test")
     if ($LASTEXITCODE -ne 0) { throw "CDK assertion tests failed with exit code $LASTEXITCODE" }
 
     if (-not $SkipPackage) {
@@ -70,7 +70,7 @@ try {
         throw "AgentCore artifact provenance validation failed with exit code $LASTEXITCODE"
     }
 
-    & npm run build
+    Invoke-ProjectNpm -CommandArguments @("run", "build")
     if ($LASTEXITCODE -ne 0) { throw "TypeScript build failed with exit code $LASTEXITCODE" }
     $context = @(
         "-c", "awsAccountId=$AwsAccountId",
@@ -82,7 +82,12 @@ try {
         "-c", "logoutUrls=$($LogoutUrls -join ',')",
         "-c", "cognitoDomainPrefix=$CognitoDomainPrefix"
     )
-    & npx cdk synth FeedPassportAgentCore --app "node dist/bin/app.js" --quiet @context
+    $synthArguments = @(
+        "synth", "FeedPassportAgentCore",
+        "--app", "node dist/bin/app.js",
+        "--quiet"
+    ) + $context
+    Invoke-ProjectCdk -InfraRoot $infraRoot -CommandArguments $synthArguments
     if ($LASTEXITCODE -ne 0) { throw "CDK synth failed with exit code $LASTEXITCODE" }
     & node dist/scripts/validate-template.js "cdk.out/FeedPassportAgentCore.template.json"
     if ($LASTEXITCODE -ne 0) { throw "Template safety validation failed with exit code $LASTEXITCODE" }

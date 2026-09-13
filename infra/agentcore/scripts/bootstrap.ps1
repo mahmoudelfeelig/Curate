@@ -11,7 +11,6 @@ param(
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 $infraRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
-$cdkCliPath = Join-Path $infraRoot "node_modules\aws-cdk\bin\cdk"
 $target = "aws://$AwsAccountId/$AwsRegion"
 
 Write-Host "Planned command: project-pinned cdk bootstrap $target --profile $AwsProfile --termination-protection"
@@ -24,9 +23,6 @@ if ($Mode -eq "Plan") {
 Assert-ExactAcknowledgement -Actual $ApplyAcknowledgement -Expected "BOOTSTRAP FEED PASSPORT AWS" -Purpose "CDK bootstrap"
 Assert-ExactAcknowledgement -Actual $BillingAcknowledgement -Expected "AWS CREDITS ARE NOT A HARD SPEND CAP" -Purpose "CDK bootstrap billing risk"
 $null = Assert-AwsAccount -ExpectedAccountId $AwsAccountId -AwsRegion $AwsRegion -AwsProfile $AwsProfile
-if (-not (Test-Path -LiteralPath $cdkCliPath -PathType Leaf)) {
-    throw "The project-pinned AWS CDK CLI is unavailable. Install the locked AgentCore dependencies first."
-}
 
 $temporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd(
     [System.IO.Path]::DirectorySeparatorChar,
@@ -47,7 +43,11 @@ try {
     # Bootstrap does not need the Feed Passport application assembly. Running
     # outside infraRoot prevents cdk.json from executing the app and requiring
     # deployment-only context or an already-built runtime artifact.
-    & node $cdkCliPath bootstrap $target --profile $AwsProfile --termination-protection
+    Invoke-ProjectCdk -InfraRoot $infraRoot -CommandArguments @(
+        "bootstrap", $target,
+        "--profile", $AwsProfile,
+        "--termination-protection"
+    )
     if ($LASTEXITCODE -ne 0) {
         throw "CDK bootstrap failed with exit code $LASTEXITCODE"
     }

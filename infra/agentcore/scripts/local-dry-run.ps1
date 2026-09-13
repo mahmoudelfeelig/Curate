@@ -4,6 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "common.ps1")
 $infraRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $infraRoot "..\..")).Path
 $python = Join-Path $repoRoot "services\curator\.venv\Scripts\python.exe"
@@ -22,7 +23,7 @@ finally {
 
 Push-Location $infraRoot
 try {
-    & npm test
+    Invoke-ProjectNpm -CommandArguments @("test")
     if ($LASTEXITCODE -ne 0) { throw "AgentCore CDK tests failed with exit code $LASTEXITCODE" }
     if ($IncludeLinuxArm64Package) {
         & (Join-Path $PSScriptRoot "package.ps1")

@@ -1,9 +1,9 @@
 export const DEMO_RUNTIME_BOUNDS_MS = Object.freeze({ minimum: 120_000, maximum: 240_000 });
 
 export const demoVideo = Object.freeze({
-  width: 1280,
-  height: 720,
-  bitrate: 11_000_000,
+  width: 1920,
+  height: 1080,
+  bitrate: 20_000_000,
   minimumLabeledFrameHoldMs: 2_500,
   defaultFrameHoldMs: 1_000,
 });
@@ -175,11 +175,11 @@ export function validateDemoStoryboard() {
   const chapterIds = new Set(demoChapters.map(({ id }) => id));
   if (chapterIds.size !== demoChapters.length) throw new Error("Demo chapter ids must be unique.");
   if (
-    demoVideo.width !== 1280
-    || demoVideo.height !== 720
-    || demoVideo.bitrate < 10_000_000
-    || demoVideo.bitrate > 12_000_000
-  ) throw new Error("The demo must retain native-quality 720p output at 10-12 Mbps.");
+    demoVideo.width !== 1920
+    || demoVideo.height !== 1080
+    || demoVideo.bitrate < 18_000_000
+    || demoVideo.bitrate > 24_000_000
+  ) throw new Error("The demo must retain native-quality 1080p output at 18-24 Mbps.");
   if (demoPersonas.length !== 5 || new Set(demoPersonas.map(({ id }) => id)).size !== 5) throw new Error("The demo needs five distinct prompt personalities.");
   if (new Set(demoPersonas.map(({ prompt }) => prompt)).size !== demoPersonas.length) throw new Error("Demo prompts must be unique.");
   for (const persona of demoPersonas) {

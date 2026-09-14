@@ -1,0 +1,72 @@
+name: curate-public-connect
+
+services:
+  api:
+    build:
+      context: ./services/curator
+    restart: unless-stopped
+    environment:
+      FEED_PASSPORT_AUTH_MODE: oidc
+      FEED_PASSPORT_BIND_HOST: 0.0.0.0
+      FEED_PASSPORT_ALLOWED_ORIGINS: https://curate.elfeel.me
+      FEED_PASSPORT_ENABLE_LOCAL_IMPORT: "0"
+      FEED_PASSPORT_ALLOW_INSECURE_LOOPBACK_OAUTH: "0"
+      FEED_PASSPORT_DB_PATH: /run/curate/curator.db
+      FEED_PASSPORT_CONNECTION_KEY_B64: ${FEED_PASSPORT_CONNECTION_KEY_B64}
+      FEED_PASSPORT_CONNECTION_INDEX_KEY_B64: ${FEED_PASSPORT_CONNECTION_INDEX_KEY_B64}
+      FEED_PASSPORT_CONNECTION_KEY_ID: ${FEED_PASSPORT_CONNECTION_KEY_ID}
+      FEED_PASSPORT_OAUTH_VAULT_KEY_B64: ${FEED_PASSPORT_OAUTH_VAULT_KEY_B64}
+      FEED_PASSPORT_OAUTH_VAULT_KEY_ID: ${FEED_PASSPORT_OAUTH_VAULT_KEY_ID}
+      FEED_PASSPORT_YOUTUBE_OAUTH_CLIENT_ID: ${FEED_PASSPORT_YOUTUBE_OAUTH_CLIENT_ID}
+      FEED_PASSPORT_YOUTUBE_OAUTH_CLIENT_SECRET: ${FEED_PASSPORT_YOUTUBE_OAUTH_CLIENT_SECRET}
+      FEED_PASSPORT_YOUTUBE_OAUTH_CLIENT_AUTH: client_secret_post
+      FEED_PASSPORT_OAUTH_REDIRECT_URIS: https://curate.elfeel.me/oauth/callback
+      FEED_PASSPORT_ATPROTO_SIDECAR_URL: http://127.0.0.1:4310
+      FEED_PASSPORT_ATPROTO_SIDECAR_INTERNAL_SECRET: ${FEED_PASSPORT_ATPROTO_SIDECAR_INTERNAL_SECRET}
+      FEED_PASSPORT_ATPROTO_APP_CALLBACK_URI: https://curate.elfeel.me/oauth/callback
+      FEED_PASSPORT_OIDC_ISSUER: https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_8v2ynYlWO
+      FEED_PASSPORT_OIDC_AUDIENCE: 1klm6ma7p335heoh2obmn2s89s
+      FEED_PASSPORT_OIDC_JWKS_URL: https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_8v2ynYlWO/.well-known/jwks.json
+      FEED_PASSPORT_OIDC_REQUIRED_SCOPES: feed-passport/invoke
+    network_mode: service:oauth
+    volumes:
+      - ./artifacts/local/final-live-session:/run/curate
+    depends_on:
+      oauth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 15s
+      timeout: 4s
+      start_period: 20s
+      retries: 4
+
+  oauth:
+    build:
+      context: ./services/atproto-oauth
+    restart: unless-stopped
+    environment:
+      FEED_PASSPORT_ATPROTO_PUBLIC_ORIGIN: https://curate-oauth.elfeel.me
+      FEED_PASSPORT_ATPROTO_HOST: 0.0.0.0
+      FEED_PASSPORT_ATPROTO_PORT: "4310"
+      FEED_PASSPORT_ATPROTO_STORE_PATH: /run/curate/atproto-store.enc
+      FEED_PASSPORT_ATPROTO_STORE_KEY_B64: ${FEED_PASSPORT_ATPROTO_STORE_KEY_B64}
+      FEED_PASSPORT_ATPROTO_STORE_KEY_ID: ${FEED_PASSPORT_ATPROTO_STORE_KEY_ID}
+      FEED_PASSPORT_ATPROTO_SIDECAR_INTERNAL_SECRET: ${FEED_PASSPORT_ATPROTO_SIDECAR_INTERNAL_SECRET}
+      FEED_PASSPORT_ATPROTO_PRIVATE_KEY_FILE: /run/curate/atproto-oauth-private.pem
+      FEED_PASSPORT_ATPROTO_PRIVATE_KEY_ID: ${FEED_PASSPORT_ATPROTO_PRIVATE_KEY_ID}
+      FEED_PASSPORT_ATPROTO_SIGNING_ALGORITHM: ES256
+      FEED_PASSPORT_ATPROTO_SCOPE: atproto transition:generic
+      FEED_PASSPORT_ATPROTO_CLIENT_NAME: Curate
+      FEED_PASSPORT_ATPROTO_APP_CALLBACK_URI: https://curate.elfeel.me/oauth/callback
+    ports:
+      - "127.0.0.1:4310:4310"
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./artifacts/local/final-live-session:/run/curate
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4310/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 4s
+      start_period: 15s
+      retries: 4

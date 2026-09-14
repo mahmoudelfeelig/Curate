@@ -18,7 +18,7 @@ Retrieved 30 August 2026. The application code remains under the repository lice
 - Source: owner-authored project configuration
 - License: covered by the repository MIT license
 - Transformation: none
-- SHA-256: `4D423495406AA7F819A642FA0A597A06EB471ECA651D939BC084CD108CC77655`
+- SHA-256: `7161FC1E9C5952D31BB000F7D16029576C4D1C9F50F4B7A59113EE3654249B19`
 
 ## Rough Linen
 

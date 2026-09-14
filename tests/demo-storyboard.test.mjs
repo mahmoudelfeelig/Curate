@@ -47,15 +47,15 @@ test("every platform state annotates multiple recorded sequence frames", () => {
   assert.ok(totalLabels >= 24);
 });
 
-test("the second cut stays native 720p and demonstrates five distinct personalities", () => {
+test("the final cut stays native 1080p and demonstrates five distinct personalities", () => {
   assert.deepEqual(demoVideo, {
-    width: 1280,
-    height: 720,
-    bitrate: 11_000_000,
+    width: 1920,
+    height: 1080,
+    bitrate: 20_000_000,
     minimumLabeledFrameHoldMs: 2_500,
     defaultFrameHoldMs: 1_000,
   });
-  assert.ok(demoVideo.bitrate >= 10_000_000 && demoVideo.bitrate <= 12_000_000);
+  assert.ok(demoVideo.bitrate >= 18_000_000 && demoVideo.bitrate <= 24_000_000);
   assert.equal(demoPersonas.length, 5);
   assert.equal(new Set(demoPersonas.map(({ id }) => id)).size, 5);
   assert.equal(new Set(demoPersonas.map(({ prompt }) => prompt)).size, 5);

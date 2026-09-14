@@ -271,7 +271,7 @@ class FeedEvidenceServiceTests(unittest.TestCase):
         )
         self.assertEqual(after["status"], "comparison_recorded")
         self.assertNotIn("result_passport_version", after)
-        self.assertIn("not proof", after["comparison"]["claim_boundary"])
+        self.assertIn("not the app's whole recommendation feed", after["comparison"]["claim_boundary"])
         with self.assertRaisesRegex(Exception, "no longer awaiting consent"):
             self.service.apply(
                 after["id"],

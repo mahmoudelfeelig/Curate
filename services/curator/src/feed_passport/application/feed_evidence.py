@@ -731,7 +731,7 @@ class FeedEvidenceService:
                 4,
             ),
             "claim_boundary": (
-                "Observed association in two owner-selected samples; not proof of provider causation."
+                "This compares the posts you chose, not the app's whole recommendation feed."
             ),
         }
 

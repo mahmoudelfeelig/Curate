@@ -257,6 +257,7 @@
 .difference-ticket p { display: grid; margin: 0; }
 .difference-ticket b { color: #fff4d6; font: 850 21px/1 var(--font-mono); }
 .difference-ticket small { color: rgba(238, 228, 202, .76); font-size: 7px; margin-top: 3px; }
+.difference-ticket .difference-ticket-note { display: block; font-size: 7px; line-height: 1.35; margin-top: 8px; }
 .curate-next-actions,
 .curate-saved {
   align-items: center;

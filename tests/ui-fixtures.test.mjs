@@ -87,3 +87,13 @@ test("Curate uses a concise animated waiting state", async () => {
   assert.match(styles, /curate-agent-wait/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
 });
+
+test("the visible feed comparison stays scoped to the selected sample", async () => {
+  const source = await readFile(
+    new URL("../src/features/agent/CurateFeedDesk.jsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /SAMPLE CHANGE MEASURED/);
+  assert.match(source, /comparison\.claim_boundary/);
+});

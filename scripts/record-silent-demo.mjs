@@ -437,8 +437,9 @@ try {
   visibleEvidence.curated_bluesky_cards = await page.getByTestId("feed-after").locator('[data-platform="bluesky"]').count();
 
   await openDesk("migration");
-  await page.getByLabel("Source Passport capture").selectOption("youtube");
-  await page.getByLabel("Migration destination").selectOption("bluesky");
+  const migrationSelects = page.locator(".route-ticket select");
+  await migrationSelects.nth(0).selectOption("youtube");
+  await migrationSelects.nth(1).selectOption("bluesky");
   await page.getByTestId("migration-preview").click();
   await page.locator(".manifest-actions").waitFor({ timeout: 15_000 });
   visibleEvidence.copy_feed_previewed = true;

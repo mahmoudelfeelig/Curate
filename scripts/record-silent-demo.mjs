@@ -7,12 +7,17 @@ import process from "node:process";
 import { promisify } from "node:util";
 
 import { chromium } from "playwright-core";
+import {
+  loadPlatformFeedCaptureManifest,
+  publicCaptureAttestation,
+} from "./platform-feed-capture-evidence.mjs";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const execFileAsync = promisify(execFile);
 const baseUrl = process.env.FEED_PASSPORT_BASE_URL || "http://127.0.0.1:5173";
 const apiUrl = process.env.FEED_PASSPORT_API_URL || "http://127.0.0.1:8000";
 const acknowledgement = process.env.FEED_PASSPORT_DEMO_RECORDING_ACK || "";
+const platformCaptureManifestPath = process.env.FEED_PASSPORT_PLATFORM_CAPTURE_MANIFEST || "";
 const pace = Number(process.env.FEED_PASSPORT_DEMO_PACE_SCALE || "1");
 const localModelWaitMs = 310_000;
 const runName = `curate-silent-demo-${new Date().toISOString().replaceAll(/[:.]/g, "-")}`;
@@ -278,6 +283,7 @@ async function condenseWaitingTime(executablePath, sourcePath, destinationPath, 
 
 await fs.mkdir(outputDirectory, { recursive: true });
 const source = await sourceAttestation();
+const platformCaptureEvidence = await loadPlatformFeedCaptureManifest(platformCaptureManifestPath);
 const health = await expectOk(`${apiUrl}/health`);
 const model = await expectOk(`${apiUrl}/api/agent/model/status`);
 if (health.status !== "healthy" || model.readiness !== "ready" || model.endpoint_scope !== "loopback_only") {
@@ -304,6 +310,8 @@ const visibleEvidence = {
   incognito_issued: false,
   incognito_revoked: false,
   blend_page_shown: false,
+  actual_platform_pages_before: 0,
+  actual_platform_pages_after: 0,
 };
 let missionProof = {
   planned_with_local_model: false,
@@ -347,6 +355,59 @@ async function openDesk(section, settleMs = 1_600) {
   await pause(settleMs);
 }
 
+async function showPlatformFeedCapture(capture, milliseconds = 3_600) {
+  const dataUrl = `data:${capture.mime_type};base64,${capture.bytes.toString("base64")}`;
+  await page.evaluate(({ captureDataUrl, platform, phase, capturedAt }) => {
+    document.querySelector("#platform-feed-capture")?.remove();
+    const overlay = document.createElement("section");
+    overlay.id = "platform-feed-capture";
+    overlay.setAttribute("role", "img");
+    overlay.setAttribute("aria-label", `${platform} dummy-account home feed, ${phase}`);
+    const style = document.createElement("style");
+    style.textContent = `
+      #platform-feed-capture { position: fixed; inset: 0; z-index: 100000; display: grid; grid-template-rows: auto 1fr; background: #111827; color: #f5ead1; font-family: Georgia, serif; }
+      #platform-feed-capture header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px 24px; border-bottom: 3px double #c43d45; background: #17243a; }
+      #platform-feed-capture header div { display: grid; gap: 4px; }
+      #platform-feed-capture header b { font: 800 18px/1.1 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
+      #platform-feed-capture header span { color: #d9c9a8; font: 700 11px/1.2 ui-monospace, monospace; letter-spacing: .04em; }
+      #platform-feed-capture header strong { border: 2px solid #d8b15a; padding: 8px 12px; color: #f7d787; font: 900 15px/1 ui-monospace, monospace; letter-spacing: .08em; transform: rotate(-2deg); }
+      #platform-feed-capture figure { min-height: 0; margin: 0; padding: 18px 24px 24px; display: grid; place-items: center; }
+      #platform-feed-capture img { width: 100%; height: 100%; min-height: 0; object-fit: contain; background: #fff; border: 1px solid rgba(245,234,209,.45); box-shadow: 0 12px 30px rgba(0,0,0,.38); }
+    `;
+    const header = document.createElement("header");
+    const heading = document.createElement("div");
+    const title = document.createElement("b");
+    title.textContent = `${platform} home feed`;
+    const context = document.createElement("span");
+    context.textContent = `Archived dummy-account capture · ${new Date(capturedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`;
+    const phaseMark = document.createElement("strong");
+    phaseMark.textContent = phase;
+    heading.append(title, context);
+    header.append(heading, phaseMark);
+    const figure = document.createElement("figure");
+    const image = document.createElement("img");
+    image.alt = `${platform} home feed ${phase}`;
+    image.src = captureDataUrl;
+    figure.append(image);
+    overlay.append(style, header, figure);
+    document.body.append(overlay);
+    return image.decode();
+  }, {
+    captureDataUrl: dataUrl,
+    platform: capture.platform === "youtube" ? "YouTube" : "Bluesky",
+    phase: capture.phase.toUpperCase(),
+    capturedAt: capture.captured_at,
+  });
+  await pause(milliseconds);
+  await page.evaluate(() => document.querySelector("#platform-feed-capture")?.remove());
+}
+
+async function showCapturedFeeds(phase) {
+  const captures = platformCaptureEvidence.captures.filter((capture) => capture.phase === phase);
+  for (const capture of captures) await showPlatformFeedCapture(capture);
+  visibleEvidence[`actual_platform_pages_${phase}`] = captures.length;
+}
+
 async function waitWithoutRecording(label, action, completion) {
   await action();
   await pause(1_500);
@@ -361,6 +422,7 @@ try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.locator(".desk-tabs").waitFor({ state: "visible", timeout: 30_000 });
   await pause(3_000);
+  await showCapturedFeeds("before");
   await openDesk("evidence");
 
   const textboxes = page.getByRole("textbox");
@@ -435,6 +497,7 @@ try {
   visibleEvidence.curated_feed_cards = await page.getByTestId("feed-after").locator("article").count();
   visibleEvidence.curated_youtube_cards = await page.getByTestId("feed-after").locator('[data-platform="youtube"]').count();
   visibleEvidence.curated_bluesky_cards = await page.getByTestId("feed-after").locator('[data-platform="bluesky"]').count();
+  await showCapturedFeeds("after");
 
   await openDesk("migration");
   const migrationSelects = page.locator(".route-ticket select");
@@ -472,7 +535,7 @@ try {
 const edit = await condenseWaitingTime(executablePath, rawVideoPath, videoPath, condensedWaits);
 const videoBytes = await fs.readFile(videoPath);
 const report = {
-  schema: "curate/silent-demo-capture/v3",
+  schema: "curate/silent-demo-capture/v4",
   generated_at: new Date().toISOString(),
   source,
   video: videoPath,
@@ -494,6 +557,7 @@ const report = {
     { kind: "vague", text: vagueGoal },
     { kind: "exact_100_percent_mix", text: exactGoal },
   ],
+  platform_feed_captures: publicCaptureAttestation(platformCaptureEvidence),
   visible_evidence: visibleEvidence,
   local_passport_revised: true,
   local_mission: missionProof,
@@ -509,8 +573,8 @@ const report = {
     encoded_height: edit.outputHeight,
     expected_duration_ms: edit.plannedDurationMs,
   },
-  social_account_accessed: false,
-  social_action_executed: false,
+  social_account_accessed_during_recording: false,
+  social_action_executed_during_recording: false,
   external_requests: externalRequests,
   console_errors: consoleErrors,
   page_errors: pageErrors,
@@ -526,6 +590,8 @@ const report = {
     && visibleEvidence.incognito_issued
     && visibleEvidence.incognito_revoked
     && visibleEvidence.blend_page_shown
+    && visibleEvidence.actual_platform_pages_before === 2
+    && visibleEvidence.actual_platform_pages_after === 2
     && missionProof.planned_with_local_model
     && missionProof.executed_on_local_twin
     && missionProof.rollback_state_verified

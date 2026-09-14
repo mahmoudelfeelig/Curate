@@ -265,7 +265,7 @@ export function migrationPreviewForUi(migration) {
     losses.push({
       severity: "Informational",
       title: "No translation loss detected",
-      detail: "The deterministic preview found a representation for every proposed action at the destination's declared capability level.",
+      detail: "Every planned change has a matching route in the selected destination.",
     });
   }
   const guidedSteps = planActions

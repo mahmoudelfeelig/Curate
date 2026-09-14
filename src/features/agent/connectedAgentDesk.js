@@ -161,7 +161,7 @@ const STATUS_VIEWS = Object.freeze({
   planning: {
     label: "Planning",
     tone: "purple",
-    detail: "The model may propose action families; deterministic code still fixes every exact target.",
+    detail: "Curate is choosing the order while the selected account and exact targets stay fixed.",
     action: "pending",
   },
   planning_failed: {

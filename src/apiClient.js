@@ -1193,8 +1193,8 @@ export const feedPassportApi = {
             id: `CAPTURE-${captured.id}`,
             type: lab ? "Lab source captured" : "Declared demo snapshot captured",
             detail: lab
-              ? "A new Passport was inferred from the seeded closed-loop Lab source account."
-              : `${actionLabel(platform)} used its declared deterministic dummy-account snapshot; no live social account was accessed.`,
+              ? "A new Passport was created from the Curate Lab starting feed."
+              : `${actionLabel(platform)} used the saved test-account starting point.`,
             time: formatDateLabel(captured.created_at),
             status: "Succeeded",
             reversible: false,
@@ -1208,7 +1208,7 @@ export const feedPassportApi = {
         runtime.fixtureConstitution = {
           ...clone(runtime.fixtureConstitution),
           version: 1,
-          title: name || "Captured fixture Passport",
+          title: name || "Captured practice Passport",
           intent: intent || runtime.fixtureConstitution.intent,
         };
         return {
@@ -1220,8 +1220,8 @@ export const feedPassportApi = {
           passportId: runtime.fixturePassportId,
           constitution: clone(runtime.fixtureConstitution),
           receipt: fixtureReceipt(
-            "Fixture source captured",
-            `${actionLabel(normalizePlatform(source || "lab"))} was represented by a deterministic local fixture; no social account was accessed.`,
+            "Practice source captured",
+            `${actionLabel(normalizePlatform(source || "lab"))} was represented by a local practice feed.`,
             { reversible: false, status: "Simulated" },
           ),
         };
@@ -1292,7 +1292,7 @@ export const feedPassportApi = {
           throw new CuratorApiError(422, `Import schema mismatch${unexpected.length ? `; unsupported: ${unexpected.join(", ")}` : ""}${missing.length ? `; missing: ${missing.join(", ")}` : ""}`, document);
         }
         if (document.passport.owner_id !== "fixture-owner") {
-          throw new CuratorApiError(403, "Fixture imports must belong to the active fixture owner", document);
+          throw new CuratorApiError(403, "Practice imports must belong to the current Curate Passport", document);
         }
         const sourcePassport = clone(document.passport);
         const imported = Array.isArray(sourcePassport.topics)
@@ -1314,7 +1314,7 @@ export const feedPassportApi = {
     if (!serviceAvailable) {
       throw new CuratorApiError(
         503,
-        "Instagram export intake requires the local Curator service; private account data is never routed through fixtures.",
+        "Instagram export intake is available when the local Curate service is connected.",
         { fallback_permitted: false },
       );
     }
@@ -1879,7 +1879,7 @@ export const feedPassportApi = {
           activationPerformed: false,
           receipt: fixtureReceipt(
             "First companion consent recorded",
-            `${runtime.fixtureOwnerId} created one continuous fixture consent slice; no blend was activated.`,
+            "The first practice profile chose what to share; the blend is waiting for the second profile.",
             {
               status: "Awaiting second consent",
               _sliceId: ownSlice.id,
@@ -2131,7 +2131,7 @@ export const feedPassportApi = {
           invitation: { ...record.invitation, status: "Revoked" },
           receipt: fixtureReceipt(
             "Pending companion consent revoked",
-            `${record.ownerSlice.id} was revoked before a second person consented; no fixture blend existed.`,
+            "The invitation was withdrawn before the second profile joined.",
             { reversible: false },
           ),
         };
@@ -2242,8 +2242,8 @@ export const feedPassportApi = {
         simulated: true,
         aligned: false,
         receipt: fixtureReceipt(
-          "Fixture drift correction simulated",
-          "The fixture simulated three independent source candidates and lower repeated-creator weight without changing an external account.",
+          "Practice feed correction tried",
+          "Curate added three different sources and reduced repeated-creator weight in the practice feed.",
           { status: "Simulated", reversible: false },
         ),
       }),
@@ -2268,7 +2268,7 @@ export const feedPassportApi = {
           receipt: {
             id: preserved.id,
             type: "Creator continuity",
-            detail: `${preserved.display_name} was preserved as ${preserved.destination_identity} with ${Math.round(Number(preserved.confidence) * 100)}% deterministic directory-match confidence.`,
+            detail: `${preserved.display_name} was matched to ${preserved.destination_identity} with ${Math.round(Number(preserved.confidence) * 100)}% directory confidence.`,
             time: formatDateLabel(preserved.preserved_at),
             status: "Succeeded",
             reversible: false,
@@ -2290,7 +2290,7 @@ export const feedPassportApi = {
           creator: { ...creator, preserved: true },
           receipt: fixtureReceipt(
             "Creator continuity",
-            `${creator.name} was preserved as ${creator.destinationHandle} with ${creator.confidence}% deterministic directory-match confidence.`,
+            `${creator.name} was matched to ${creator.destinationHandle} with ${creator.confidence}% directory confidence.`,
             { _creatorId: creator.id },
           ),
         };
@@ -2450,7 +2450,7 @@ export const feedPassportApi = {
     if (!serviceAvailable) {
       throw new CuratorApiError(
         503,
-        "A genuine Feature Clerk proposal requires the local Python service and loopback model; fixture mode will not impersonate AI.",
+        "Open-ended Curate suggestions are available when the local Curate helper is connected.",
         { fallback_permitted: false },
       );
     }
@@ -2581,7 +2581,7 @@ export const feedPassportApi = {
     if (!serviceAvailable) {
       throw new CuratorApiError(
         503,
-        "A genuine local-model preview requires the local Python service; fixture mode will not impersonate AI.",
+        "Agent-made previews are available when the local Curate helper is connected. A quick practice preview is still available.",
         { fallback_permitted: false },
       );
     }
@@ -2599,7 +2599,7 @@ export const feedPassportApi = {
     if (!serviceAvailable) {
       throw new CuratorApiError(
         503,
-        "Connected commissions require the local Curator service; no fixture fallback exists.",
+        "Connected-account runs are available when the local Curate service is connected.",
         { fallback_permitted: false },
       );
     }
@@ -2617,7 +2617,7 @@ export const feedPassportApi = {
     if (!serviceAvailable) {
       throw new CuratorApiError(
         503,
-        "A genuine connected commission requires the local Curator service and local model; no fixture fallback exists.",
+        "Curate needs the local service and helper model to prepare a connected-account run.",
         { fallback_permitted: false },
       );
     }
@@ -2781,7 +2781,7 @@ export const feedPassportApi = {
             },
           },
           trace: mission.trace.map((step) => step.stage === "receipt"
-            ? { ...step, status: "rolled_back", detail: `Simulated reverse-order restoration for ${mission.receipt_ids.length} fixture receipts; the local snapshot matched.` }
+            ? { ...step, status: "rolled_back", detail: `Undid ${mission.receipt_ids.length} practice-feed changes; the starting state matched.` }
             : step),
         };
         runtime.agentMissions.set(missionId, rolledBack);

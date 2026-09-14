@@ -1,13 +1,12 @@
 import {
   FEATURE_KIND_LABELS,
-  expectedFeatureTools,
   resolveMigrationCapability,
 } from "./featureClerk.js";
 
 function ClerkHeading({ eyebrow, title, note, page }) {
   return (
     <header className="page-heading feature-clerk-heading">
-      <span className="feature-clerk-star" aria-hidden="true">FP</span>
+      <span className="feature-clerk-star" aria-hidden="true"><img src="/assets/brand/curate-elephant.png" alt="" /></span>
       <div>
         <p className="eyebrow">{eyebrow}</p>
         <h2>{title}</h2>
@@ -47,64 +46,43 @@ function proposalFields(proposal) {
 function CapabilityTruth({ capability }) {
   if (!capability) return null;
   const guided = capability.executeMode === "guided" || capability.evidenceLevel === "guided";
-  const conformanceTone = capability.conformance === "passed" ? "green" : "orange";
   return (
-    <section
+    <details
       className={`clerk-capability ${guided ? "clerk-capability-guided" : ""}`}
       data-feature-capability={capability.destination}
       data-execute-mode={capability.executeMode}
     >
-      <header>
-        <div>
-          <span>SERVER-BOUND MIGRATION CAPABILITY</span>
-          <b>{capability.destination.replaceAll("_", " ").toUpperCase()}</b>
-        </div>
-        <Status tone={guided ? "purple" : capability.evidenceLevel === "lab" ? "blue" : "orange"}>
-          {capability.boundary}
-        </Status>
-      </header>
+      <summary>Where this suggestion can run</summary>
       <dl>
-        <div><dt>Authority source</dt><dd>{capability.source === "server_bound_proposal" ? "Bound proposal record" : "Legacy runtime fallback"}</dd></div>
-        <div><dt>Evidence level</dt><dd>{capability.evidenceLevel}</dd></div>
-        <div><dt>Execute mode</dt><dd>{capability.executeMode}</dd></div>
-        <div><dt>Separate runtime conformance</dt><dd><Status tone={conformanceTone}>{capability.conformance}</Status></dd></div>
-        <div><dt>Conformance environment</dt><dd>{capability.conformanceEnvironment}</dd></div>
+        <div><dt>App</dt><dd>{capability.destination.replaceAll("_", " ")}</dd></div>
+        <div><dt>Route</dt><dd>{guided ? "Curate prepares the steps" : capability.evidenceLevel === "lab" ? "Practice feed" : "Connected account"}</dd></div>
+        <div><dt>Status</dt><dd>{capability.conformance === "passed" ? "Ready" : "Needs a fresh connection check"}</dd></div>
       </dl>
-      {guided ? <p className="clerk-guided-boundary"><b>External handoff only.</b> This proposal cannot execute against the platform.</p> : null}
+      {guided ? <p className="clerk-guided-boundary">Curate will show the official in-app steps for this destination.</p> : null}
       <ul>{capability.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul>
-    </section>
+    </details>
   );
 }
 
 function PlannerEvidence({ evidence }) {
-  const expected = expectedFeatureTools(evidence.proposal_kind);
   return (
-    <section className="clerk-evidence" data-feature-authority={evidence.authority}>
-      <header>
-        <div><span>LOCAL MODEL EVIDENCE</span><b>{evidence.provider} · {evidence.model_id}</b></div>
-        <Status tone="green">PROPOSAL ONLY</Status>
-      </header>
+    <details className="clerk-evidence" data-feature-authority={evidence.authority}>
+      <summary>Behind this suggestion</summary>
       <div className="clerk-proof-strip">
-        <dl><dt>Tokens</dt><dd>{evidence.usage?.total_tokens ?? 0}</dd></dl>
-        <dl><dt>Latency</dt><dd>{evidence.duration_ms} ms</dd></dl>
-        <dl><dt>Endpoint</dt><dd>{evidence.endpoint_scope}</dd></dl>
-        <dl><dt>Paid / external</dt><dd>{evidence.paid_model_calls ? "YES" : "NO"} / {evidence.external_model_calls ? "YES" : "NO"}</dd></dl>
+        <dl><dt>Model</dt><dd>{evidence.model_id}</dd></dl>
+        <dl><dt>Time</dt><dd>{evidence.duration_ms} ms</dd></dl>
+        <dl><dt>Checks</dt><dd>{evidence.tools?.length || 0}</dd></dl>
       </div>
-      <ol className="clerk-tool-trace" aria-label="Sanitized Feature Clerk tool trace">
+      <ol className="clerk-tool-trace" aria-label="Checks Curate completed">
         {(evidence.tools || []).map((tool, index) => (
           <li key={`${tool.name}-${index}`} data-tool-name={tool.name}>
             <span>{String(index + 1).padStart(2, "0")}</span>
-            <code>{tool.name}</code>
-            <Status tone={tool.name === expected[index] ? "green" : "orange"}>{tool.status}</Status>
+            <code>{String(tool.name).replaceAll("_", " ")}</code>
+            <Status tone={tool.status === "completed" ? "green" : "orange"}>{tool.status}</Status>
           </li>
         ))}
       </ol>
-      <div className="clerk-lock-ledger">
-        <b>SERVER-LOCKED AUTHORITY</b>
-        <p>{(evidence.locked_by_server || []).join(" · ")}</p>
-        <small>Mutation tools exposed: {evidence.mutation_tools_exposed ? "YES" : "NO"}. Text evidence is retained only as lengths and SHA-256 digests.</small>
-      </div>
-    </section>
+    </details>
   );
 }
 
@@ -125,11 +103,11 @@ export function FeatureClerkSpread({
     <section className="passport-book section-book feature-clerk-book" data-feature-clerk>
       <div className="book-spine" aria-hidden="true" />
       <article className="passport-page left-page">
-        <ClerkHeading eyebrow="LOCAL LANGUAGE-MODEL INTAKE" title="Feature Clerk" note="Describe an outcome. The model selects typed parameters; the server renders the explanation and binds capability. Neither can execute." page="CLERK A" />
+        <ClerkHeading eyebrow="ASK CURATE" title="Turn an idea into a route" note="Describe the outcome in your own words. Curate will choose the right Passport feature and fill it in for you." page="13" />
         <section className={`clerk-readiness ${ready ? "clerk-ready" : "clerk-stopped"}`}>
-          <Status tone={ready ? "green" : "orange"}>{ready ? "LOCAL MODEL READY" : "DESK LOCKED"}</Status>
+          <Status tone={ready ? "green" : "orange"}>{ready ? "CURATE READY" : "QUICK ROUTES ONLY"}</Status>
           <div>
-            <b>{ready ? "Loopback inference is available" : "Service and local model required"}</b>
+            <b>{ready ? "Ready for a natural-language request" : "Connect the local Curate helper for open-ended requests"}</b>
             <p>{readinessReason}</p>
           </div>
         </section>
@@ -144,44 +122,40 @@ export function FeatureClerkSpread({
             onChange={(event) => setRequest(event.target.value)}
             placeholder="For example: Give me a reversible research-focused feed for exactly 9 hours, then return to my base Passport."
           />
-          <span className="field-hint">The request goes only to the configured loopback model. Account identities, credentials, run tokens, and execution resources remain server-locked.</span>
+          <span className="field-hint">Curate will suggest a route first. You can review it before using it.</span>
         </label>
-        <div className="clerk-authority-ticket">
-          <b>THIS WINDOW CAN</b><span>Inspect the selected Passport</span><span>Inspect a safe capability catalog</span><span>Return one typed proposal</span>
-          <b>THIS WINDOW CANNOT</b><span>Start a run</span><span>Execute controls</span><span>Touch a social account</span>
-        </div>
         <button
           type="button"
           className="action-button action-ink"
           data-feature-plan
           disabled={!ready || busy || !request.trim()}
           onClick={onPlan}
-        >{busy ? "PLANNING LOCALLY" : "ASK LOCAL FEATURE CLERK"}</button>
-        <footer className="passport-footer"><span>INTERPRET ONLY</span><span>NO MUTATION TOOLS</span><span>CLERK A</span></footer>
+        >{busy ? "CURATE IS THINKING" : "ASK CURATE"}</button>
+        <footer className="passport-footer"><span>YOUR WORDS</span><span>ONE CLEAR ROUTE</span><span>PAGE 13</span></footer>
       </article>
 
       <article className="passport-page right-page">
-        <ClerkHeading eyebrow={proposal ? "TYPED PROPOSAL READY" : "AWAITING REQUEST"} title="Proposal Docket" note="Applying a proposal only pre-fills the named deterministic desk. That desk keeps its execution boundaries." page="CLERK B" />
+        <ClerkHeading eyebrow={proposal ? "SUGGESTION READY" : "AWAITING REQUEST"} title={"Curate's suggestion"} note="Use the suggestion to fill in the matching Passport page. Nothing runs until you start it there." page="14" />
         {!proposal || !evidence ? (
           <div className="clerk-empty">
-            <b>NO PROPOSAL FILED</b>
-            <p>A genuine local model result will appear here with its exact sanitized tool trace, token usage, latency, and authority boundary.</p>
+            <b>YOUR SUGGESTION WILL APPEAR HERE</b>
+            <p>Ask for a feed move, a temporary mix, or a shared view. Curate will send you to the right page with the important details filled in.</p>
           </div>
         ) : (
           <div className="clerk-proposal" data-feature-proposal data-proposal-kind={proposal.kind}>
             <header className="clerk-proposal-title">
               <div><span>{proposal.kind.toUpperCase()}</span><h3>{FEATURE_KIND_LABELS[proposal.kind] || proposal.kind}</h3></div>
-              <Status tone="blue">TYPED MODEL SELECTION</Status>
+              <Status tone="blue">READY TO USE</Status>
             </header>
             <dl className="clerk-proposal-fields">{proposalFields(proposal).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-            <div className="clerk-rendered-explanation"><span>DETERMINISTIC SERVER-RENDERED EXPLANATION</span><blockquote>{proposal.rationale}</blockquote></div>
+            <div className="clerk-rendered-explanation"><span>WHY CURATE CHOSE THIS</span><blockquote>{proposal.rationale}</blockquote></div>
             <CapabilityTruth capability={capability} />
             <PlannerEvidence evidence={evidence} />
-            <aside className="clerk-apply-boundary"><b>APPLY MEANS PREFILL</b><p>No migration, temporary overlay, companion, receipt, or account mutation is created by the next button.</p></aside>
-            <button type="button" className="action-button action-primary" data-feature-apply-to-desk onClick={onApply} disabled={busy}>APPLY TO DETERMINISTIC DESK</button>
+            <aside className="clerk-apply-boundary"><b>REVIEW FIRST</b><p>The next button opens the matching page with this suggestion filled in.</p></aside>
+            <button type="button" className="action-button action-primary" data-feature-apply-to-desk onClick={onApply} disabled={busy}>USE THIS SUGGESTION</button>
           </div>
         )}
-        <footer className="passport-footer"><span>PROPOSAL ONLY</span><span>ZERO PAID CALLS</span><span>CLERK B</span></footer>
+        <footer className="passport-footer"><span>SUGGESTION</span><span>REVIEW BEFORE USE</span><span>PAGE 14</span></footer>
       </article>
     </section>
   );

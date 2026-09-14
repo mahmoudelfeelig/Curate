@@ -37,7 +37,8 @@ from feed_passport.domain import (
 )
 from feed_passport.domain.connections import AuthorizedConnection, ConnectionStatus
 from feed_passport.ports.credentials import OAuthCredentialLease
-from feed_passport.ports.live_platform import HttpxNoAmbientClient, ValidatedLiveCertification
+from feed_passport.infrastructure.http_client import HttpxNoAmbientClient
+from feed_passport.ports.live_platform import ValidatedLiveCertification
 
 
 NOW = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)

@@ -18,7 +18,7 @@ Recommendation feeds take years to learn what matters to us, then make us start 
 
 Curate accepts broad requests such as “I want less ragebait and more science-based pages” as well as exact mixes such as fifty percent astronomy, fifteen percent coding, and smaller allocations for drawing, anime, specific series, and perfumes.
 
-The agent reads only the links and notes the person chooses to provide. It turns that evidence into an inspectable topic mix and a bounded route for the selected destination. A safe practice feed makes the result visible card by card: low-quality outrage and unsupported claims move out while the requested subjects move in. Curate measures the change, keeps a receipt, and can restore the starting state.
+Curate reads only the links and notes the person chooses to provide. It turns that sample into an inspectable topic mix and a clear route for the selected destination. A safe practice feed makes the result visible card by card: low-quality outrage and unsupported claims move out while the requested subjects move in. Curate measures the change, keeps a receipt, and can restore the starting state.
 
 The same Passport supports account migration, temporary “incognito” feeds, selective partner blending, drift checks, creator continuity, presets, and rollback history.
 
@@ -55,7 +55,7 @@ OAuth recovery and reversible writes also required durable journals, reconciliat
 
 - A real local-model plan followed by a bounded practice run, six-card before/after comparison, and verified rollback
 - Broad natural language and an exact seven-topic, one-hundred-percent request in the same flow
-- Ten platform-shaped local control twins for reproducible testing without personal accounts
+- Ten platform-shaped practice feeds for reproducible testing without personal accounts
 - Historical live dummy-account conformance for one YouTube subscription and one Bluesky follow, including verification, rollback, and revocation
 - A retained proposal-only AgentCore deployment with private judge access
 - A responsive Curate interface that passes the current five-viewport browser matrix
@@ -82,7 +82,7 @@ Source: https://github.com/mahmoudelfeelig/feed-passport
 - **Your feed, on your terms:** One portable mix, translated for every selected destination.
 - **Broad or exact:** Ask for less ragebait and more science, or specify a complete percentage mix.
 - **Visible change:** Six starting posts sit beside six curated posts so the result is understandable without reading a technical receipt.
-- **Bounded agent:** The planner works only inside the selected destination's reversible controls and action budget.
+- **Careful agent:** The planner works only inside the selected destination's reversible controls and change limit.
 - **Return route:** Curate restores the starting practice state and verifies the match.
 
 ## Final submission checklist

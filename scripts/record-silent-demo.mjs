@@ -1,12 +1,15 @@
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { promisify } from "node:util";
 
 import { chromium } from "playwright-core";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
+const execFileAsync = promisify(execFile);
 const baseUrl = process.env.FEED_PASSPORT_BASE_URL || "http://127.0.0.1:5173";
 const apiUrl = process.env.FEED_PASSPORT_API_URL || "http://127.0.0.1:8000";
 const acknowledgement = process.env.FEED_PASSPORT_DEMO_RECORDING_ACK || "";
@@ -87,6 +90,31 @@ async function browserExecutable() {
     }
   }
   throw new Error("No supported local Chromium browser was found.");
+}
+
+async function sourceAttestation() {
+  const safeDirectory = projectRoot.replaceAll("\\", "/");
+  const git = (...args) => execFileAsync("git", ["-c", `safe.directory=${safeDirectory}`, ...args], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  const [{ stdout: revision }, { stdout: status }, manifestText] = await Promise.all([
+    git("rev-parse", "HEAD"),
+    git("status", "--short", "--untracked-files=no"),
+    fs.readFile(path.join(projectRoot, "artifacts", "evidence", "manifest.json"), "utf8"),
+  ]);
+  const dirtyPaths = status.trim().split(/\r?\n/).filter(Boolean);
+  if (dirtyPaths.length) {
+    throw new Error(`The silent demo must be recorded from a clean commit; ${dirtyPaths.length} tracked path(s) are dirty.`);
+  }
+  const manifest = JSON.parse(manifestText);
+  return {
+    git_revision: revision.trim(),
+    git_clean: true,
+    evidence_source_sha256: manifest?.source?.sha256 || null,
+    evidence_source_files: manifest?.source?.files || null,
+  };
 }
 
 const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds * pace));
@@ -244,6 +272,7 @@ async function condenseWaitingTime(executablePath, sourcePath, destinationPath, 
 }
 
 await fs.mkdir(outputDirectory, { recursive: true });
+const source = await sourceAttestation();
 const health = await expectOk(`${apiUrl}/health`);
 const model = await expectOk(`${apiUrl}/api/agent/model/status`);
 if (health.status !== "healthy" || model.readiness !== "ready" || model.endpoint_scope !== "loopback_only") {
@@ -402,8 +431,9 @@ try {
 const edit = await condenseWaitingTime(executablePath, rawVideoPath, videoPath, condensedWaits);
 const videoBytes = await fs.readFile(videoPath);
 const report = {
-  schema: "curate/silent-demo-capture/v2",
+  schema: "curate/silent-demo-capture/v3",
   generated_at: new Date().toISOString(),
+  source,
   video: videoPath,
   raw_video: rawVideoPath,
   sha256: createHash("sha256").update(videoBytes).digest("hex"),

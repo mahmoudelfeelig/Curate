@@ -92,7 +92,7 @@ export function InstagramImportDesk({
       {view.phase === "empty" ? (
         <label className={`instagram-file-ticket${serviceAvailable ? "" : " disabled"}`}>
           <span>{busyAction === "instagram-import-preview" ? "INSPECTING EXPORT" : "CHOOSE EXPORT FOR PREVIEW"}</span>
-          <small>{serviceAvailable ? "JSON up to 16 MiB or ZIP up to 64 MiB. Raw bytes are released after parsing; the normalized preview expires after 15 minutes." : "Connect to the Curator service. Fixture mode will not ingest a private export."}</small>
+          <small>{serviceAvailable ? "JSON up to 16 MiB or ZIP up to 64 MiB. The preview expires after 15 minutes." : "Connect the local Curate service to open a private export."}</small>
           <input
             type="file"
             accept=".json,.zip,application/json,application/zip"

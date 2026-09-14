@@ -171,38 +171,38 @@ export function VisaSpread({
   const evidenceStatus = manifest?.evidence_level
     ? String(manifest.evidence_level).replaceAll("_", " ").toUpperCase()
     : destination.status.toUpperCase();
-  let unavailableReason = "This destination currently has a Guided manifest only; no supported account OAuth transport is claimed.";
-  if (liveAuthorizeAvailable) unavailableReason = "The local OAuth registration is configured. Authorization creates an owner-bound connection only; the adapter stays Guided until a fresh exact-revision dummy-account conformance receipt passes.";
-  if (connectionConfiguration === "local_keys_required") unavailableReason = "Local encrypted connection keys are not configured. The demo remains account-free and no authorization can be stored.";
+  let unavailableReason = "Curate can prepare the steps for this app, but cannot connect the account yet.";
+  if (liveAuthorizeAvailable) unavailableReason = "This app is ready for a test-account connection.";
+  if (connectionConfiguration === "local_keys_required") unavailableReason = "Account connections are unavailable in this local build.";
   if (destination.id === "x") unavailableReason = "The X transport is implemented, but X API requests are pay-per-use. This demo leaves it disconnected to avoid an open-ended provider charge.";
-  if (destination.id === "reddit") unavailableReason = "Reddit requires a registered Data API app accepted by the platform before a dummy account can connect.";
-  if (destination.id === "bluesky") unavailableReason = "Bluesky authorization uses the official AT Protocol OAuth sidecar so tokens and DPoP keys never enter the agent or browser app.";
+  if (destination.id === "reddit") unavailableReason = "Reddit needs an approved app connection before Curate can use a test account.";
+  if (destination.id === "bluesky") unavailableReason = "Bluesky is ready to connect through its official account flow.";
   return (
     <section className="passport-book section-book">
       <div className="book-spine" aria-hidden="true" />
       <article className="passport-page left-page">
-        <PageHeading eyebrow="EVIDENCE-BASED ACCESS" title="Visa Ledger" note="A destination label describes what has been proven, not what sounds possible." page="5" />
+        <PageHeading eyebrow="APP VISAS" title="Where should this Passport travel?" note="Choose an app to see what Curate can carry over and how it gets there." page="5" />
         <div className="destination-index">
           {DESTINATIONS.map((item) => (
             <button type="button" key={item.id} className={selectedVisa === item.id ? "selected" : ""} onClick={() => setSelectedVisa(item.id)}><span>{item.name}</span><StatusStamp tone={item.tone} compact>{item.status}</StatusStamp><small>{connectedIds.includes(item.id) ? "Selected for itinerary" : "Not selected"}</small></button>
           ))}
         </div>
-        <aside className="border-note compact-note"><strong>What the labels mean</strong><p>Closed loop proves observe, execute, sample, and rollback in the named environment. Executable proves allowed mutations. Guided compiles declared native steps. Lab stays deterministic.</p></aside>
+        <aside className="border-note compact-note"><strong>What the labels mean</strong><p>Practice runs inside Curate. Connected means Curate can use supported account controls. Guided means Curate prepares the steps for you.</p></aside>
         <footer className="passport-footer"><span>11 MANIFESTS</span><span>CURATE</span><span>PAGE 5</span></footer>
       </article>
       <article className="passport-page right-page visa-detail-page">
-        <PageHeading eyebrow={destination.certification} title={`${destination.name} Visa`} note="Inspect the exact boundary before including a destination in an itinerary." page="6" />
+        <PageHeading eyebrow={destination.certification} title={`${destination.name} Visa`} note="See which preferences can travel and whether Curate can connect or guide you." page="6" />
         <PlatformVisa destination={destination} connected={connectedIds.includes(destination.id)} onToggle={onToggle} featured />
         <section className="manifest-sheet"><div><span>Observe</span><b>{operationLabel("observe", destination.id === "lab" ? "Local evidence" : "Guided")}</b></div><div><span>Execute</span><b>{operationLabel("execute", destination.id === "lab" ? "Lab" : "Guided")}</b></div><div><span>Verify</span><b>{operationLabel("verify", destination.id === "lab" ? "Local evidence" : "Guided")}</b></div><div><span>Rollback</span><b>{operationLabel("rollback", destination.id === "lab" ? "Lab" : "Not certified")}</b></div></section>
         <section className="connection-office" aria-live="polite">
-          <div className="connection-office-heading"><div><p className="eyebrow">OWNER-BOUND ACCOUNT ACCESS</p><h3>Authorization desk</h3></div><StatusStamp tone={connection?.status === "active" ? "green" : "orange"} compact>{connection?.status === "active" ? "AUTHORIZED" : destination.id === "lab" ? "NOT REQUIRED" : "NOT AUTHORIZED"}</StatusStamp></div>
-          {destination.id === "lab" ? <p>The Proof Lab uses deterministic fixtures. It never asks for a social account.</p> : connection?.status === "active" ? <><dl><div><dt>Account subject</dt><dd>{connection.external_subject}</dd></div><div><dt>Granted scopes</dt><dd>{connection.granted_scopes.join(", ") || "None recorded"}</dd></div><div><dt>Capability evidence</dt><dd>{evidenceStatus}</dd></div><div><dt>Credential location</dt><dd>Broker only; never model context</dd></div></dl><ActionButton variant="danger" onClick={() => onRevoke?.(connection)} busy={busyAction === "oauth-revoke"} disabled={Boolean(busyAction) && busyAction !== "oauth-revoke"}>REVOKE AUTHORIZATION</ActionButton></> : <><p>{unavailableReason}</p>{destination.id === "bluesky" && liveAuthorizeAvailable ? <label className="connection-handle"><span>Dummy account handle</span><input value={blueskyHandle} onChange={(event) => setBlueskyHandle(event.target.value)} placeholder="name.bsky.social" autoComplete="off" spellCheck="false" /></label> : null}{liveAuthorizeAvailable ? <ActionButton variant="ink" onClick={() => onAuthorize?.(destination.id, blueskyHandle)} busy={busyAction === "oauth-connect"} disabled={(Boolean(busyAction) && busyAction !== "oauth-connect") || (destination.id === "bluesky" && !blueskyHandle.trim())}>AUTHORIZE A DUMMY ACCOUNT</ActionButton> : <small>{connectionConfiguration === "checking" ? "Checking the local credential boundary." : "No authorization action is available in this configuration."}</small>}</>}
+          <div className="connection-office-heading"><div><p className="eyebrow">ACCOUNT CONNECTION</p><h3>{destination.name}</h3></div><StatusStamp tone={connection?.status === "active" ? "green" : "orange"} compact>{connection?.status === "active" ? "CONNECTED" : destination.id === "lab" ? "READY" : "NOT CONNECTED"}</StatusStamp></div>
+          {destination.id === "lab" ? <p>Curate Lab is a private practice space. It never asks for a social account.</p> : connection?.status === "active" ? <><dl><div><dt>Connected as</dt><dd>{connection.external_subject}</dd></div><div><dt>Access</dt><dd>{connection.granted_scopes.join(", ") || "Connected"}</dd></div><div><dt>Connection check</dt><dd>{evidenceStatus}</dd></div></dl><ActionButton variant="danger" onClick={() => onRevoke?.(connection)} busy={busyAction === "oauth-revoke"} disabled={Boolean(busyAction) && busyAction !== "oauth-revoke"}>DISCONNECT ACCOUNT</ActionButton></> : <><p>{unavailableReason}</p>{destination.id === "bluesky" && liveAuthorizeAvailable ? <label className="connection-handle"><span>Test account handle</span><input value={blueskyHandle} onChange={(event) => setBlueskyHandle(event.target.value)} placeholder="name.bsky.social" autoComplete="off" spellCheck="false" /></label> : null}{liveAuthorizeAvailable ? <ActionButton variant="ink" onClick={() => onAuthorize?.(destination.id, blueskyHandle)} busy={busyAction === "oauth-connect"} disabled={(Boolean(busyAction) && busyAction !== "oauth-connect") || (destination.id === "bluesky" && !blueskyHandle.trim())}>CONNECT TEST ACCOUNT</ActionButton> : <small>{connectionConfiguration === "checking" ? "Checking whether account connection is available." : "Account connection is unavailable in this build."}</small>}</>}
           {connectionNotice?.platform === destination.id ? <p className="success-note">{connectionNotice.message}</p> : null}
         </section>
         {destination.id === "instagram" ? <InstagramImportDesk session={instagramImport} selectedHandles={instagramImportSelection} setSelectedHandles={setInstagramImportSelection} onPreview={onInstagramImportPreview} onApply={onInstagramImportApply} onDiscard={onInstagramImportDiscard} busyAction={busyAction} notice={instagramImportNotice} serviceAvailable={serviceAvailable} /> : null}
         <div className="evidence-note"><p className="eyebrow">LIMITATION ON THE RECORD</p><p>{destination.limitation}</p></div>
         <aside className="passport-warning">Test accounts do not waive platform rules. A visa never exposes account credentials to the model.</aside>
-        <footer className="passport-footer"><span>{destination.id.toUpperCase()}</span><span>CAPABILITY MANIFEST</span><span>PAGE 6</span></footer>
+        <footer className="passport-footer"><span>{destination.id.toUpperCase()}</span><span>APP ROUTE</span><span>PAGE 6</span></footer>
       </article>
     </section>
   );

@@ -212,6 +212,20 @@
   color: #473d57;
 }
 
+.connected-agent-model > summary,
+.connected-agent-certified-set > summary {
+  cursor: pointer;
+  color: var(--purple-dark);
+  font: 800 9px/1.3 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connected-agent-model[open] > summary,
+.connected-agent-certified-set[open] > summary {
+  margin-bottom: 9px;
+}
+
 .connected-agent-model-empty {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;

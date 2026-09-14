@@ -23,10 +23,11 @@ from feed_passport.domain.models import (
 )
 from feed_passport.infrastructure.connection_registry import EncryptedConnectionRegistry
 from feed_passport.infrastructure.crypto import AesGcmKeyring
+from feed_passport.infrastructure.http_client import HttpxNoAmbientClient
 from feed_passport.infrastructure.oauth_vault import LocalEncryptedOAuthVault
 from feed_passport.infrastructure.sqlite_store import SQLiteStore
 from feed_passport.ports.credentials import CredentialError
-from feed_passport.ports.live_platform import HttpClient, HttpxNoAmbientClient
+from feed_passport.ports.live_platform import HttpClient
 
 from .live_conformance import (
     LiveConformanceGateError,

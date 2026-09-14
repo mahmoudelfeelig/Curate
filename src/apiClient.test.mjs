@@ -1406,7 +1406,7 @@ test("fixture mode refuses to impersonate a local language model", async () => {
         goal: "Do not fabricate a model response.",
         platform: "youtube",
       }),
-      /fixture mode will not impersonate AI/i,
+      /local Curate helper is connected/i,
     );
   } finally {
     if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
@@ -1519,7 +1519,7 @@ test("Feature Clerk refuses fixture-mode AI impersonation with 503", async () =>
     await feedPassportApi.loadPassport();
     await assert.rejects(
       feedPassportApi.planFeatureIntent("Do not fabricate this proposal."),
-      (error) => error?.status === 503 && /fixture mode will not impersonate AI/i.test(error.message),
+      (error) => error?.status === 503 && /local Curate helper is connected/i.test(error.message),
     );
   } finally {
     if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
@@ -1803,7 +1803,7 @@ test("fixture mission owns a bounded observe-act-measure-adapt loop with exact r
     assert.equal(preview.data.environment, "local_platform_control_twin");
     assert.equal(preview.data.platform, "twin:youtube");
     assert.equal(preview.data.status, "awaiting_approval");
-    assert.match(preview.data.fidelity_disclaimer, /does not reproduce/i);
+    assert.match(preview.data.fidelity_disclaimer, /does not copy/i);
     assert.equal(preview.data.trace.find((step) => step.stage === "consent").status, "required");
     assert.ok(preview.data.action_envelope.every((action) => action.reversible));
 

@@ -6,7 +6,7 @@ Recommendation feeds learn us over years, then make us start over on every new a
 
 I can speak naturally: “I want less ragebait and more science-based pages.” I give Curate a few posts from my feed. It reads only what I chose, separates evidence from inference, and builds a mix I can inspect.
 
-It also understands precision. Here I ask for fifty percent astronomy, fifteen percent coding, twelve percent drawing, plus anime, Naruto, One Piece, and perfumes. The request stays a sentence; the agent turns it into a bounded plan for the selected app.
+It also understands precision. Here I ask for fifty percent astronomy, fifteen percent coding, twelve percent drawing, plus anime, Naruto, One Piece, and perfumes. The request stays a sentence; Curate turns it into a clear plan for the selected app.
 
 Then Curate runs the plan on a safe practice feed. The result is visible: outrage and unsupported claims move out, while astronomy, programming, research, drawing, anime analysis, and fragrance chemistry move in.
 

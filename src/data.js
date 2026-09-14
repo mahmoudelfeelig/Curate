@@ -39,12 +39,12 @@ export const DESTINATIONS = [
     id: "lab",
     name: "Curate Lab",
     shortName: "Proof Lab",
-    status: "Lab",
+    status: "Practice",
     tone: "blue",
     connected: true,
-    certification: "Local deterministic evidence",
-    actions: ["Observe fixture feed", "Apply allowed actions", "Sample results", "Rollback exactly"],
-    limitation: "Deterministic reference environment. It does not claim live-platform behavior.",
+    certification: "Safe local practice",
+    actions: ["Preview a sample feed", "Try reversible changes", "Compare the result", "Return to the start"],
+    limitation: "A private practice space that shows the full Curate flow without touching a social account.",
   },
   {
     id: "bluesky",
@@ -53,9 +53,9 @@ export const DESTINATIONS = [
     status: "Guided",
     tone: "purple",
     connected: true,
-    certification: "Executable candidate documented",
-    actions: ["Compile starter pack", "Plan custom feed", "Guide account controls", "Declare translation loss"],
-    limitation: "The credential-free runtime remains Guided until an authorized live conformance run passes.",
+    certification: "Guided connection ready",
+    actions: ["Carry creator choices", "Translate topic preferences", "Guide account controls", "Show what will not transfer"],
+    limitation: "Curate stays in guided mode unless a verified test connection is active.",
   },
   {
     id: "x",
@@ -75,9 +75,9 @@ export const DESTINATIONS = [
     status: "Guided",
     tone: "purple",
     connected: true,
-    certification: "Subscription API candidate",
-    actions: ["Compile subscription plan", "Compile topic searches", "Guide native feedback"],
-    limitation: "Home ranking and Not Interested are not directly controlled by the adapter.",
+    certification: "Subscription route ready",
+    actions: ["Carry subscriptions", "Translate topic interests", "Guide native feedback"],
+    limitation: "Curate can manage supported subscriptions, but YouTube keeps control of the Home feed.",
   },
   {
     id: "reddit",
@@ -218,7 +218,7 @@ export const CREATOR_FIXTURES = [
     destination: "YouTube",
     destinationHandle: "@studio-a",
     confidence: 100,
-    evidence: "Reviewed directory fixture",
+    evidence: "Reviewed creator directory",
   },
   {
     id: "paper-lab",
@@ -228,7 +228,7 @@ export const CREATOR_FIXTURES = [
     destination: "YouTube",
     destinationHandle: "@paper-lab",
     confidence: 100,
-    evidence: "Reviewed directory fixture",
+    evidence: "Reviewed creator directory",
   },
   {
     id: "city-zine",
@@ -238,7 +238,7 @@ export const CREATOR_FIXTURES = [
     destination: "Bluesky",
     destinationHandle: "city-zine.example",
     confidence: 100,
-    evidence: "Reviewed directory fixture",
+    evidence: "Reviewed creator directory",
   },
   {
     id: "studio-a-x",
@@ -248,7 +248,7 @@ export const CREATOR_FIXTURES = [
     destination: "X",
     destinationHandle: "studio_a",
     confidence: 100,
-    evidence: "Reviewed directory fixture",
+    evidence: "Reviewed creator directory",
   },
 ];
 
@@ -283,7 +283,7 @@ export const INITIAL_RECEIPTS = [
   {
     id: "RCPT-1026",
     type: "Creator continuity",
-    detail: "Studio A matched across the deterministic Bluesky-to-YouTube directory fixture.",
+    detail: "Studio A matched from Bluesky to YouTube in the reviewed creator directory.",
     time: "28 AUG 2026 · 16:18",
     status: "Succeeded",
     reversible: false,
@@ -294,8 +294,8 @@ export const INITIAL_RECEIPTS = [
 export const INITIAL_ACTIVITY = [
   {
     id: "ACT-3004",
-    actor: "Passport agent",
-    detail: "Checked the active policy against every registered destination capability manifest.",
+    actor: "Curate",
+    detail: "Checked where the current mix can travel across the selected apps.",
     time: "10:08",
     state: "Verified",
   },
@@ -308,8 +308,8 @@ export const INITIAL_ACTIVITY = [
   },
   {
     id: "ACT-3002",
-    actor: "Passport agent",
-    detail: "Refused to label YouTube Home control as directly executable.",
+    actor: "Curate",
+    detail: "Kept YouTube Home out because that control is not available.",
     time: "10:02",
     state: "Boundary kept",
   },

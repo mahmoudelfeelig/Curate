@@ -119,7 +119,7 @@ export function FeedEvidenceDesk({
         <div className="evidence-source-key">
           <span><i className="source-verified" />Provider metadata</span>
           <span><i className="source-note" />Owner note</span>
-          <span><i className="source-inference" />Deterministic inference</span>
+          <span><i className="source-inference" />Curate inference</span>
         </div>
         <aside className="passport-warning">Applying a proposal changes only the portable Passport. Any connected-account write still needs its own exact plan, provider receipt, verification, and rollback.</aside>
         <footer className="passport-footer"><span>SELECT · VERIFY · INFER</span><span>{apiMode === "service" ? "LOCAL SERVICE" : "SERVICE REQUIRED"}</span><span>PAGE 25</span></footer>
@@ -153,7 +153,7 @@ export function FeedEvidenceDesk({
             <details className="evidence-losses"><summary>Translation losses and proof boundary</summary>{proposal.translation_losses.map((loss) => <p key={loss}>{loss}</p>)}</details>
             {result.status === "awaiting_owner_consent" ? (
               <>
-                <section className="evidence-agent-offer"><div><b>OPTIONAL MODEL INTERPRETATION</b><small>{modelReady ? "The model sees sanitized evidence only and cannot apply or execute." : "Local model unavailable; the deterministic proposal remains inspectable."}</small></div><ActionButton type="button" variant="quiet" onClick={onModelPlan} busy={busyAction === "evidence-model-plan"} disabled={!modelReady || Boolean(busyAction) || Boolean(result.agent_evidence)}>{result.agent_evidence ? "AGENT PLAN ATTACHED" : "ASK LOCAL STRANDS AGENT"}</ActionButton></section>
+                <section className="evidence-agent-offer"><div><b>ASK CURATE TO REFINE IT</b><small>{modelReady ? "Curate can interpret nuance while your exact percentages stay fixed." : "The current plan remains ready even while Curate's local model is unavailable."}</small></div><ActionButton type="button" variant="quiet" onClick={onModelPlan} busy={busyAction === "evidence-model-plan"} disabled={!modelReady || Boolean(busyAction) || Boolean(result.agent_evidence)}>{result.agent_evidence ? "CURATE PLAN ATTACHED" : "ASK CURATE"}</ActionButton></section>
                 <section className="evidence-consent">
                   <p><b>Portable policy only</b><small>No social account action is included.</small></p>
                   <ActionButton type="button" onClick={onApply} busy={busyAction === "evidence-apply"} disabled={Boolean(busyAction)}>APPLY TO PASSPORT</ActionButton>

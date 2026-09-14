@@ -35,8 +35,8 @@ One Piece, and perfumes.
 
 8
 00:00:35,300 --> 00:00:39,900
-The request stays a sentence; the agent turns it into
-a bounded plan for the selected app.
+The request stays a sentence; Curate turns it into
+a clear plan for the selected app.
 
 9
 00:00:39,900 --> 00:00:46,200

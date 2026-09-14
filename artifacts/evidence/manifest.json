@@ -1,20 +1,20 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-14T00:44:11Z",
+  "generated_at": "2026-09-14T01:42:42Z",
   "source": {
     "branch": "main",
-    "commit_count": 122,
+    "commit_count": 123,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
-    "snapshot_file_count": 385,
+    "snapshot_file_count": 386,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "19493fdbb18bdaee9e3a4ccb9e3ca0ae7b04a321c8d4058ba5678a0bac2e0d73",
+    "snapshot_sha256": "f03b7905f4e194e69b605cc3642982d744f7993db5e1072644426b07c77641f2",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,
     "history_rewritten_to_logical_commits": true,
     "sanitized_baseline_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
     "sanitized_baseline_commit_count": 40,
-    "append_only_commits_after_sanitized_baseline": 82
+    "append_only_commits_after_sanitized_baseline": 83
   },
   "environment": {
     "operating_system": "win32-x64",
@@ -83,7 +83,7 @@
       "gate": "node",
       "command": "npm test",
       "status": "passed",
-      "tests": 108
+      "tests": 109
     },
     {
       "gate": "independent_live_recovery_security_focus",
@@ -100,10 +100,22 @@
       "all_source_modules_syntax_checked": true
     },
     {
+      "gate": "responsive_browser_current",
+      "command": "node scripts/browser-qa.mjs against an isolated production build",
+      "status": "passed",
+      "viewports": 5,
+      "rendered_desks": 59,
+      "violations": 0,
+      "external_http_or_websocket_requests": 0,
+      "console_errors": 0,
+      "page_errors": 0,
+      "artifact_scope": "local ignored verification artifact"
+    },
+    {
       "gate": "production_build",
       "command": "vite build --configLoader runner to isolated temporary output",
       "status": "passed",
-      "transformed_modules": 52,
+      "transformed_modules": 53,
       "isolated_output": true
     },
     {
@@ -137,7 +149,7 @@
       "network_calls_made": 0,
       "secret_values_printed": false,
       "live_provider_validation": "requires a local exact-revision receipt; none is committed",
-      "agentcore_deployment": "requires a local owner-run receipt; no application stack is persisted"
+      "agentcore_deployment": "the owner retained a separately evidenced application stack; current account state is not asserted by this committed manifest"
     },
     {
       "gate": "agentcore_package",
@@ -182,10 +194,10 @@
       "command": "npm run test:evidence",
       "status": "passed",
       "artifacts": 13,
-      "source_files": 385,
+      "source_files": 386,
       "tracked_tree_clean": true,
       "byte_source": "git-index-blobs",
-      "commit_count": 122
+      "commit_count": 123
     },
     {
       "gate": "deterministic_evaluation",

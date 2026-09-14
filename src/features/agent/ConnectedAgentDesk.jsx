@@ -15,8 +15,8 @@ function ModelProposalEvidence({ commission, evidence }) {
       <aside className="connected-agent-model connected-agent-model-empty">
         <Icon name="bot" size={20} />
         <div>
-          <b>MODEL PROPOSAL NOT RECORDED</b>
-          <p>A connected commission cannot run until its proposal evidence passes deterministic validation.</p>
+          <b>CURATE HAS NOT PLANNED THIS RUN</b>
+          <p>Choose a connected account and preview the changes first.</p>
         </div>
       </aside>
     );
@@ -24,27 +24,27 @@ function ModelProposalEvidence({ commission, evidence }) {
   const tools = Array.isArray(evidence.tools) ? evidence.tools : [];
   const priority = evidence.priority || {};
   return (
-    <section className="connected-agent-model" aria-label="Connected commission model proposal evidence">
+    <details className="connected-agent-model" aria-label="How Curate planned the connected account changes">
+      <summary>How Curate planned this</summary>
       <header>
         <div>
-          <span>MODEL PROPOSAL EVIDENCE</span>
+          <span>HOW CURATE ORDERED THE CHANGES</span>
           <b>{evidence.model_id || "Configured proposal model"}</b>
         </div>
         <StatusStamp tone={evidence.deterministic_validation === "passed" ? "green" : "orange"} compact>
-          {evidence.deterministic_validation === "passed" ? "PRIORITY VALIDATED" : "NOT ADMITTED"}
+          {evidence.deterministic_validation === "passed" ? "CHECKED" : "CHECK NEEDED"}
         </StatusStamp>
       </header>
       <div className="connected-agent-interpretation">
-        <span>DETERMINISTIC SUMMARY</span>
-        <p>{commission?.selection_summary || "No deterministic family-order summary was recorded."}</p>
-        <span>MODEL FAMILY ORDER</span>
-        <p>{Array.isArray(priority.prioritized_action_types) ? priority.prioritized_action_types.map(formatConnectedAction).join(" then ") : "No family order was recorded."}</p>
+        <span>CURATE SUMMARY</span>
+        <p>{commission?.selection_summary || "No change-order summary was recorded."}</p>
+        <span>CHANGE ORDER</span>
+        <p>{Array.isArray(priority.prioritized_action_types) ? priority.prioritized_action_types.map(formatConnectedAction).join(" then ") : "No change order was recorded."}</p>
       </div>
       <dl className="connected-agent-model-facts">
-        <div><dt>Provider</dt><dd>{evidence.provider || "configured"}</dd></div>
-        <div><dt>Tool calls</dt><dd>{tools.length}</dd></div>
-        <div><dt>Tokens</dt><dd>{Number(evidence.usage?.total_tokens || 0)}</dd></div>
-        <div><dt>Validation</dt><dd>{String(evidence.deterministic_validation || "missing").replaceAll("_", " ")}</dd></div>
+        <div><dt>Model</dt><dd>{evidence.model_id || "configured"}</dd></div>
+        <div><dt>Checks</dt><dd>{tools.length}</dd></div>
+        <div><dt>Plan check</dt><dd>{evidence.deterministic_validation === "passed" ? "Passed" : "Needs review"}</dd></div>
       </dl>
       {tools.length ? (
         <div className="connected-agent-tool-trace" role="list" aria-label="Sanitized proposal tool trace">
@@ -56,9 +56,9 @@ function ModelProposalEvidence({ commission, evidence }) {
         </div>
       ) : null}
       <p className="connected-agent-authority">
-        Priority only. The local model can order certified action families; it cannot omit families, choose identity or targets, start a run, access credentials, execute, reconcile, or roll back.
+        Curate chooses the order. The account, targets, and return route stay exactly as shown.
       </p>
-    </section>
+    </details>
   );
 }
 
@@ -68,11 +68,11 @@ function ExactActionPlan({ presentation }) {
     <section className="connected-agent-plan" aria-label="Exact connected account action plan">
       <header>
         <div>
-          <span>SEALED ONE-SHOT PLAN</span>
-          <b>{presentation.actions.length} exact controls</b>
+          <span>ACCOUNT CHANGES</span>
+          <b>{presentation.actions.length} changes in one run</b>
         </div>
         <StatusStamp tone={presentation.allActionsCertified && presentation.exactPlanValid ? "green" : "orange"} compact>
-          {presentation.allActionsCertified && presentation.exactPlanValid ? "CERTIFIED SUBSET" : "NOT EXECUTABLE"}
+          {presentation.allActionsCertified && presentation.exactPlanValid ? "READY" : "CHECK NEEDED"}
         </StatusStamp>
       </header>
       {presentation.actions.length ? (
@@ -87,7 +87,7 @@ function ExactActionPlan({ presentation }) {
               </div>
               <div className="connected-agent-action-stamps">
                 <StatusStamp tone={action.certified ? "green" : "orange"} compact>
-                  {action.certified ? "CERTIFIED" : "OUTSIDE CERTIFICATE"}
+                  {action.certified ? "AVAILABLE" : "UNAVAILABLE"}
                 </StatusStamp>
                 <StatusStamp tone={action.reversible ? "blue" : "orange"} compact>
                   {action.reversible ? "REVERSIBLE" : "NOT REVERSIBLE"}
@@ -98,17 +98,15 @@ function ExactActionPlan({ presentation }) {
         </ol>
       ) : (
         <p className="connected-agent-plan-missing">
-          No exact actions exist in the sealed executable plan. This desk will not fall back to another plan.
+          No account changes are ready yet. Preview this run again before continuing.
         </p>
       )}
-      <div className="connected-agent-certified-set">
-        <span>CERTIFIED AND ADMITTED ACTION TYPES</span>
-        <div>
-          {presentation.certifiedSubset.length
-            ? presentation.certifiedSubset.map((item) => <code key={item}>{item}</code>)
-            : <small>No overlapping certified subset was recorded.</small>}
-        </div>
-      </div>
+      <details className="connected-agent-certified-set">
+        <summary>Available change types</summary>
+        <div>{presentation.certifiedSubset.length
+          ? presentation.certifiedSubset.map((item) => <code key={item}>{formatConnectedAction(item)}</code>)
+          : <small>No account change is available.</small>}</div>
+      </details>
     </section>
   );
 }
@@ -116,8 +114,8 @@ function ExactActionPlan({ presentation }) {
 
 function TranslationBoundaries({ limitations }) {
   return (
-    <section className="connected-agent-limitations" aria-label="Translation losses and platform limitations">
-      <header><span>TRANSLATION LOSSES AND LIMITS</span><b>{limitations.length || "NONE RECORDED"}</b></header>
+    <section className="connected-agent-limitations" aria-label="What will not transfer to this app">
+      <header><span>WHAT WILL NOT TRANSFER</span><b>{limitations.length || "NONE"}</b></header>
       {limitations.length ? limitations.map((item) => (
         <article key={item.id}>
           <StatusStamp tone={["high", "blocking"].includes(item.severity.toLowerCase()) ? "orange" : "purple"} compact>
@@ -159,11 +157,11 @@ function CommissionControls({
     return (
       <section className="connected-agent-consent" aria-label="Exact connected account actions">
         <p>
-          <b>One exact provider run</b>
-          <small>{presentation.actions.length} controls · no added passes · no action-family expansion</small>
+          <b>Ready to apply once</b>
+          <small>{presentation.actions.length} visible changes · one pass</small>
         </p>
         {!exactRunReady ? (
-          <p role="alert">Execution stays locked until the active connection, passed live certificate, exact count, and every action type agree.</p>
+          <p role="alert">Reconnect this account or refresh the preview before applying these changes.</p>
         ) : null}
         <div>
           <ActionButton
@@ -172,10 +170,10 @@ function CommissionControls({
             busy={busyAction === "live-commission-run"}
             disabled={!exactRunReady || Boolean(busyAction)}
           >
-            <Icon name="play" size={16} />RUN EXACT PLAN ONCE
+            <Icon name="play" size={16} />APPLY THESE CHANGES ONCE
           </ActionButton>
           <ActionButton type="button" variant="quiet" onClick={onCancel} busy={busyAction === "live-commission-cancel"} disabled={Boolean(busyAction)}>
-            CANCEL COMMISSION
+            CANCEL
           </ActionButton>
         </div>
       </section>
@@ -187,7 +185,7 @@ function CommissionControls({
         <div><Icon name="triangle-alert" size={21} /><p>{statusView.detail} No blind replay is available.</p></div>
         <div>
           <ActionButton type="button" onClick={onReconcile} busy={busyAction === "live-commission-reconcile"} disabled={Boolean(busyAction)}>
-            RECONCILE RECORDED ATTEMPTS
+            CHECK WHAT CHANGED
           </ActionButton>
           <ActionButton type="button" variant="quiet" onClick={onCancel} busy={busyAction === "live-commission-cancel"} disabled={Boolean(busyAction)}>
             CANCEL
@@ -201,7 +199,7 @@ function CommissionControls({
       <section className="connected-agent-recovery">
         <p>{statusView.detail}</p>
         <ActionButton type="button" onClick={onPreview} busy={busyAction === "live-commission-preview"} disabled={!serviceReady || Boolean(busyAction)}>
-          CREATE A NEW EXACT PREVIEW
+          MAKE A FRESH PREVIEW
         </ActionButton>
       </section>
     );
@@ -271,24 +269,24 @@ export function ConnectedAgentDesk({
       <div className="book-spine" aria-hidden="true" />
       <article className="passport-page left-page">
         <PageHeading
-          eyebrow="CERTIFIED CONNECTED COMMISSION"
-          title="Commission One Exact Trip"
-          note="A local model prioritizes redacted action families; deterministic code seals the exact account controls and targets."
+          eyebrow="CONNECTED ACCOUNT"
+          title="Carry this mix into an app"
+          note="Choose a connected account. Curate shows exactly what will change, runs it once, and keeps a return route."
           page="23"
         />
         <aside className={`connected-agent-runtime ${serviceReady ? "runtime-service" : "runtime-blocked"}`} role="status">
           <Icon name={serviceReady ? "shield-check" : "triangle-alert"} size={22} />
           <div>
-            <b>{serviceReady ? "CONNECTED SERVICE MODE" : "SERVICE MODE REQUIRED"}</b>
+            <b>{serviceReady ? "CONNECTED ACCOUNT READY" : "CONNECT CURATE FIRST"}</b>
             <p>{serviceReady
-              ? "Only active, owner-bound YouTube or Bluesky connections are eligible. Confirm the exact account identity before running."
-              : "This desk has no browser-fixture fallback and will not render a fixture commission as live."}</p>
+              ? "Your available YouTube or Bluesky test connections appear here. Check the account before applying changes."
+              : "Live account changes are unavailable until the local Curate service is connected."}</p>
           </div>
-          <StatusStamp tone={serviceReady ? "green" : "orange"} compact>{serviceReady ? "NO FALLBACK" : "LOCKED"}</StatusStamp>
+          <StatusStamp tone={serviceReady ? "green" : "orange"} compact>{serviceReady ? "READY" : "LOCKED"}</StatusStamp>
         </aside>
 
         <form className="connected-agent-form" onSubmit={onPreview}>
-          <Field label="Batch priority" hint="The local model sees this typed mode, coarse demand buckets, and family counts only.">
+          <Field label="What should happen first?" hint="Choose how Curate should order the available changes.">
             <select value={form.priorityMode} onChange={(event) => updateForm("priorityMode", event.target.value)} disabled={!serviceReady || Boolean(busyAction)}>
               <option value="balanced">Balanced across controls</option>
               <option value="protective_controls_first">Protective controls first</option>
@@ -297,13 +295,13 @@ export function ConnectedAgentDesk({
           </Field>
           <Field label="Connected account" hint="Choose the account this run should use.">
             <select value={selectedConnectionId} onChange={selectConnection} disabled={!serviceReady || Boolean(busyAction)}>
-              <option value="">Choose an active certified connection</option>
+              <option value="">Choose a connected test account</option>
               {connections.map((connection) => (
                 <option key={connection.id} value={connection.id}>{connectionOptionLabel(connection)}</option>
               ))}
             </select>
           </Field>
-          <Field label={`One-shot action ceiling: ${Number(form.maxTotalActions || 0)}`} hint="The final preview may contain fewer actions, but never more and never a second pass.">
+          <Field label={`Maximum changes: ${Number(form.maxTotalActions || 0)}`} hint="The preview can use fewer changes, but never more and never a second pass.">
             <input
               type="range"
               min="1"
@@ -314,48 +312,48 @@ export function ConnectedAgentDesk({
             />
           </Field>
           <div className="connected-agent-envelope">
-            <span><Icon name="lock-keyhole" size={14} />Exact action types and targets are shown before the run button is available.</span>
-            <span><Icon name="shield-check" size={14} />Only the live certificate intersection can enter the sealed plan.</span>
-            <span><Icon name="undo-2" size={14} />Rollback is shown only when the resulting receipt declares it available.</span>
+            <span><Icon name="lock-keyhole" size={14} />Every change and target appears before anything runs.</span>
+            <span><Icon name="shield-check" size={14} />Curate uses only controls this app makes available.</span>
+            <span><Icon name="undo-2" size={14} />A return button appears whenever the app supports it.</span>
           </div>
           <ActionButton type="submit" busy={busyAction === "live-commission-preview"} disabled={previewDisabled}>
-            <Icon name="route" size={16} />PRIORITIZE LOCALLY, THEN SEAL EXACT PREVIEW
+            <Icon name="route" size={16} />PREVIEW THE ACCOUNT CHANGES
           </ActionButton>
           <p className={`connected-agent-model-status ${modelReady ? "ready" : "blocked"}`}>
-            <b>{modelReady ? "LOCAL PRIORITY MODEL READY" : "PRIORITY MODEL UNAVAILABLE"}</b>
+            <b>{modelReady ? "CURATE IS READY" : "CURATE IS WAITING"}</b>
             <span>{modelReady
-              ? `${modelStatus.model_id || "configured model"} · priority only · no natural-language goal`
-              : serviceReady ? modelStatus?.reason || "A ready local priority model is required." : "Live service mode is required."}</span>
+              ? "Curate can order the available changes; the selected account and targets stay fixed."
+              : serviceReady ? modelStatus?.reason || "Connect the local Curate model to preview this run." : "Connect the local Curate service first."}</span>
           </p>
         </form>
 
         <aside className="connected-agent-ranking-boundary">
-          <b>RANKING BOUNDARY</b>
-          <p>Recommendation ranking is neither read nor written. This commission can send only the exact certified account controls printed on the opposite page.</p>
+          <b>WHAT CURATE CAN CHANGE</b>
+          <p>Curate can use only the account controls shown on the next page. The app still owns its private recommendation system.</p>
         </aside>
-        <footer className="passport-footer"><span>ONE SHOT</span><span>CONNECTED ACCOUNT</span><span>PAGE 23</span></footer>
+        <footer className="passport-footer"><span>ONE PASS</span><span>CONNECTED ACCOUNT</span><span>PAGE 23</span></footer>
       </article>
 
       <article className="passport-page right-page">
         <PageHeading
-          eyebrow="EXACT SCOPE, VISIBLE FAILURE"
-          title="Connected Run Docket"
-          note="No adaptive loop and no fallback plan. Unknown provider outcomes stop for reconciliation."
+          eyebrow="REVIEW THE ROUTE"
+          title="Changes for this account"
+          note="See every account change before it runs. If an app does not confirm the result, Curate stops and asks you to check it."
           page="24"
         />
         {!safeCommission ? (
           <div className="connected-agent-empty">
             <Icon name={serviceReady ? "stamp" : "lock-keyhole"} size={42} />
-            <b>{serviceReady ? "NO CONNECTED COMMISSION SEALED" : "FIXTURE COMMISSIONS DISABLED"}</b>
+            <b>{serviceReady ? "NO ACCOUNT RUN READY" : "LIVE RUNS ARE LOCKED"}</b>
             <p>{serviceReady
-              ? "Choose an eligible connection and preview one exact certified action sequence. Previewing performs no account write."
-              : "Switch to the authenticated service. This surface never substitutes local twin or browser fixture evidence for a connected account."}</p>
+              ? "Choose a connected test account and preview its changes. Previewing does not change the account."
+              : "Connect the local Curate service to use a verified test account. Practice results are never presented as a live run."}</p>
           </div>
         ) : (
           <div className="connected-agent-docket" data-commission-id={safeCommission.id} data-commission-status={safeCommission.status}>
             <header className="connected-agent-heading">
               <div>
-                <span>{String(safeCommission.platform || "connected").toUpperCase()} · ONE SHOT</span>
+                <span>{String(safeCommission.platform || "connected").toUpperCase()} · ONE PASS</span>
                 <h3>{formatConnectedAction(safeCommission.priority_mode || "balanced")} priority</h3>
                 <p>{boundConnection ? connectionOptionLabel(boundConnection) : "The bound active connection is unavailable."}</p>
               </div>
@@ -363,7 +361,7 @@ export function ConnectedAgentDesk({
             </header>
             <aside className="connected-agent-no-ranking">
               <Icon name="triangle-alert" size={18} />
-              <p>Ranking is neither observed nor modified. Subscription, follow, or mute receipts do not verify recommendation outcomes.</p>
+              <p>Curate can verify a subscription, follow, or mute change. Before-and-after feed results must still be measured separately.</p>
             </aside>
             <ModelProposalEvidence commission={safeCommission} evidence={presentation.modelEvidence} />
             <ExactActionPlan presentation={presentation} />
@@ -382,7 +380,7 @@ export function ConnectedAgentDesk({
             />
           </div>
         )}
-        <footer className="passport-footer"><span>CERTIFICATE INTERSECTION</span><span>NO BLIND REPLAY</span><span>PAGE 24</span></footer>
+        <footer className="passport-footer"><span>VISIBLE CHANGES</span><span>ONE RUN ONLY</span><span>PAGE 24</span></footer>
       </article>
     </section>
   );

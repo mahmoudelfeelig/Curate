@@ -29,6 +29,10 @@ function metricPercent(value, inverse = false) {
 
 function missionDetail(value) {
   return String(value || "")
+    .replace(/seeded (?:destination )?twin/gi, "practice feed")
+    .replace(/local (?:platform )?control twin/gi, "practice feed")
+    .replace(/deterministic fixture/gi, "practice feed")
+    .replace(/control-state fingerprint/gi, "starting-state check")
     .replaceAll("policy-approved", "policy-allowed")
     .replaceAll("approved action families", "sealed action families")
     .replaceAll("One-time approval", "One-time run token")
@@ -102,7 +106,7 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
           <StatusStamp tone="green" compact>PRACTICE</StatusStamp>
         </aside>
         <form className="mission-form" onSubmit={onPreview}>
-          <Field label="What should Curate change?" hint="Say it naturally. Curate works out a bounded route for the app you choose.">
+          <Field label="What should Curate change?" hint="Say it naturally. Curate works out a safe route for the app you choose.">
             <textarea rows="4" value={form.goal} onChange={(event) => updateForm("goal", event.target.value)} disabled={Boolean(busyAction)} placeholder="Make this new account feel like my useful internet, then stop once it is measurably close." />
           </Field>
           <div className="mission-route-fields">
@@ -119,16 +123,16 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
             </Field>
           </div>
           <div className="mission-budget-grid">
-            <Field label="Total action ceiling"><input type="number" min="1" max="20" value={form.maxTotalActions} onChange={(event) => updateForm("maxTotalActions", Number(event.target.value))} disabled={Boolean(busyAction)} /></Field>
-            <Field label="Per pass"><input type="number" min="1" max="8" value={form.maxActionsPerIteration} onChange={(event) => updateForm("maxActionsPerIteration", Number(event.target.value))} disabled={Boolean(busyAction)} /></Field>
+            <Field label="Maximum changes"><input type="number" min="1" max="20" value={form.maxTotalActions} onChange={(event) => updateForm("maxTotalActions", Number(event.target.value))} disabled={Boolean(busyAction)} /></Field>
+            <Field label="Changes per pass"><input type="number" min="1" max="8" value={form.maxActionsPerIteration} onChange={(event) => updateForm("maxActionsPerIteration", Number(event.target.value))} disabled={Boolean(busyAction)} /></Field>
             <Field label="Maximum passes"><input type="number" min="1" max="5" value={form.maxIterations} onChange={(event) => updateForm("maxIterations", Number(event.target.value))} disabled={Boolean(busyAction)} /></Field>
           </div>
-          <Field label={`Acceptance distance: ${Math.round(form.maxTopicDistance * 100)}% or closer`} hint="The agent must stop at the target, the budget, a capability boundary, or no progress.">
+          <Field label={`Target match: ${100 - Math.round(form.maxTopicDistance * 100)}% or better`} hint="Curate stops when it reaches the match, runs out of changes, or cannot improve the result.">
             <input type="range" min="8" max="40" step="1" value={Math.round(form.maxTopicDistance * 100)} onChange={(event) => updateForm("maxTopicDistance", Number(event.target.value) / 100)} disabled={Boolean(busyAction)} />
           </Field>
           <div className="mission-envelope-summary">
-            <span><Icon name="lock-keyhole" size={14} />No public posting, liking, commenting, messaging, or credential access</span>
-            <span><Icon name="undo-2" size={14} />Every simulated control must have an inverse receipt</span>
+            <span><Icon name="lock-keyhole" size={14} />Tries only private feed controls</span>
+            <span><Icon name="undo-2" size={14} />Every practice change can be undone</span>
           </div>
           <div className="mission-plan-actions">
             <ActionButton data-testid="mission-model-plan" type="button" onClick={onModelPreview} busy={busyAction === "mission-model-preview"} disabled={!form.goal.trim() || Boolean(busyAction) || !modelReady}><Icon name="bot" size={16} />MAKE A PRACTICE PLAN</ActionButton>
@@ -136,7 +140,7 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
           </div>
           <p className={`model-readiness model-${modelStatus?.readiness || "checking"}`} role="status" aria-label="Curate agent readiness" data-readiness={modelStatus?.readiness || "checking"}><b>{modelReady ? "CURATE IS READY" : "QUICK PREVIEW AVAILABLE"}</b><span>{modelReady ? "The agent can interpret the goal and build the route." : "You can still preview the practice feed while the agent is unavailable."}</span></p>
         </form>
-        <div className="twin-index" role="group" aria-label="Available local platform control twins">
+        <div className="twin-index" role="group" aria-label="Available practice feeds">
           <span>AVAILABLE PRACTICE FEEDS</span>
           <div>{externalDestinations.map((destination) => <button type="button" className={form.platform === destination.id ? "active" : ""} key={destination.id} onClick={() => updateForm("platform", destination.id)} disabled={Boolean(busyAction)}>{destination.shortName}</button>)}</div>
         </div>
@@ -161,10 +165,10 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
         ) : (
           <div className="mission-ledger" data-mission-id={mission.id} data-mission-status={mission.status} data-planner={plannerEvidence ? "local-model" : "deterministic"}>
             <header className="mission-docket">
-              <div><span>{mission.id}</span><h3>{mission.goal}</h3><p>{String(mission.platform || "local twin").replace("twin:", "").toUpperCase()} · {String(mission.environment || "local_platform_control_twin").replaceAll("_", " ")}</p></div>
+              <div><span>{mission.id}</span><h3>{mission.goal}</h3><p>{String(mission.platform || "practice").replace("twin:", "").toUpperCase()} · PRACTICE FEED</p></div>
               <StatusStamp tone={statusTone}>{missionStatusLabel}</StatusStamp>
             </header>
-            <aside className="twin-disclaimer"><Icon name="triangle-alert" size={18} /><p>{mission.fidelity_disclaimer || "This is a deterministic control-surface simulation, not a copy of a private ranking system."}</p></aside>
+            <aside className="twin-disclaimer"><Icon name="triangle-alert" size={18} /><p>A safe practice feed models the controls Curate can use. It does not copy the app&apos;s private ranking system.</p></aside>
             {plannerEvidence ? <details className="model-planner-evidence" aria-label="Curate agent details">
               <summary>How Curate made this plan</summary>
               <header><div><span>CURATE AGENT</span><b>{plannerEvidence.model_id || "Configured model"}</b></div><StatusStamp tone={plannerEvidence.deterministic_validation === "passed" ? "green" : "orange"} compact>{plannerEvidence.deterministic_validation === "passed" ? "CHECKED" : "INSPECT"}</StatusStamp></header>
@@ -174,14 +178,14 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
               <p className="model-authority-note">Curate proposed the route; the app checked its limits before offering the run.</p>
             </details> : null}
             <div className="mission-comparison">
-              <MissionMetrics evaluation={mission.before} label="OBSERVED BEFORE" />
+              <MissionMetrics evaluation={mission.before} label="STARTING FEED" />
               <Icon name="arrow-right-left" size={25} />
-              <MissionMetrics evaluation={mission.after || mission.counterfactual || mission.preview} label={mission.after ? "MEASURED AFTER" : "COUNTERFACTUAL"} />
+              <MissionMetrics evaluation={mission.after || mission.counterfactual || mission.preview} label={mission.after ? "CURATED FEED" : "EXPECTED RESULT"} />
             </div>
             <div className="mission-phase-track">
               {trace.map((step) => <article className={`phase-${step.status}`} key={step.stage}><Icon name={step.icon} size={17} /><div><b>{step.label}</b><p>{step.detail}</p></div><span>{step.status.replaceAll("_", " ")}</span></article>)}
             </div>
-            {actionEnvelope.length ? <details className="mission-actions" open={isAwaiting}><summary>Initial action envelope · {actionEnvelope.length} controls · {allowedFamilies.length} families</summary><div>{actionEnvelope.map((action, index) => <article key={action.id || `${action.action_type}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{String(action.action_type || action.action || "bounded control").replaceAll("_", " ")}</b><p>{action.reason || action.detail || "Compiled inside the declared twin surface."}</p></div><StatusStamp tone={action.reversible === false ? "orange" : "green"} compact>{action.reversible === false ? "MANUAL" : "REVERSIBLE"}</StatusStamp></article>)}</div><p className="mission-action-scope">Later passes may recompile targets only within these sealed action families, the same Passport version, and the remaining action and iteration budgets.</p></details> : null}
+            {actionEnvelope.length ? <details className="mission-actions" open={isAwaiting}><summary>Planned changes · {actionEnvelope.length} controls · {allowedFamilies.length} types</summary><div>{actionEnvelope.map((action, index) => <article key={action.id || `${action.action_type}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><b>{String(action.action_type || action.action || "bounded control").replaceAll("_", " ")}</b><p>{missionDetail(action.reason || action.detail || "Prepared inside this practice feed's limits.")}</p></div><StatusStamp tone={action.reversible === false ? "orange" : "green"} compact>{action.reversible === false ? "MANUAL" : "REVERSIBLE"}</StatusStamp></article>)}</div><p className="mission-action-scope">Later passes can adjust targets only inside these change types and the remaining limits.</p></details> : null}
             {isAwaiting ? <section className="mission-consent" aria-label="Practice run actions"><p><b>Ready for the practice feed</b><small>{mission.max_total_actions || form.maxTotalActions} changes maximum · {mission.max_iterations || form.maxIterations} passes maximum</small></p><div><ActionButton data-testid="mission-run" type="button" onClick={onRun} busy={busyAction === "mission-run"} disabled={Boolean(busyAction)}><Icon name="play" size={16} />START PRACTICE RUN</ActionButton><ActionButton type="button" variant="quiet" onClick={onCancel} busy={busyAction === "mission-cancel"} disabled={Boolean(busyAction)}>CANCEL</ActionButton></div></section> : null}
             {iterations.length ? <section className="iteration-ledger"><span>ADAPTATION PASSES</span>{iterations.map((iteration, index) => <article key={iteration.number || index}><div><b>PASS {iteration.number || index + 1}</b><StatusStamp tone={iteration.decision === "adapt" ? "purple" : "green"} compact>{String(iteration.decision || "measured").replaceAll("_", " ")}</StatusStamp></div><p>{(iteration.actions || []).length} controls · {Math.round(Number(iteration.improvement || 0) * 100)} point distance improvement · receipt {iteration.receipt_id || "recorded"}</p></article>)}</section> : null}
             {isTerminal ? <div className="mission-terminal" role="region" aria-label="Practice run result" data-mission-status={mission.status}><div><b>{mission.status === "rollback_partial" || (mission.status === "rolled_back" && !rollbackVerified) ? "UNDO STATUS" : "RESULT"}</b><span>{String(mission.status === "rollback_partial" ? mission.status : mission.stop_reason || mission.status).replaceAll("_", " ")}</span><small>{mission.status === "rollback_partial" ? mission.rollback?.verification?.state_restored === false ? "The practice feed does not yet match its starting point" : "Some changes need inspection" : mission.status === "rolled_back" && !rollbackVerified ? "The starting state still needs checking" : mission.status === "rolled_back" ? "The practice feed is back where it started" : `${mission.remaining_actions ?? 0} changes left unused`}</small></div>{mission.rollback_available ? <ActionButton data-testid="mission-rollback" type="button" variant="danger" onClick={onRollback} busy={busyAction === "mission-rollback"} disabled={Boolean(busyAction)}><Icon name="undo-2" size={16} />{mission.status === "rollback_partial" ? "TRY UNDO AGAIN" : "UNDO PRACTICE RUN"}</ActionButton> : <StatusStamp tone={mission.status === "rolled_back" && rollbackVerified ? "blue" : mission.status === "rollback_partial" || mission.status === "rolled_back" ? "orange" : "green"}>{mission.status === "rolled_back" && rollbackVerified ? "START RESTORED" : mission.status === "rollback_partial" || mission.status === "rolled_back" ? "CHECK NEEDED" : "RUN FINISHED"}</StatusStamp>}</div> : null}

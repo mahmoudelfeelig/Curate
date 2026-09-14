@@ -5,9 +5,11 @@ import test from "node:test";
 
 import {
   assertCompatibleTiming,
+  assertReleaseLoudness,
   buildFfmpegArguments,
   durationFromPacketCsv,
   parseArguments,
+  parseLoudnormAnalysis,
 } from "../scripts/finalize-demo-media.mjs";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
@@ -64,6 +66,26 @@ test("mux preserves video and produces normalized Opus narration", () => {
   assert.ok(args.some((argument) => argument.includes("loudnorm=I=-16:TP=-1.5:LRA=11,apad[aout]")));
   assert.ok(args.includes("62.891"));
   assert.equal(args.at(-1), "narrated.webm");
+});
+
+test("post-encode loudness is parsed and release-gated", () => {
+  const measurement = parseLoudnormAnalysis(`
+[Parsed_loudnorm_0 @ 000001] {
+  "input_i" : "-16.08",
+  "input_tp" : "-1.44",
+  "input_lra" : "2.10",
+  "input_thresh" : "-26.18"
+}
+  `);
+  assert.deepEqual(measurement, {
+    integratedLufs: -16.08,
+    truePeakDbfs: -1.44,
+    loudnessRangeLu: 2.1,
+  });
+  assert.doesNotThrow(() => assertReleaseLoudness(measurement));
+  assert.throws(() => assertReleaseLoudness({ ...measurement, integratedLufs: -13.5 }), /expected -16/);
+  assert.throws(() => assertReleaseLoudness({ ...measurement, truePeakDbfs: -0.4 }), /expected at most -1/);
+  assert.throws(() => parseLoudnormAnalysis("no summary"), /did not return/);
 });
 
 test("captions cover the complete voiceover without overrunning the verified cut", async () => {

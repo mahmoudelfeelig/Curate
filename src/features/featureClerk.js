@@ -169,7 +169,7 @@ export function resolveMigrationCapability(proposal, platforms = []) {
   );
   let boundary = "No execution claim";
   if (evidenceLevel === "lab" && executeMode === "lab") {
-    boundary = "Deterministic Lab execution only";
+    boundary = "Curate Lab practice only";
   } else if (evidenceLevel === "guided" || executeMode === "guided") {
     boundary = "Guided external handoff only";
   } else if (["executable", "closed_loop"].includes(evidenceLevel) && executeMode === "authorized") {

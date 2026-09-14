@@ -35,12 +35,12 @@ from feed_passport.application.oauth import (
     OAuthConnectionService,
     OAuthProviderCatalog,
 )
-from feed_passport.infrastructure import SQLiteStore
+from feed_passport.infrastructure import HttpxNoAmbientClient, SQLiteStore
 from feed_passport.infrastructure.connection_registry import EncryptedConnectionRegistry
 from feed_passport.infrastructure.crypto import AesGcmKeyring
 from feed_passport.infrastructure.live_certification import LiveCertificationVerifier
 from feed_passport.infrastructure.oauth_vault import LocalEncryptedOAuthVault
-from feed_passport.ports.live_platform import HttpxNoAmbientClient, ValidatedLiveCertification
+from feed_passport.ports.live_platform import ValidatedLiveCertification
 
 
 @dataclass(slots=True)

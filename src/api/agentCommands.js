@@ -43,19 +43,19 @@ export function agentArgumentsForCommand(commandName, command, passportId) {
 
 export function fixtureAgentResponseForCommand(command, nextFixtureIdentity) {
   const normalized = command.toLowerCase();
-  let response = "I can prepare a reversible plan, show capability limits, and wait for you to run any account change.";
+  let response = "I can turn that into a clear route, preview the result, and keep a way back when the app supports it.";
   if (normalized.includes("capture") || normalized.includes("snapshot")) {
-    response = "Source capture is ready. In fixture mode I can create a local intent-only Passport without claiming access to a live social account.";
+    response = "Feed capture is ready. I can save the preferences you describe as a new Curate Passport.";
   } else if (normalized.includes("copy") || normalized.includes("migrat")) {
-    response = "Migration desk is ready. I will preview exact actions and translation loss before asking you to apply anything.";
+    response = "The copy-your-feed page is ready. I will show what carries over and what needs a different route in the new app.";
   } else if (normalized.includes("temporary") || normalized.includes("incognito")) {
-    response = "Temporary visa desk is ready. Isolated Lab keeps the experiment separate; Reversible Lab records a rollback checkpoint.";
+    response = "The temporary-feed page is ready. You can keep the experiment separate or return to your current mix when it ends.";
   } else if (normalized.includes("partner") || normalized.includes("blend")) {
-    response = "Companion desk is ready. Only your selected preference slices are shared; credentials and raw history stay private.";
+    response = "The shared-feed page is ready. Choose which parts of your taste to blend and how long the shared view should last.";
   } else if (normalized.includes("drift") || normalized.includes("check")) {
-    response = "The latest fixture check scores 87 out of 100. Creator repetition is the only material warning; I can propose a source-diversity correction.";
+    response = "The latest practice check scores 87 out of 100. One creator appears too often, so I can spread the feed across more sources.";
   } else if (normalized.includes("platform") || normalized.includes("visa")) {
-    response = "Destination visas are evidence labels. The local Lab and declared control twins execute deterministically; external platform profiles remain guided or unavailable and never imply live certification.";
+    response = "App Visas show how each destination works: Curate can practice the route, connect a supported test account, or prepare the in-app steps for you.";
   }
   return {
     response,

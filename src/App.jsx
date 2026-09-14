@@ -119,7 +119,6 @@ export function App() {
   const [partnerCode, setPartnerCode] = useState("");
   const [blend, setBlend] = useState({ mode: "Bridge View", weight: 30, duration: "7 days", durationMinutes: null });
   const [companionInvitation, setCompanionInvitation] = useState(null);
-  const [partnerPersonaConfirmed, setPartnerPersonaConfirmed] = useState(false);
   const [companion, setCompanion] = useState(null);
   const [drift, setDrift] = useState(clone(DRIFT_FIXTURE));
   const [driftDecisionReady, setDriftDecisionReady] = useState(false);
@@ -163,7 +162,7 @@ export function App() {
   useEffect(() => browserOidcSession.subscribe(setAuthState), []);
 
   const addReceipt = useCallback((receipt) => { setReceipts((current) => [receipt, ...current]); setSelectedReceipt(receipt); }, []);
-  const addActivity = useCallback((detail, state = "Recorded", actor = "Passport agent") => { setActivity((current) => [{ id: `ACT-LOCAL-${current.length + 1}`, actor, detail, time: "NOW", state }, ...current]); }, []);
+  const addActivity = useCallback((detail, state = "Recorded", actor = "Curate") => { setActivity((current) => [{ id: `ACT-LOCAL-${current.length + 1}`, actor, detail, time: "NOW", state }, ...current]); }, []);
   const syncSource = (source) => setApiMode(source);
   const runBusy = useCallback(async (action, work, errorLead) => {
     if (appRef.current.hydrationPending) {
@@ -212,7 +211,6 @@ export function App() {
     setPartnerCode("");
     setBlend({ mode: "Bridge View", weight: 30, duration: "7 days", durationMinutes: null });
     setCompanionInvitation(null);
-    setPartnerPersonaConfirmed(false);
     setCompanion(null);
     setDrift(clone(DRIFT_FIXTURE));
     setDriftDecisionReady(false);
@@ -288,7 +286,6 @@ export function App() {
     const pendingCompanionConsent = data.pendingCompanionConsent || null;
     setCompanion(activeCompanion);
     setCompanionInvitation(activeCompanion ? null : pendingCompanionConsent);
-    setPartnerPersonaConfirmed(false);
     if (activeCompanion) {
       setPartnerCode(activeCompanion.code || "");
       setBlend({
@@ -778,7 +775,7 @@ export function App() {
         type: migrationSource === "lab" ? "Lab Passport captured" : "Declared source observation captured",
         detail: migrationSource === "lab"
           ? `Captured the certified Curate Lab observation as ${capturedId}.`
-          : `Captured the declared or fixture ${source?.name || migrationSource} observation as ${capturedId}; no external account read was claimed.`,
+          : `Saved the available ${source?.name || migrationSource} starting point as ${capturedId}.`,
         time: "NOW",
         status: "Succeeded",
         reversible: false,
@@ -800,7 +797,7 @@ export function App() {
         actor: "Passport agent",
         detail: migrationSource === "lab"
           ? `Captured certified Lab source evidence as Passport ${capturedId}.`
-          : `Captured declared or fixture ${source?.name || migrationSource} source evidence as Passport ${capturedId}; no external account access was claimed.`,
+          : `Saved the available ${source?.name || migrationSource} starting point as Passport ${capturedId}.`,
         time: "NOW",
         state: "Verified",
       }]);
@@ -845,7 +842,7 @@ export function App() {
                 : `${destination?.name} required no destination changes; no external account action was claimed.`
               : kind === "guided"
                 ? `${guided} guided steps prepared; no external account action was claimed.`
-                : `${simulated} planned actions were simulated in the deterministic fixture; no destination account was changed.`;
+                : `${simulated} planned changes were tried on the practice feed; the destination account stayed unchanged.`;
       const receipt = result.data.receipt;
       setGuidedHandoff(result.data.guided_handoff || null);
       setMigrationOutcome({ kind, applied, remoteWrites, guided, skipped, failed, message });
@@ -893,7 +890,6 @@ export function App() {
     syncSource(result.source);
     setCompanionInvitation(result.data.invitation);
     setCompanion(null);
-    setPartnerPersonaConfirmed(false);
     addReceipt(result.data.receipt);
     addActivity("The first local test principal shared a bounded slice. No companion blend was activated.", "Waiting for second person", "First local test principal");
   }, "Companion invitation could not be created");
@@ -906,7 +902,6 @@ export function App() {
       syncSource(result.source);
       setCompanionInvitation(result.data.invitation);
       setCompanion(result.data.companion);
-      setPartnerPersonaConfirmed(false);
       addReceipt({ ...result.data.receipt, _companionId: result.data.receipt._companionId || result.data.companion.id });
       addActivity(`The second local test principal activated continuous sync ${result.data.companion.id} at revision ${result.data.companion.syncRevision}.`, "Activated", "Second local test principal");
     } catch (error) {
@@ -920,7 +915,6 @@ export function App() {
       const result = await feedPassportApi.revokeCompanionInvitation(pending);
       syncSource(result.source);
       setCompanionInvitation(null);
-      setPartnerPersonaConfirmed(false);
       addReceipt(result.data.receipt);
       addActivity("The first local test principal withdrew the pending invitation before any companion existed.", "Recorded", "First local test principal");
     }, "Pending companion invitation could not be revoked");
@@ -933,7 +927,6 @@ export function App() {
       syncSource(result.source);
       setCompanion(null);
       setCompanionInvitation(null);
-      setPartnerPersonaConfirmed(false);
       setPartnerCode("");
       addReceipt(result.data.receipt);
       addActivity("Revoked the companion overlay and stopped its shared slice.", "Recorded", "You");
@@ -974,7 +967,7 @@ export function App() {
       setDriftDecisionReady(false);
       addActivity(
         simulated
-          ? "Simulated the bounded correction plan in the deterministic fixture; no Lab or external account state was changed."
+          ? "Tried the correction on the practice feed; connected accounts stayed unchanged."
           : applied
             ? "Applied the reviewed source-diversity correction to the certified Lab overlay."
             : "The fresh service result was already aligned; no correction was applied.",
@@ -1075,7 +1068,6 @@ export function App() {
       if (receipt._companionId || receipt._sliceId) {
         setCompanion(null);
         setCompanionInvitation(null);
-        setPartnerPersonaConfirmed(false);
         setPartnerCode("");
       }
     }
@@ -1264,7 +1256,7 @@ export function App() {
       const result = await feedPassportApi.previewAgentMission(agentMissionForm);
       syncSource(result.source);
       setAgentMission(result.data);
-      addActivity(`Mission ${result.data.id} observed a seeded ${agentMissionForm.platform} control twin, measured it, and prepared a bounded run.`, "Plan only");
+      addActivity(`Curate measured the starting ${agentMissionForm.platform} practice feed and prepared a reversible route.`, "Plan ready");
     }, "Local mission preview failed");
   };
   const handleModelMissionPreview = (event) => {
@@ -1276,9 +1268,9 @@ export function App() {
       setAgentMission(result.data);
       const evidence = result.data.planner_evidence;
       addActivity(
-        `${evidence.model_id} completed ${evidence.tools?.length || 0} proposal-only Strands tool calls; deterministic policy narrowed and sealed mission ${result.data.id} before execution.`,
-        "Plan only",
-        "Local model clerk",
+        `Curate interpreted the request, checked the available changes, and prepared practice route ${result.data.id}.`,
+        "Plan ready",
+        "Curate",
       );
     }, "Local model mission planning failed");
   };
@@ -1300,7 +1292,7 @@ export function App() {
         _missionId: result.data.id,
       };
       addReceipt(receipt);
-      addActivity(`${result.data.id} executed only the sealed local policy scope, re-observed the twin, and stopped at ${String(result.data.stop_reason || result.data.status).replaceAll("_", " ")}.`, result.data.status === "completed" ? "Verified" : "Boundary kept");
+      addActivity(`${result.data.id} tried the planned changes, measured the feed again, and stopped at ${String(result.data.stop_reason || result.data.status).replaceAll("_", " ")}.`, result.data.status === "completed" ? "Measured" : "Needs review");
     }, "Local mission execution failed");
   };
   const handleMissionCancel = () => {
@@ -1322,13 +1314,13 @@ export function App() {
       const fixtureRestored = result.source === "fixture" && fullyRestored;
       const receipt = {
         id: `ROLLBACK-${result.data.id}`,
-        type: fixtureRestored ? "Agent fixture rollback simulated" : fullyRestored ? "Agent mission rolled back" : "Agent rollback needs inspection",
+        type: fixtureRestored ? "Practice feed restored" : fullyRestored ? "Curate run undone" : "Undo needs inspection",
         detail: fullyRestored
           ? fixtureRestored
-            ? `${result.data.id} deterministically simulated reverse-order receipt restoration and matched the fixture's pre-run measurement.`
-            : `${result.data.id} reversed its receipts and matched the local control-state fingerprint captured before execution.`
+            ? `${result.data.id} returned every practice change and matched the starting measurement.`
+            : `${result.data.id} reversed its receipts and matched the starting-state check captured before the run.`
           : result.data.rollback?.verification?.state_restored === false
-            ? `${result.data.id} reversed its receipts, but the local control-state fingerprint differs from the pre-run baseline; no external account was checked.`
+            ? `${result.data.id} reversed its receipts, but the result still differs from the starting state.`
             : `${result.data.id} reported a partial rollback; inspect the failed inverse controls before retrying.`,
         time: "NOW",
         status: fixtureRestored ? "Simulated" : fullyRestored ? "Succeeded" : "Needs review",
@@ -1339,8 +1331,8 @@ export function App() {
       addActivity(
         fullyRestored
           ? fixtureRestored
-            ? `Mission ${result.data.id} simulated restoration of the seeded fixture and matched its pre-run control state.`
-            : `Mission ${result.data.id} restored the seeded local twin's control state; the pre-run and post-rollback fingerprints match.`
+            ? `Mission ${result.data.id} restored the practice feed and matched its starting state.`
+            : `Mission ${result.data.id} restored the practice feed; the before and after state checks match.`
           : result.data.rollback?.verification?.state_restored === false
             ? `Mission ${result.data.id} kept a local control-state mismatch visible after receipt reversal.`
             : `Mission ${result.data.id} stopped with a partial rollback and kept the retry boundary visible.`,
@@ -1408,9 +1400,9 @@ export function App() {
         setFeedEvidenceBaselineResult(result.data);
       }
       addActivity(
-        `Recorded ${links.length} owner-selected ${stage} links and separated provider facts from deterministic inference.`,
-        "Evidence sealed",
-        "Evidence service",
+        `Curate reviewed ${links.length} ${stage} links and mapped the themes it found.`,
+        "Feed reviewed",
+        "Curate",
       );
     }, "Feed evidence analysis failed");
   };
@@ -1424,9 +1416,9 @@ export function App() {
       );
       setFeedEvidenceResult(result.data);
       addActivity(
-        `The feed evidence agent completed ${result.data.agent_evidence?.tools?.length || 0} proposal-only tool calls. No Passport or social account changed.`,
-        "Agent proposal attached",
-        "Local Strands agent",
+        `Curate turned the feed review into a ${result.data.agent_evidence?.tools?.length || 0}-step suggestion without changing an account.`,
+        "Suggestion ready",
+        "Curate",
       );
     }, "Feed evidence agent planning failed");
   };
@@ -1464,11 +1456,11 @@ export function App() {
       syncSource(result.source);
       setFeatureClerkResult({ ...result.data, platforms: result.platforms || [] });
       addActivity(
-        `The local Feature Clerk filed one ${String(result.data.proposal.kind).replaceAll("_", " ")} proposal after exactly ${result.data.evidence.tools?.length || 0} read-and-submit tool calls. No deterministic desk was changed.`,
-        "Plan only",
-        "Local Feature Clerk",
+        `Curate prepared a ${String(result.data.proposal.kind).replaceAll("_", " ")} suggestion from the request.`,
+        "Suggestion ready",
+        "Curate",
       );
-    }, "Local Feature Clerk planning failed");
+    }, "Curate could not prepare this suggestion");
   };
 
   const handleFeatureClerkApply = () => {
@@ -1513,7 +1505,7 @@ export function App() {
     addActivity(
       `Prefilled the ${mapped.section} desk from a proposal only. No receipt, overlay, companion, migration, or account action was created.`,
       "Plan only",
-      "Local Feature Clerk",
+      "Curate",
     );
     pushSectionHistory(mapped.section);
     setActiveSection(mapped.section);
@@ -1529,7 +1521,7 @@ export function App() {
     : apiMode === "checking"
       ? "Checking the local Curator service and loopback model."
       : apiMode !== "service"
-        ? "The deterministic fixture remains available, but it will not fabricate a language-model proposal."
+        ? "A quick practice preview is still available. Connect the local model to ask Curate for a fresh interpretation."
         : modelStatus?.reason || "The configured loopback model is not ready.";
   const sectionTitle = useMemo(() => NAV_ITEMS.find(([id]) => id === activeSection)?.[1] || "Passport", [activeSection]);
   const workspaceLocked = Boolean(busyAction) || initialHydrationPending;
@@ -1545,7 +1537,7 @@ export function App() {
     case "visas": content = <VisaSpread connectedIds={connectedIds} onToggle={toggleDestination} selectedVisa={selectedVisa} setSelectedVisa={setSelectedVisa} connections={accountConnections} oauthProviders={oauthProviders} connectionConfiguration={connectionConfiguration} connectionNotice={connectionNotice} onAuthorize={handleAuthorizeConnection} onRevoke={handleRevokeConnection} busyAction={busyAction} platformProfiles={platformProfiles} instagramImport={instagramImport} instagramImportSelection={instagramImportSelection} setInstagramImportSelection={setInstagramImportSelection} instagramImportNotice={instagramImportNotice} onInstagramImportPreview={handleInstagramImportPreview} onInstagramImportApply={handleInstagramImportApply} onInstagramImportDiscard={handleInstagramImportDiscard} serviceAvailable={apiMode === "service"} />; break;
     case "migration": content = <MigrationSpread source={migrationSource} setSource={handleMigrationSourceChange} destination={migrationDestination} setDestination={handleMigrationDestinationChange} preview={migrationPreview} onCapture={handleMigrationCapture} onPreview={handleMigrationPreview} onApply={handleMigrationApply} busyAction={busyAction} outcome={migrationOutcome} captureNotice={migrationCaptureNotice} constitutionVersion={constitution.version} proposalPrefill={featureDeskPrefills.migration} guidedHandoff={guidedHandoff} onResolveGuidedStep={handleResolveGuidedStep} onFinalizeGuidedHandoff={handleFinalizeGuidedHandoff} />; break;
     case "temporary": content = <TemporarySpread form={temporaryForm} setForm={setTemporaryForm} visas={temporaryVisas} onIssue={handleTemporaryIssue} onRevoke={handleTemporaryRevoke} busy={busyAction.startsWith("temporary")} proposalPrefill={featureDeskPrefills.temporary} />; break;
-    case "companion": content = <CompanionSpread share={share} setShare={setShare} partnerShare={partnerShare} setPartnerShare={setPartnerShare} partnerCode={partnerCode} setPartnerCode={setPartnerCode} blend={blend} setBlend={setBlend} invitation={companionInvitation} partnerConfirmed={partnerPersonaConfirmed} setPartnerConfirmed={setPartnerPersonaConfirmed} companion={companion} onCreateInvitation={handleCompanionInvitationCreate} onAcceptInvitation={handleCompanionInvitationAccept} onRevokeInvitation={handleCompanionInvitationRevoke} onRevokeCompanion={handleCompanionRevoke} busy={busyAction.startsWith("companion")} passportId={passportId} proposalPrefill={featureDeskPrefills.companion} />; break;
+    case "companion": content = <CompanionSpread share={share} setShare={setShare} partnerShare={partnerShare} setPartnerShare={setPartnerShare} partnerCode={partnerCode} setPartnerCode={setPartnerCode} blend={blend} setBlend={setBlend} invitation={companionInvitation} companion={companion} onCreateInvitation={handleCompanionInvitationCreate} onAcceptInvitation={handleCompanionInvitationAccept} onRevokeInvitation={handleCompanionInvitationRevoke} onRevokeCompanion={handleCompanionRevoke} busy={busyAction.startsWith("companion")} passportId={passportId} proposalPrefill={featureDeskPrefills.companion} />; break;
     case "drift": content = <DriftSpread drift={drift} onCheck={handleDriftCheck} onCorrect={handleDriftCorrection} busy={busyAction.startsWith("drift")} correctionApplied={correctionApplied} correctionSimulated={correctionSimulated} canCorrect={driftDecisionReady} monitor={driftMonitor} monitorConfig={monitorConfig} setMonitorConfig={setMonitorConfig} onCreateMonitor={handleCreateMonitor} onStopMonitor={handleStopMonitor} />; break;
     case "continuity": content = <CreatorSpread query={creatorQuery} setQuery={setCreatorQuery} creators={CREATOR_FIXTURES} preserved={preservedCreators} onPreserve={handlePreserveCreator} busy={busyAction.startsWith("creator")} />; break;
     case "templates": content = <TemplatesSpread onApply={handleTemplateApply} appliedTemplate={appliedTemplate} />; break;
@@ -1571,7 +1563,7 @@ export function App() {
         {authState.required && authState.authenticated ? <div className="credential-tag identity-tag"><span>JUDGE PASS STAMPED</span><button type="button" onClick={handleSignOut}>SIGN OUT</button></div> : <div className="credential-tag"><span>DESCRIBE THE FEED.</span><b>CURATE MAKES THE ROUTE.</b></div>}
       </header>
       <nav className="desk-tabs" aria-label="Curate passport desks">{NAV_ITEMS.map(([id, label], index) => <button type="button" key={id} data-section={id} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigate(id)} disabled={workspaceLocked || (authState.required && !authState.authenticated)}><span>{String(index + 1).padStart(2, "0")}</span>{label}</button>)}</nav>
-      <div className="section-placard"><span>NOW OPEN</span><b>{sectionTitle.toUpperCase()}</b><small>{apiMode === "service" ? "LOCAL SERVICE" : apiMode === "checking" ? "CHECKING SERVICE" : apiMode === "sign_in_required" ? "SIGN IN REQUIRED" : "DETERMINISTIC DEMO"}</small></div>
+      <div className="section-placard"><span>NOW OPEN</span><b>{sectionTitle.toUpperCase()}</b><small>{apiMode === "service" ? "CURATE CONNECTED" : apiMode === "checking" ? "OPENING CURATE" : apiMode === "sign_in_required" ? "SIGN IN REQUIRED" : "PRACTICE MODE"}</small></div>
       {actionError ? <aside className="passport-warning" role="alert"><strong>Operation stopped</strong><p>{actionError}</p><button type="button" className="text-link" onClick={() => setActionError("")}>Dismiss</button></aside> : null}
       <div id="workspace" className="workspace-stage" tabIndex="-1" aria-label={`${sectionTitle} workspace`} inert={workspaceLocked} aria-busy={workspaceLocked}>{content}{activeSection !== "history" ? <button className="rollback-tab" type="button" onClick={() => navigate("history")} disabled={workspaceLocked}><span>ROLLBACK & HISTORY</span><b>{receipts.length}</b></button> : null}</div>
       <footer className="site-footer"><p>Curate · carry your taste from one feed to the next.</p><div><button type="button" onClick={() => navigate("evidence")} disabled={workspaceLocked || (authState.required && !authState.authenticated)}>Tune my feed</button><button type="button" onClick={() => navigate("history")} disabled={workspaceLocked || (authState.required && !authState.authenticated)}>View receipts</button>{authState.required && authState.authenticated ? <button type="button" onClick={handleSignOut} disabled={Boolean(busyAction)}>Sign out</button> : null}</div></footer>

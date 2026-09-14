@@ -19,6 +19,11 @@ video, preserves the existing video stream, normalizes voice audio to -16 LUFS,
 pads trailing silence to the exact video duration, and verifies the final streams.
 `;
 
+const LOUDNESS_TARGET_LUFS = -16;
+const TRUE_PEAK_TARGET_DBFS = -1.5;
+const LOUDNESS_TOLERANCE_LU = 1;
+const TRUE_PEAK_CEILING_DBFS = -1;
+
 export function parseArguments(argv) {
   if (argv.includes("--help") || argv.includes("-h")) return { help: true };
   const values = {};
@@ -106,6 +111,42 @@ export function durationFromPacketCsv(csv) {
   return Number.isFinite(duration) ? duration : Number.NaN;
 }
 
+export function parseLoudnormAnalysis(stderr) {
+  const blocks = String(stderr || "").match(/\{[\s\S]*?"input_i"[\s\S]*?\}/g) || [];
+  const block = blocks.at(-1);
+  if (!block) throw new Error("FFmpeg did not return a loudness measurement");
+  const parsed = JSON.parse(block);
+  const integratedLufs = Number(parsed.input_i);
+  const truePeakDbfs = Number(parsed.input_tp);
+  const loudnessRangeLu = Number(parsed.input_lra);
+  if (![integratedLufs, truePeakDbfs, loudnessRangeLu].every(Number.isFinite)) {
+    throw new Error("FFmpeg returned an invalid loudness measurement");
+  }
+  return { integratedLufs, truePeakDbfs, loudnessRangeLu };
+}
+
+export function assertReleaseLoudness(measurement) {
+  if (Math.abs(measurement.integratedLufs - LOUDNESS_TARGET_LUFS) > LOUDNESS_TOLERANCE_LU) {
+    throw new Error(`Final narration measured ${measurement.integratedLufs.toFixed(2)} LUFS; expected ${LOUDNESS_TARGET_LUFS} ± ${LOUDNESS_TOLERANCE_LU} LU`);
+  }
+  if (measurement.truePeakDbfs > TRUE_PEAK_CEILING_DBFS) {
+    throw new Error(`Final narration true peak measured ${measurement.truePeakDbfs.toFixed(2)} dBFS; expected at most ${TRUE_PEAK_CEILING_DBFS} dBFS`);
+  }
+}
+
+async function measureLoudness(ffmpeg, file) {
+  const { stderr } = await run(ffmpeg, [
+    "-hide_banner",
+    "-nostats",
+    "-i", file,
+    "-map", "0:a:0",
+    "-af", `loudnorm=I=${LOUDNESS_TARGET_LUFS}:TP=${TRUE_PEAK_TARGET_DBFS}:LRA=11:print_format=json`,
+    "-f", "null",
+    "-",
+  ], { capture: true });
+  return parseLoudnormAnalysis(stderr);
+}
+
 async function probePacketDuration(ffprobe, file) {
   const { stdout } = await run(ffprobe, [
     "-v", "error",
@@ -186,6 +227,8 @@ export async function main(argv = process.argv.slice(2)) {
   if (finalVideo.width !== videoStream.width || finalVideo.height !== videoStream.height) {
     throw new Error("Final video dimensions changed during muxing");
   }
+  const loudness = await measureLoudness(ffmpeg, output);
+  assertReleaseLoudness(loudness);
 
   const outputStat = await fs.stat(output);
   const reportPath = path.resolve(options.report || `${output}.report.json`);
@@ -205,8 +248,8 @@ export async function main(argv = process.argv.slice(2)) {
       sha256: await sha256(audio.path),
       duration_seconds: inputAudio.duration,
       codec: audioStream.codec_name,
-      normalized_lufs: -16,
-      true_peak_db: -1.5,
+      target_lufs: LOUDNESS_TARGET_LUFS,
+      target_true_peak_dbfs: TRUE_PEAK_TARGET_DBFS,
     },
     captions: captions ? {
       bytes: captions.bytes,
@@ -222,6 +265,11 @@ export async function main(argv = process.argv.slice(2)) {
       audio_codec: finalAudio.codec_name,
       width: finalVideo.width,
       height: finalVideo.height,
+      measured_lufs: loudness.integratedLufs,
+      measured_true_peak_dbfs: loudness.truePeakDbfs,
+      measured_loudness_range_lu: loudness.loudnessRangeLu,
+      loudness_tolerance_lu: LOUDNESS_TOLERANCE_LU,
+      true_peak_ceiling_dbfs: TRUE_PEAK_CEILING_DBFS,
     },
     passed: true,
   };

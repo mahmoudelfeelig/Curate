@@ -22,17 +22,17 @@ const sections = [
   { id: "overview", heading: "Your feed, on your terms" },
   { id: "evidence", heading: "Tell Curate what you want" },
   { id: "agent", heading: "Let Curate try the route" },
-  { id: "connected-agent", heading: "Commission One Exact Trip" },
+  { id: "connected-agent", heading: "Carry this mix into an app" },
   { id: "constitution", heading: "Write the Constitution" },
-  { id: "visas", heading: "Visa Ledger" },
+  { id: "visas", heading: "Where should this Passport travel?" },
   { id: "migration", heading: "Migration Desk" },
   { id: "temporary", heading: "Temporary Visa Office" },
-  { id: "companion", heading: "Companion Invitation" },
+  { id: "companion", heading: "Invite someone into the mix" },
   { id: "drift", heading: "Drift Watch" },
   { id: "continuity", heading: "Creator Continuity" },
   { id: "templates", heading: "Policy Template Book" },
   { id: "history", heading: "Action Archive" },
-  { id: "clerk", heading: "Feature Clerk" },
+  { id: "clerk", heading: "Turn an idea into a route" },
 ];
 
 async function loadPlaywright() {

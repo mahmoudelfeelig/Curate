@@ -12,51 +12,41 @@ export const demoChapters = Object.freeze([
 
 export const platformFeedStory = Object.freeze({
   youtube: Object.freeze({
-    comparison: Object.freeze({ zoomPercent: 175, before: Object.freeze({ x: -80, y: -150 }), after: Object.freeze({ x: -80, y: 0 }) }),
+    comparison: Object.freeze({ before: Object.freeze({ frameIndex: 0 }), after: Object.freeze({ frameIndex: 0 }) }),
     before: Object.freeze({
-      zoomPercent: 145,
-      scrollFrom: -20,
-      scrollTo: -950,
       labels: Object.freeze([
-        { text: "argument / drama", tone: "down", x: 20, y: 35 },
-        { text: "science explainer", tone: "up", x: 18, y: 72 },
-        { text: "calm listening", tone: "up", x: 68, y: 72 },
+        { text: "reaction-heavy start", tone: "down", x: 23, y: 34, frameIndex: 0 },
+        { text: "science appears occasionally", tone: "neutral", x: 72, y: 67, frameIndex: 4 },
+        { text: "more drama and hot takes", tone: "down", x: 50, y: 43, frameIndex: 8 },
       ]),
-      summary: "The first recommendation pulls toward conflict.",
+      summary: "The starting sample leans toward reactions, drama, and broad entertainment.",
     }),
     after: Object.freeze({
-      zoomPercent: 145,
-      scrollFrom: -20,
-      scrollTo: -950,
       labels: Object.freeze([
-        { text: "removed from recommendations", tone: "change", x: 20, y: 18 },
-        { text: "science stays", tone: "up", x: 18, y: 61 },
-        { text: "calm listening stays", tone: "up", x: 68, y: 61 },
+        { text: "astronomy moves up", tone: "up", x: 23, y: 34, frameIndex: 0 },
+        { text: "coding and drawing surface", tone: "up", x: 72, y: 67, frameIndex: 4 },
+        { text: "anime and fragrance join the mix", tone: "change", x: 50, y: 43, frameIndex: 8 },
       ]),
-      summary: "The argument video is removed; calmer and explanatory choices remain.",
+      summary: "The after sample visibly brings the requested learning and hobby topics forward.",
     }),
   }),
   bluesky: Object.freeze({
-    comparison: Object.freeze({ zoomPercent: 175, before: Object.freeze({ x: -260, y: 0 }), after: Object.freeze({ x: -260, y: 0 }) }),
+    comparison: Object.freeze({ before: Object.freeze({ frameIndex: 0 }), after: Object.freeze({ frameIndex: 0 }) }),
     before: Object.freeze({
-      zoomPercent: 145,
-      scrollFrom: -20,
-      scrollTo: -950,
       labels: Object.freeze([
-        { text: "show less of this", tone: "down", x: 57, y: 21 },
-        { text: "general news", tone: "neutral", x: 48, y: 58 },
+        { text: "breaking-news loop", tone: "down", x: 50, y: 24, frameIndex: 1 },
+        { text: "political commentary", tone: "down", x: 50, y: 52, frameIndex: 5 },
+        { text: "useful posts are scattered", tone: "neutral", x: 50, y: 43, frameIndex: 10 },
       ]),
-      summary: "A political post leads the Discover feed.",
+      summary: "The starting sample mixes useful posts with a strong current-events loop.",
     }),
     after: Object.freeze({
-      zoomPercent: 145,
-      scrollFrom: -20,
-      scrollTo: -950,
       labels: Object.freeze([
-        { text: "previous top post is gone", tone: "change", x: 49, y: 16 },
-        { text: "broader news moves up", tone: "up", x: 49, y: 43 },
+        { text: "astronomy leads", tone: "up", x: 50, y: 24, frameIndex: 1 },
+        { text: "art and programming appear", tone: "up", x: 50, y: 52, frameIndex: 5 },
+        { text: "the requested hobbies repeat", tone: "change", x: 50, y: 43, frameIndex: 10 },
       ]),
-      summary: "The selected post is gone and the next recommendation moves up.",
+      summary: "The after sample repeats the chosen interests more often across the scroll.",
     }),
   }),
 });
@@ -88,6 +78,11 @@ export const tutorialFeatures = Object.freeze([
 export const managedAwsProof = Object.freeze({
   title: "How the managed agent built the plan",
   stamp: "Recorded managed run",
+  infrastructure: Object.freeze({ stack: "UPDATE_COMPLETE", runtime: "READY", logRetentionDays: 7 }),
+  cloudWatchEvents: Object.freeze([
+    Object.freeze({ operation: "health", message: "Invocation completed successfully", duration: "0.001s" }),
+    Object.freeze({ operation: "plan_feed", message: "Invocation completed successfully", duration: "3.440s" }),
+  ]),
   events: Object.freeze([
     Object.freeze({ kind: "run", label: "1/1 health", detail: "AgentCore runtime healthy" }),
     Object.freeze({ kind: "model", label: "Amazon Bedrock", detail: "Nova Lite ready" }),
@@ -111,13 +106,14 @@ export function validateDemoStoryboard() {
     for (const phase of ["before", "after"]) {
       const scene = platformFeedStory[platform]?.[phase];
       if (!scene || scene.labels.length < 2) throw new Error(`${platform}:${phase} needs at least two visible labels.`);
-      if (Math.abs(scene.scrollTo - scene.scrollFrom) < 900) throw new Error(`${platform}:${phase} must visibly pan at least 900px.`);
-      if (scene.zoomPercent < 140) throw new Error(`${platform}:${phase} needs enough captured pixels for that pan.`);
+      if (scene.labels.some(({ frameIndex }) => !Number.isSafeInteger(frameIndex) || frameIndex < 0)) throw new Error(`${platform}:${phase} labels must target recorded sequence frames.`);
     }
   }
   if (new Set(exactTopicTarget.map(([topic]) => topic)).size !== 7) throw new Error("The exact target must show seven unique topics.");
   if (exactTopicTarget.reduce((sum, [, percent]) => sum + percent, 0) !== 100) throw new Error("The exact target must total 100%.");
   if (practiceFeedTour.minimumScrollPixels < 900 || practiceFeedTour.minimumCardsPerPhase < 6) throw new Error("The practice feed tour is too slight.");
   if (managedAwsProof.events.length < 8) throw new Error("Managed AWS proof is too thin for the demo.");
+  if (managedAwsProof.infrastructure.stack !== "UPDATE_COMPLETE" || managedAwsProof.infrastructure.runtime !== "READY") throw new Error("Managed AWS infrastructure status is incomplete.");
+  if (managedAwsProof.cloudWatchEvents.length !== 2 || managedAwsProof.cloudWatchEvents.some(({ message }) => message !== "Invocation completed successfully")) throw new Error("Managed AWS proof must include the retained CloudWatch health and plan events.");
   return true;
 }

@@ -301,6 +301,15 @@ await fs.mkdir(keyframeDirectory, { recursive: true });
 validateDemoStoryboard();
 const source = await sourceAttestation();
 const platformCaptureEvidence = await loadPlatformFeedCaptureManifest(platformCaptureManifestPath);
+const expectedPlatformSequenceCount = platformCaptureEvidence.captures.length;
+const expectedPlatformFrames = platformCaptureEvidence.captures.reduce(
+  (total, capture) => total + capture.frames.length,
+  0,
+);
+const expectedReviewedUniqueItems = platformCaptureEvidence.captures.reduce(
+  (total, capture) => total + (capture.reviewed_unique_feed_items || 0),
+  0,
+);
 async function managedProofAttestation() {
   const [healthReceipt, planReceipt] = await Promise.all([
     fs.readFile(path.join(managedProofDirectory, "managed-health-receipt.json"), "utf8").then(JSON.parse),
@@ -379,7 +388,9 @@ const visibleEvidence = {
   blend_stopped: false,
   actual_platform_pages_before: 0,
   actual_platform_pages_after: 0,
-  platform_scroll_sequences: 0,
+  platform_sequences_completed: 0,
+  platform_frames_shown: 0,
+  reviewed_unique_items_shown: 0,
   platform_comparisons: 0,
   feed_labels_shown: 0,
   tutorial_chapters_shown: [],
@@ -488,73 +499,136 @@ async function showGuide(title, detail, milliseconds = 2_200) {
   await page.evaluate(() => document.querySelector("#curate-demo-guide")?.remove());
 }
 
+function frameDataUrl(frame) {
+  return `data:${frame.mime_type};base64,${frame.bytes.toString("base64")}`;
+}
+
+function labelsForFrame(story, frameIndex, frameCount) {
+  return story.labels.filter((label, labelIndex) => {
+    if (Number.isInteger(label.frameIndex)) return label.frameIndex === frameIndex;
+    if (story.labels.length === 1) return frameIndex === Math.floor(frameCount / 2);
+    return Math.round((labelIndex * (frameCount - 1)) / (story.labels.length - 1)) === frameIndex;
+  });
+}
+
 async function showPlatformFeedCapture(capture, milliseconds = 10_500) {
   const scene = platformFeedStory[capture.platform]?.[capture.phase];
   if (!scene) throw new Error(`Missing storyboard for ${capture.platform}:${capture.phase}.`);
-  const dataUrl = `data:${capture.mime_type};base64,${capture.bytes.toString("base64")}`;
-  await page.evaluate(({ captureDataUrl, platform, phase, story }) => {
+  if (!Array.isArray(capture.frames) || capture.frames.length === 0) {
+    throw new Error(`Missing captured frames for ${capture.platform}:${capture.phase}.`);
+  }
+  const displayName = capture.platform === "youtube" ? "YouTube" : "Bluesky";
+  const firstFrame = capture.frames[0];
+  const firstLabels = labelsForFrame(scene, 0, capture.frames.length);
+  await page.evaluate(({ captureDataUrl, platform, phase, frameCount, framePosition, frameLabels }) => {
     document.querySelector("#platform-feed-capture")?.remove();
     const overlay = document.createElement("section");
     overlay.id = "platform-feed-capture";
-    overlay.setAttribute("role", "img");
-    overlay.setAttribute("aria-label", `${platform} dummy-account home feed, ${phase}, scrolling walkthrough`);
+    overlay.setAttribute("role", "region");
+    overlay.setAttribute("aria-label", `${platform} dummy-account home feed, ${phase}, recorded scroll sequence`);
     const style = document.createElement("style");
     style.textContent = `
       #platform-feed-capture { position: fixed; inset: 0; z-index: 100000; overflow: hidden; background: #0b1020; color: #fff; font-family: system-ui, sans-serif; }
-      #platform-feed-capture .feed-sheet { position: absolute; left: 50%; top: 0; width: var(--zoom); transform: translate(-50%, var(--from)); transition: transform 7.2s cubic-bezier(.22,.74,.24,1); }
-      #platform-feed-capture.scrolling .feed-sheet { transform: translate(-50%, var(--to)); }
-      #platform-feed-capture img { display: block; width: 100%; height: auto; }
+      #platform-feed-capture .feed-stage { position: absolute; inset: 0; overflow: hidden; background: #080c14; }
+      #platform-feed-capture .feed-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; opacity: 0; transform: translateY(18px); transition: opacity 260ms ease, transform 360ms cubic-bezier(.22,.74,.24,1); }
+      #platform-feed-capture .feed-frame.is-active { opacity: 1; transform: translateY(0); }
       #platform-feed-capture .platform-pill { position: fixed; z-index: 4; right: 24px; top: 22px; padding: 10px 15px; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: rgba(11,16,32,.82); backdrop-filter: blur(12px); font: 800 15px/1 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
+      #platform-feed-capture .frame-progress { position: fixed; z-index: 4; left: 24px; top: 22px; padding: 10px 13px; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; background: rgba(11,16,32,.82); backdrop-filter: blur(12px); font: 750 13px/1 ui-monospace, monospace; }
       #platform-feed-capture .goal { position: fixed; z-index: 4; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(840px, calc(100vw - 56px)); padding: 13px 20px; border: 1px solid rgba(255,255,255,.42); border-radius: 16px; background: rgba(11,16,32,.88); box-shadow: 0 14px 40px rgba(0,0,0,.35); text-align: center; font-weight: 800; }
-      #platform-feed-capture .label { position: absolute; z-index: 3; left: var(--x); top: var(--y); transform: translate(-50%, -50%); padding: 8px 12px; border: 2px solid currentColor; border-radius: 999px; background: rgba(11,16,32,.9); box-shadow: 0 8px 24px rgba(0,0,0,.35); font: 850 14px/1 system-ui, sans-serif; white-space: nowrap; }
+      #platform-feed-capture .labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+      #platform-feed-capture .label { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); padding: 8px 12px; border: 2px solid currentColor; border-radius: 999px; background: rgba(11,16,32,.9); box-shadow: 0 8px 24px rgba(0,0,0,.35); font: 850 14px/1 system-ui, sans-serif; white-space: nowrap; }
       #platform-feed-capture .label::after { content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 28px; background: currentColor; opacity: .8; }
       #platform-feed-capture .label[data-tone="down"] { color: #ff8a92; }
       #platform-feed-capture .label[data-tone="up"] { color: #8ee0b8; }
       #platform-feed-capture .label[data-tone="change"] { color: #ffd16b; }
       #platform-feed-capture .label[data-tone="neutral"] { color: #8ac7ff; }
     `;
-    const sheet = document.createElement("div");
-    sheet.className = "feed-sheet";
-    sheet.style.setProperty("--zoom", `${story.zoomPercent}%`);
-    sheet.style.setProperty("--from", `${story.scrollFrom}px`);
-    sheet.style.setProperty("--to", `${story.scrollTo}px`);
+    const stage = document.createElement("div");
+    stage.className = "feed-stage";
     const image = document.createElement("img");
+    image.className = "feed-frame is-active";
     image.alt = `${platform} home feed ${phase}`;
     image.src = captureDataUrl;
-    sheet.append(image);
-    for (const item of story.labels) {
+    const spareImage = image.cloneNode();
+    spareImage.className = "feed-frame";
+    spareImage.removeAttribute("src");
+    stage.append(image, spareImage);
+    const labels = document.createElement("div");
+    labels.className = "labels";
+    for (const item of frameLabels) {
       const label = document.createElement("span");
       label.className = "label";
       label.dataset.tone = item.tone;
       label.textContent = item.text;
       label.style.setProperty("--x", `${item.x}%`);
       label.style.setProperty("--y", `${item.y}%`);
-      sheet.append(label);
+      labels.append(label);
     }
     const pill = document.createElement("div");
     pill.className = "platform-pill";
-    pill.textContent = `Recorded dummy-account feed · ${platform} ${phase}`;
+    pill.textContent = `${platform} · ${phase} feed`;
+    const progress = document.createElement("div");
+    progress.className = "frame-progress";
+    progress.textContent = `Recorded scroll · ${framePosition}/${frameCount}`;
     const goal = document.createElement("div");
     goal.className = "goal";
     goal.textContent = `Goal: less ragebait · more trustworthy, useful content`;
-    overlay.append(style, sheet, pill, goal);
+    overlay.append(style, stage, labels, pill, progress, goal);
     document.body.append(overlay);
     return image.decode();
   }, {
-    captureDataUrl: dataUrl,
-    platform: capture.platform === "youtube" ? "YouTube" : "Bluesky",
+    captureDataUrl: frameDataUrl(firstFrame),
+    platform: displayName,
     phase: capture.phase.toUpperCase(),
-    story: scene,
+    frameCount: capture.frames.length,
+    framePosition: 1,
+    frameLabels: firstLabels,
   });
-  await pause(1_400);
+  visibleEvidence.platform_frames_shown += 1;
+  visibleEvidence.feed_labels_shown += firstLabels.length;
+  await pause(1_000);
   if (capture.platform === "youtube" && capture.phase === "before") await saveKeyframe("01-youtube-before-scroll");
-  await page.evaluate(() => document.querySelector("#platform-feed-capture")?.classList.add("scrolling"));
-  await pause(Math.max(7_200, milliseconds - 2_800));
+
+  const transitionBudget = Math.max(900, (milliseconds - 2_000) / Math.max(1, capture.frames.length - 1));
+  for (const [frameIndex, frame] of capture.frames.entries()) {
+    if (frameIndex === 0) continue;
+    const frameLabels = labelsForFrame(scene, frameIndex, capture.frames.length);
+    await page.evaluate(async ({ captureDataUrl, framePosition, frameCount, labelsToShow }) => {
+      const overlay = document.querySelector("#platform-feed-capture");
+      const frames = [...overlay.querySelectorAll(".feed-frame")];
+      const current = frames.find((node) => node.classList.contains("is-active"));
+      const incoming = frames.find((node) => node !== current);
+      incoming.src = captureDataUrl;
+      await incoming.decode();
+      const labelLayer = overlay.querySelector(".labels");
+      labelLayer.replaceChildren();
+      for (const item of labelsToShow) {
+        const label = document.createElement("span");
+        label.className = "label";
+        label.dataset.tone = item.tone;
+        label.textContent = item.text;
+        label.style.setProperty("--x", `${item.x}%`);
+        label.style.setProperty("--y", `${item.y}%`);
+        labelLayer.append(label);
+      }
+      incoming.classList.add("is-active");
+      current.classList.remove("is-active");
+      overlay.querySelector(".frame-progress").textContent = `Recorded scroll · ${framePosition}/${frameCount}`;
+    }, {
+      captureDataUrl: frameDataUrl(frame),
+      framePosition: frameIndex + 1,
+      frameCount: capture.frames.length,
+      labelsToShow: frameLabels,
+    });
+    visibleEvidence.platform_frames_shown += 1;
+    visibleEvidence.feed_labels_shown += frameLabels.length;
+    await pause(transitionBudget);
+  }
   if (capture.platform === "youtube" && capture.phase === "after") await saveKeyframe("04-youtube-after-scroll");
-  await pause(1_400);
+  await pause(1_000);
   await page.evaluate(() => document.querySelector("#platform-feed-capture")?.remove());
-  visibleEvidence.platform_scroll_sequences += 1;
-  visibleEvidence.feed_labels_shown += scene.labels.length;
+  visibleEvidence.platform_sequences_completed += 1;
+  visibleEvidence.reviewed_unique_items_shown += capture.reviewed_unique_feed_items || 0;
 }
 
 async function showCapturedFeeds(phase) {
@@ -564,14 +638,22 @@ async function showCapturedFeeds(phase) {
 }
 
 async function showPlatformComparison(platform, milliseconds = 5_500) {
-  const captures = Object.fromEntries(platformCaptureEvidence.captures
+  const selectedCaptures = Object.fromEntries(platformCaptureEvidence.captures
     .filter((capture) => capture.platform === platform)
-    .map((capture) => [capture.phase, `data:${capture.mime_type};base64,${capture.bytes.toString("base64")}`]));
+    .map((capture) => [capture.phase, capture]));
   const copy = platform === "youtube"
-    ? { title: "One recommendation", result: "shown → removed", detail: "Recorded native feedback result; not a measured seven-topic distribution." }
-    : { title: "Selected first post", result: "present → absent", detail: "Recorded native feedback result; not a measured seven-topic distribution." };
+    ? { title: "What moved in the feed", result: "before → after", detail: "Two owner-recorded samples from the same dummy account, captured around the approved change." }
+    : { title: "How the feed shifted", result: "before → after", detail: "Two owner-recorded samples from the same dummy account, captured around the approved change." };
   const comparison = platformFeedStory[platform].comparison;
-  await page.evaluate(({ platformName, images, text, crop }) => {
+  const comparisonImages = Object.fromEntries(["before", "after"].map((phase) => {
+    const capture = selectedCaptures[phase];
+    const configuredIndex = comparison?.[phase]?.frameIndex;
+    const frameIndex = Number.isInteger(configuredIndex)
+      ? Math.min(capture.frames.length - 1, Math.max(0, configuredIndex))
+      : 0;
+    return [phase, frameDataUrl(capture.frames[frameIndex])];
+  }));
+  await page.evaluate(({ platformName, images, text }) => {
     const overlay = document.createElement("section");
     overlay.id = "curate-feed-comparison";
     overlay.innerHTML = `<style>
@@ -582,7 +664,7 @@ async function showPlatformComparison(platform, milliseconds = 5_500) {
       #curate-feed-comparison header strong { color: #ffd16b; font-size: 30px; }
       #curate-feed-comparison .pair { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
       #curate-feed-comparison figure { position: relative; min-height: 0; margin: 0; overflow: hidden; border: 1px solid rgba(247,237,218,.35); border-radius: 18px; background: #070b13; }
-      #curate-feed-comparison img { position: absolute; left: 0; top: 0; width: var(--zoom); height: auto; max-width: none; transform: translate(var(--x), var(--y)); }
+      #curate-feed-comparison img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
       #curate-feed-comparison figcaption { position: absolute; left: 14px; top: 14px; padding: 8px 12px; border-radius: 999px; background: rgba(7,11,19,.86); border: 1px solid rgba(255,255,255,.55); font: 900 14px/1 ui-monospace, monospace; letter-spacing: .08em; }
       #curate-feed-comparison p { margin: 0; text-align: center; color: #d8cdb8; font-size: 19px; }
     </style>
@@ -594,16 +676,10 @@ async function showPlatformComparison(platform, milliseconds = 5_500) {
     const imageNodes = overlay.querySelectorAll("img");
     imageNodes[0].src = images.before;
     imageNodes[1].src = images.after;
-    imageNodes[0].style.setProperty("--zoom", `${crop.zoomPercent}%`);
-    imageNodes[0].style.setProperty("--x", `${crop.before.x}px`);
-    imageNodes[0].style.setProperty("--y", `${crop.before.y}px`);
-    imageNodes[1].style.setProperty("--zoom", `${crop.zoomPercent}%`);
-    imageNodes[1].style.setProperty("--x", `${crop.after.x}px`);
-    imageNodes[1].style.setProperty("--y", `${crop.after.y}px`);
     overlay.querySelector("p").textContent = text.detail;
     document.body.append(overlay);
     return Promise.all([...imageNodes].map((image) => image.decode()));
-  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: captures, text: copy, crop: comparison });
+  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: comparisonImages, text: copy });
   await pause(1_000);
   await saveKeyframe(platform === "youtube" ? "05-youtube-before-after" : "06-bluesky-before-after");
   await pause(milliseconds - 1_000);
@@ -786,10 +862,16 @@ async function showManagedAwsProof(milliseconds = 10_500) {
       #curate-aws-proof .event b { font-weight: 700; }
       #curate-aws-proof .event span { color: #8ee0b8; }
       #curate-aws-proof .mix-line { margin: 0 18px 18px; padding: 13px 15px; border: 1px solid rgba(255,209,107,.28); border-radius: 10px; color: #ffd16b; font: 750 12px/1.4 ui-monospace, monospace; }
+      #curate-aws-proof .cloudwatch { margin: 0 18px 12px; padding: 12px 15px; border: 1px solid rgba(138,199,255,.28); border-radius: 10px; background: rgba(23,36,58,.44); font: 700 11px/1.45 ui-monospace, monospace; }
+      #curate-aws-proof .cloudwatch header { padding: 0 0 7px; border: 0; color: #8ac7ff; text-transform: uppercase; letter-spacing: .08em; }
+      #curate-aws-proof .cloudwatch p { display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; margin: 4px 0 0; color: #d8cdb8; }
+      #curate-aws-proof .cloudwatch b { color: #8ee0b8; }
       @keyframes traceIn { to { opacity: 1; transform: translateY(0); } }
-    </style><section class="path"><small class="stamp"></small><h2></h2><div class="services"><div><b>Curate request</b><span>Natural language and selected links</span></div><div><b>AgentCore Runtime</b><span>Three bounded planning tools</span></div><div><b>Amazon Bedrock</b><span>Nova Lite returns a proposal</span></div></div></section><section class="terminal"><header><span>AWS managed execution</span><span>retained trace</span></header><div class="events"></div><p class="mix-line"></p></section>`;
+    </style><section class="path"><small class="stamp"></small><h2></h2><div class="services"><div><b>CloudFormation</b><span class="stack-state"></span></div><div><b>AgentCore Runtime</b><span class="runtime-state"></span></div><div><b>Amazon Bedrock</b><span>Nova Lite returns a proposal</span></div></div></section><section class="terminal"><header><span>AWS managed execution</span><span>retained trace</span></header><div class="events"></div><div class="cloudwatch"><header>CloudWatch · retained runtime log</header></div><p class="mix-line"></p></section>`;
     overlay.querySelector("h2").textContent = presentation.title;
     overlay.querySelector(".stamp").textContent = presentation.stamp;
+    overlay.querySelector(".stack-state").textContent = `${presentation.infrastructure.stack} · termination protected`;
+    overlay.querySelector(".runtime-state").textContent = `${presentation.infrastructure.runtime} · ${presentation.infrastructure.logRetentionDays}-day logs`;
     const list = overlay.querySelector(".events");
     presentation.events.forEach((event, index) => {
       const row = document.createElement("div");
@@ -804,6 +886,18 @@ async function showManagedAwsProof(milliseconds = 10_500) {
       row.append(kind, label, detail);
       list.append(row);
     });
+    const cloudWatch = overlay.querySelector(".cloudwatch");
+    for (const event of presentation.cloudWatchEvents) {
+      const row = document.createElement("p");
+      const operation = document.createElement("b");
+      operation.textContent = event.operation;
+      const message = document.createElement("span");
+      message.textContent = event.message;
+      const duration = document.createElement("time");
+      duration.textContent = event.duration;
+      row.append(operation, message, duration);
+      cloudWatch.append(row);
+    }
     overlay.querySelector(".mix-line").textContent = attestation.target_topics.map(({ topic, percent }) => `${percent} ${topic.replaceAll("_", " ")}`).join(" · ");
     document.body.append(overlay);
   }, { presentation: managedAwsProof, attestation: managedProof });
@@ -1001,7 +1095,7 @@ try {
 const edit = await condenseWaitingTime(executablePath, rawVideoPath, videoPath, condensedWaits);
 const videoBytes = await fs.readFile(videoPath);
 const report = {
-  schema: "curate/silent-demo-capture/v6",
+  schema: "curate/silent-demo-capture/v7",
   generated_at: new Date().toISOString(),
   source,
   video: videoPath,
@@ -1026,7 +1120,7 @@ const report = {
   evidence_classes: {
     recorded_platform_change: {
       input: vagueGoal,
-      claim: "Native recommendation feedback changed the visible first-page sample.",
+      claim: "Owner-recorded live feed sequences show a changed visible sample after the intervention.",
     },
     computed_passport_target: {
       input: exactGoal,
@@ -1036,6 +1130,12 @@ const report = {
     },
   },
   platform_feed_captures: publicCaptureAttestation(platformCaptureEvidence),
+  platform_sequence_summary: {
+    sequence_depth_sufficient: platformCaptureEvidence.sequence_depth_sufficient,
+    expected_sequences: expectedPlatformSequenceCount,
+    expected_frames: expectedPlatformFrames,
+    reviewed_unique_feed_items: expectedReviewedUniqueItems,
+  },
   visible_evidence: visibleEvidence,
   local_passport_revised: true,
   local_mission: missionProof,
@@ -1081,7 +1181,10 @@ const report = {
     && visibleEvidence.blend_stopped
     && visibleEvidence.actual_platform_pages_before === 2
     && visibleEvidence.actual_platform_pages_after === 2
-    && visibleEvidence.platform_scroll_sequences === 4
+    && platformCaptureEvidence.sequence_depth_sufficient === true
+    && visibleEvidence.platform_sequences_completed === expectedPlatformSequenceCount
+    && visibleEvidence.platform_frames_shown === expectedPlatformFrames
+    && visibleEvidence.reviewed_unique_items_shown === expectedReviewedUniqueItems
     && visibleEvidence.platform_comparisons === 2
     && visibleEvidence.feed_labels_shown >= 8
     && visibleEvidence.computed_target_topic_count === exactTopicTarget.length

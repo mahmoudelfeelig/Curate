@@ -21,14 +21,13 @@ test("the silent demo is a complete two-to-four minute tutorial", () => {
   assert.deepEqual(tutorialFeatures.map(({ id }) => id), ["tune", "copy", "incognito", "blend"]);
 });
 
-test("every platform state pans and explains visible content", () => {
+test("every platform state annotates multiple recorded sequence frames", () => {
   for (const platform of ["youtube", "bluesky"]) {
     for (const phase of ["before", "after"]) {
       const scene = platformFeedStory[platform][phase];
-      assert.ok(Math.abs(scene.scrollTo - scene.scrollFrom) >= 900);
-      assert.ok(scene.zoomPercent >= 140);
       assert.ok(scene.labels.length >= 2);
-      assert.ok(scene.labels.every(({ text, tone, x, y }) => text && tone && x >= 0 && x <= 100 && y >= 0 && y <= 100));
+      assert.ok(new Set(scene.labels.map(({ frameIndex }) => frameIndex)).size >= 2);
+      assert.ok(scene.labels.every(({ text, tone, x, y, frameIndex }) => text && tone && x >= 0 && x <= 100 && y >= 0 && y <= 100 && Number.isSafeInteger(frameIndex) && frameIndex >= 0));
       assert.ok(scene.summary.length > 20);
     }
   }
@@ -48,6 +47,8 @@ test("the AWS replay is detailed, redacted, and non-executing", () => {
   assert.deepEqual(managedAwsProof.events.at(-1), { kind: "result", label: "Proposal ready", detail: "no account changes" });
   assert.ok(managedAwsProof.events.some(({ label }) => label === "inspect_selected_passport"));
   assert.ok(managedAwsProof.events.some(({ label }) => label === "submit_feed_goal_proposal"));
+  assert.deepEqual(managedAwsProof.infrastructure, { stack: "UPDATE_COMPLETE", runtime: "READY", logRetentionDays: 7 });
+  assert.deepEqual(managedAwsProof.cloudWatchEvents.map(({ operation }) => operation), ["health", "plan_feed"]);
   const rendered = JSON.stringify(managedAwsProof);
   assert.doesNotMatch(rendered, /arn:|gateway|account id|token|credential|https?:\/\//i);
 });

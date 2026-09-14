@@ -1,13 +1,13 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-14T18:40:36Z",
+  "generated_at": "2026-09-14T18:46:22Z",
   "source": {
     "branch": "main",
-    "commit_count": 160,
+    "commit_count": 162,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
     "snapshot_file_count": 395,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "f548e7ad32732a0c9c1eac5db825a474b2bf5eee00b8f7441679b2f64d81bf84",
+    "snapshot_sha256": "1edd4d0fc33d2469ef012c945085b1a17b96a7b587c1f78d654dfed113a20c29",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,

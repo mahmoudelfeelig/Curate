@@ -139,7 +139,7 @@ class CurrentPhoenixBridgeTests(unittest.TestCase):
         self.assertFalse(report["truth"]["live_feed_changed"])
         first = report["commands"][0]
         self.assertEqual(first["command"][0], "python")
-        self.assertTrue(first["command"][1].endswith("reference\\world.py"))
+        self.assertEqual(Path(first["command"][1]).parts[-2:], ("reference", "world.py"))
         self.assertEqual(first["exit_code"], 0)
         self.assertEqual(first["stdout_sha256"], sha256(b"world self-check ok\n"))
         self.assertEqual(first["stderr_sha256"], sha256(b""))

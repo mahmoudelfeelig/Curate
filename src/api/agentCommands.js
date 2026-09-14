@@ -61,8 +61,8 @@ export function fixtureAgentResponseForCommand(command, nextFixtureIdentity) {
     response,
     activity: {
       id: nextFixtureIdentity("ACT").id,
-      actor: "Passport agent",
-      detail: `Classified command as ${classifyAgentCommand(command)}: ${command}`,
+      actor: "Curate",
+      detail: `Prepared a ${classifyAgentCommand(command).replaceAll("_", " ")} request: ${command}`,
       time: "10:22",
       state: "Plan only",
     },

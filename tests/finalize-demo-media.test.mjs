@@ -10,6 +10,7 @@ import {
   durationFromPacketCsv,
   parseArguments,
   parseLoudnormAnalysis,
+  validateSrtCaptions,
 } from "../scripts/finalize-demo-media.mjs";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
@@ -44,8 +45,16 @@ test("final media arguments require the three release paths", () => {
 
 test("narration may be padded but cannot overrun the video", () => {
   assert.doesNotThrow(() => assertCompatibleTiming(62.891, 60));
-  assert.doesNotThrow(() => assertCompatibleTiming(62.891, 63.1));
+  assert.doesNotThrow(() => assertCompatibleTiming(62.891, 62.891));
+  assert.throws(() => assertCompatibleTiming(62.891, 62.892), /shorten the narration/);
   assert.throws(() => assertCompatibleTiming(62.891, 64), /shorten the narration/);
+});
+
+test("caption timing is sequential and cannot overrun the video", () => {
+  const captions = "1\n00:00:00,000 --> 00:00:01,000\nOpening\n\n2\n00:00:01,000 --> 00:00:02,000\nClosing\n";
+  assert.deepEqual(validateSrtCaptions(captions, 2), { cueCount: 2, endsAtSeconds: 2 });
+  assert.throws(() => validateSrtCaptions(captions, 1.999), /Captions end/);
+  assert.throws(() => validateSrtCaptions("1\n00:00:01,000 --> 00:00:00,500\nBad\n", 2), /positive duration/);
 });
 
 test("packet timestamps recover duration when WebM metadata omits it", () => {
@@ -106,7 +115,8 @@ test("captions cover the complete voiceover without overrunning the verified cut
     assert.ok(cue.text.length > 0, "caption cues must contain text");
     previousEnd = cue.end;
   }
-  assert.ok(previousEnd <= 62.891, "captions must end within the verified video duration");
+  assert.ok(previousEnd <= 87.5, "captions must end within the planned demo cut");
+  assert.deepEqual(validateSrtCaptions(srt, 87.5), { cueCount: 15, endsAtSeconds: 87.5 });
 
   const spokenParagraphs = voiceover
     .split(/\r?\n\r?\n/)

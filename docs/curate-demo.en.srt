@@ -1,59 +1,70 @@
 1
-00:00:00,000 --> 00:00:04,350
-Recommendation feeds learn us over years,
-then make us start over
+00:00:00,000 --> 00:00:06,000
+Recommendation feeds learn us for years,
+then new accounts make us start over.
 
 2
-00:00:04,350 --> 00:00:08,700
-on every new account. Curate turns that history
-into something portable.
+00:00:06,000 --> 00:00:11,500
+Curate turns that taste into
+a portable Passport.
 
 3
-00:00:08,700 --> 00:00:13,500
-I can speak naturally: “I want less ragebait
-and more science-based pages.”
+00:00:11,500 --> 00:00:18,500
+I describe what I want naturally: less ragebait
+and more science,
 
 4
-00:00:13,500 --> 00:00:18,800
-I give Curate a few posts from my feed.
-It reads only what I chose,
+00:00:18,500 --> 00:00:25,000
+or an exact mix across astronomy, coding,
+drawing, anime, and fragrance.
 
 5
-00:00:18,800 --> 00:00:23,700
-separates evidence from inference,
-and builds a mix I can inspect.
+00:00:25,000 --> 00:00:30,000
+I paste a few YouTube and Bluesky links.
+Notes are optional.
 
 6
-00:00:23,700 --> 00:00:30,500
-It also understands precision. Here I ask for fifty
-percent astronomy, fifteen percent coding,
+00:00:30,000 --> 00:00:37,500
+Curate shows both platforms before and after,
+with calmer content and more variety,
 
 7
-00:00:30,500 --> 00:00:35,300
-twelve percent drawing, plus anime, Naruto,
-One Piece, and perfumes.
+00:00:37,500 --> 00:00:42,000
+and a measurable drop in ragebait.
 
 8
-00:00:35,300 --> 00:00:39,900
-The request stays a sentence; Curate turns it into
-a clear plan for the selected app.
+00:00:42,000 --> 00:00:49,500
+The local agent builds the plan, runs it in a safe
+practice feed, and measures the result,
 
 9
-00:00:39,900 --> 00:00:46,200
-Then Curate runs the plan on a safe practice feed.
-The result is visible: outrage and unsupported claims
+00:00:49,500 --> 00:00:54,500
+then restores the starting state.
 
 10
-00:00:46,200 --> 00:00:52,600
-move out, while astronomy, programming, research,
-drawing, anime analysis, and fragrance chemistry move in.
+00:00:54,500 --> 00:01:02,500
+The same Passport can be copied from one app to another;
+Curate shows what carries over
 
 11
-00:00:52,600 --> 00:00:57,350
-Finally, Curate restores the starting state
-and verifies the match.
+00:01:02,500 --> 00:01:07,500
+and what needs a different route.
 
 12
-00:00:57,350 --> 00:01:02,890
-Natural language in, a measurable feed out,
-and a return route if I change my mind.
+00:01:07,500 --> 00:01:14,500
+Incognito creates a temporary feed for a conference
+or deep-work session,
+
+13
+00:01:14,500 --> 00:01:18,500
+then expires automatically or closes immediately.
+
+14
+00:01:18,500 --> 00:01:24,000
+A shared view can blend selected tastes with another
+person without merging accounts.
+
+15
+00:01:24,000 --> 00:01:27,500
+Natural language in, a feed that feels like yours out,
+and a way back.

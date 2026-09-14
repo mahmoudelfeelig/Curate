@@ -28,7 +28,7 @@ function FeedCard({ item, position }) {
   const topics = inference.topics?.length ? inference.topics : ["Something else"];
   const copy = item?.title || item?.user_note || "A selected post from this feed sample.";
   return (
-    <article className={`curate-feed-card${inference.ragebait_signal ? " is-unwanted" : ""}`}>
+    <article className={`curate-feed-card${inference.ragebait_signal ? " is-unwanted" : ""}`} data-platform={item?.platform || "feed"}>
       <span className="feed-card-number">{String(position + 1).padStart(2, "0")}</span>
       <div>
         <header><b>{titleCase(item?.platform || "feed")}</b>{inference.ragebait_signal ? <em>Less of this</em> : null}</header>
@@ -102,7 +102,7 @@ export function CurateFeedDesk({ form, setForm, result, baselineResult, onAnalyz
         </div>
         <form className="evidence-form curate-goal-form" onSubmit={(event) => { event.preventDefault(); onAnalyze("before"); }}>
           <Field label="What should your feed feel like?"><textarea rows="5" value={form.goal} onChange={(event) => update("goal", event.target.value)} disabled={busy} placeholder="Less ragebait, more thoughtful science and art..." /></Field>
-          <Field label="A few posts from your feed" hint="Paste one YouTube, Bluesky, or Instagram link per line. Add a note after | to say what you noticed."><textarea rows="6" value={form.linksText} onChange={(event) => update("linksText", event.target.value)} disabled={busy} placeholder={"https://www.youtube.com/watch?v=… | A topic I want more of\nhttps://bsky.app/profile/…/post/… | This felt like ragebait"} /></Field>
+          <Field label="A few posts from your feed" hint="Paste one YouTube, Bluesky, or Instagram link per line. Descriptions are optional; add one after | only when it helps."><textarea rows="6" value={form.linksText} onChange={(event) => update("linksText", event.target.value)} disabled={busy} placeholder={"https://www.youtube.com/watch?v=…\nhttps://bsky.app/profile/…/post/…\nhttps://www.instagram.com/p/… | Optional note"} /></Field>
           <div className="sample-feed-row">
             <button type="button" className="sample-feed-button" data-testid={baselineSnapshotId ? "sample-feed-after" : "sample-feed-before"} onClick={loadSample} disabled={busy}>{baselineSnapshotId ? "Load a sample curated feed" : "Try a sample starting feed"}</button>
             {youtubeConnections.length ? <label><span>YouTube account</span><select value={form.youtubeConnectionId} onChange={(event) => update("youtubeConnectionId", event.target.value)} disabled={busy}><option value="">Links only</option>{youtubeConnections.map((item) => <option key={item.id} value={item.id}>Connected test account</option>)}</select></label> : null}
@@ -129,7 +129,7 @@ export function CurateFeedDesk({ form, setForm, result, baselineResult, onAnalyz
             {busyAction === "evidence-model-plan" ? <div className="curate-inline-wait" role="status"><i aria-hidden="true" /><span>Curate is sharpening the plan…</span></div> : null}
             {result.status === "awaiting_owner_consent" && busyAction !== "evidence-model-plan" ? <section className="curate-next-actions"><div><b>{result.agent_evidence ? "Curate refined this plan" : "Want the agent to refine it?"}</b><small>{result.agent_evidence ? proposal.agent_rationale : modelReady ? "It understands nuance while keeping exact percentages exact." : "The plan is usable now; agent refinement appears when a model is connected."}</small></div><div>{!result.agent_evidence ? <ActionButton data-testid="evidence-model-plan" type="button" variant="quiet" onClick={onModelPlan} disabled={!modelReady || busy}>ASK CURATE</ActionButton> : null}<ActionButton data-testid="evidence-apply" type="button" onClick={onApply} disabled={busy}>SAVE THIS MIX</ActionButton></div></section> : null}
             {result.status === "applied_to_passport" ? <section className="curate-saved"><div className="animated-check" aria-hidden="true">✓</div><div><b>Your new mix is in the Passport</b><span>Carry it to another app or try it first in a practice feed.</span></div><ActionButton type="button" variant="quiet" onClick={onOpenConnectedAgent}>APPLY TO AN ACCOUNT</ActionButton></section> : null}
-            {comparison ? <section className="curate-saved"><div className="animated-check" aria-hidden="true">✓</div><div><b>The difference is on the record</b><span>Your feed sample moved in the direction you asked for.</span></div><ActionButton type="button" variant="quiet" onClick={onOpenConnectedAgent}>VIEW APP ROUTES</ActionButton></section> : null}
+            {comparison ? <section className="curate-saved"><div className="animated-check" aria-hidden="true">✓</div><div><b>The difference is on the record</b><span>The posts you added show a calmer, more relevant sample.</span></div><ActionButton type="button" variant="quiet" onClick={onOpenConnectedAgent}>VIEW APP ROUTES</ActionButton></section> : null}
             <EvidenceDetails result={result} />
           </div>
         )}

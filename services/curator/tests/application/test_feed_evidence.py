@@ -185,6 +185,27 @@ class FeedEvidenceServiceTests(unittest.TestCase):
         self.assertIn("ragebait", changes["hard_exclusions"])
         self.assertEqual(changes["max_outrage"], 0.03)
 
+    def test_bluesky_link_only_mode_accepts_a_bare_link_without_network_metadata(self) -> None:
+        service = FeedEvidenceService(
+            application=self.application,
+            http_client=self.http,
+            public_metadata_enabled=False,
+            clock=lambda: self.now,
+            id_factory=self.ids,
+        )
+        result = service.analyze(
+            actor_id="person-a",
+            passport_id=self.passport.id,
+            goal="Show me more science.",
+            stage="before",
+            links=(EvidenceLink("https://bsky.app/profile/science.example/post/3bare"),),
+        )
+
+        item = result["snapshot"]["items"][0]
+        self.assertEqual(item["metadata_source"], "user_selected_link_only")
+        self.assertEqual(item["user_note"], "")
+        self.assertEqual(self.http.calls, [])
+
     def test_apply_requires_unchanged_version_and_records_versioned_result(self) -> None:
         result = self.service.analyze(
             actor_id="person-a",

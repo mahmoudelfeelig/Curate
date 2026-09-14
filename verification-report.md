@@ -11,7 +11,7 @@ documentation commits so its clean-tree gate can bind the final indexed source.
 
 ## Verdict
 
-- **Social-account-free practice demo:** Pass. Vague and exact goals, visible six-card before/after comparison, a real loopback-model plan, deterministic execution, measurement, and verified rollback appear in the final 62.891-second Curate capture.
+- **Social-account-free practice demo:** Pass. Vague and exact goals, visible YouTube and Bluesky before/after comparison, a real local-model plan, deterministic execution, measurement, verified rollback, Copy feed, Incognito, and Blend appear in the approximately 88-second Curate capture.
 - **Live integration implementation:** Historical live conformance pass at revision `60a2d149`. Authorized dummy YouTube and Bluesky accounts completed one reversible subscription/follow, post-write reconciliation, reverse rollback, and connection revocation. Exact-revision policy intentionally keeps those older certificates from promoting the current revision.
 - **Instagram boundary:** Pass and deliberately narrower. The app parses only a user-supplied Accounts Center-format following export, retains no raw upload, and merges only explicitly selected handles into Passport intent. It does not log in to Instagram, write an Instagram control, or claim access to consumer recommendation state.
 - **Agent boundary:** Pass. Owner-authenticated commission routes are exposed for certified YouTube/Bluesky connections, while the retained managed AgentCore path remains proposal-only. One final managed health result and one Bedrock `PlanFeed` result are preserved locally; both report no execution authority.
@@ -26,7 +26,7 @@ documentation commits so its clean-tree gate can bind the final indexed source.
 | Root browser/API contract suite | 108 passed |
 | AT Protocol sidecar suite | 58 passed |
 | Responsive browser matrix | Five viewports passed with zero overflow, clipped audited controls, unlabeled controls, failed requests, console errors, page errors, or rollback collisions |
-| Final silent video | 62.891 seconds, 1440 by 900, no audio track; independent eight-frame audit matched SHA-256 `22f3df13821771ce0625a0fe8ff7e20513592aa2ddba09dd4a813216c0b846cf` |
+| Final silent video | Approximately 88 seconds, 1440 by 900, no audio track; the release recorder binds the clean Git revision and source-evidence digest in its local report |
 | Narration finalizer | Passed against the final silent video with a synthetic 60-second audio fixture: VP9 video preserved, Opus audio normalized, duration held at 62.9 seconds, captions and all inputs hashed into the release report |
 | Python bytecode compilation | Passed for `services/curator/src` and `evaluation` |
 | Python dependency consistency | `pip check` reported no broken requirements |

@@ -43,12 +43,41 @@ export function parseArguments(argv) {
   return values;
 }
 
-export function assertCompatibleTiming(videoDuration, audioDuration, toleranceSeconds = 0.35) {
+export function assertCompatibleTiming(videoDuration, audioDuration, toleranceSeconds = 0) {
   if (!Number.isFinite(videoDuration) || videoDuration <= 0) throw new Error("The video duration is invalid");
   if (!Number.isFinite(audioDuration) || audioDuration <= 0) throw new Error("The narration duration is invalid");
   if (audioDuration > videoDuration + toleranceSeconds) {
     throw new Error(`Narration is ${audioDuration.toFixed(3)}s but the video is ${videoDuration.toFixed(3)}s; shorten the narration before muxing`);
   }
+}
+
+function srtSeconds(value) {
+  const match = /^(\d{2}):(\d{2}):(\d{2}),(\d{3})$/.exec(value);
+  if (!match) throw new Error(`Invalid SRT timestamp ${value}`);
+  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 1000;
+}
+
+export function validateSrtCaptions(value, videoDuration) {
+  const blocks = String(value || "").trim().split(/\r?\n\r?\n/).filter(Boolean);
+  if (!blocks.length) throw new Error("The caption file has no cues");
+  let previousEnd = 0;
+  const cues = blocks.map((block, index) => {
+    const [number, timing, ...lines] = block.split(/\r?\n/);
+    if (Number(number) !== index + 1) throw new Error(`Caption cue ${index + 1} is out of sequence`);
+    const parts = String(timing || "").split(" --> ");
+    if (parts.length !== 2) throw new Error(`Caption cue ${index + 1} has invalid timing`);
+    const start = srtSeconds(parts[0]);
+    const end = srtSeconds(parts[1]);
+    if (start < previousEnd) throw new Error(`Caption cue ${index + 1} overlaps the previous cue`);
+    if (end <= start) throw new Error(`Caption cue ${index + 1} must have positive duration`);
+    if (!lines.join(" ").trim()) throw new Error(`Caption cue ${index + 1} has no text`);
+    previousEnd = end;
+    return { start, end };
+  });
+  if (previousEnd > videoDuration) {
+    throw new Error(`Captions end at ${previousEnd.toFixed(3)}s but the video is ${videoDuration.toFixed(3)}s`);
+  }
+  return { cueCount: cues.length, endsAtSeconds: previousEnd };
 }
 
 export function buildFfmpegArguments({ video, audio, output, videoDuration }) {
@@ -209,13 +238,19 @@ export async function main(argv = process.argv.slice(2)) {
   if (!videoStream) throw new Error("The silent demo has no video stream");
   if (!audioStream) throw new Error("The narration file has no audio stream");
   assertCompatibleTiming(inputVideo.duration, inputAudio.duration);
+  const captionTiming = captions
+    ? validateSrtCaptions(await fs.readFile(captions.path, "utf8"), inputVideo.duration)
+    : null;
 
-  await run(ffmpeg, buildFfmpegArguments({
-    video: video.path,
-    audio: audio.path,
-    output,
-    videoDuration: inputVideo.duration,
-  }));
+  let outputCreated = false;
+  try {
+    await run(ffmpeg, buildFfmpegArguments({
+      video: video.path,
+      audio: audio.path,
+      output,
+      videoDuration: inputVideo.duration,
+    }));
+    outputCreated = true;
 
   const finalMedia = await probe(ffprobe, output);
   const finalVideo = finalMedia.streams.find((stream) => stream.codec_type === "video");
@@ -255,6 +290,8 @@ export async function main(argv = process.argv.slice(2)) {
       bytes: captions.bytes,
       sha256: await sha256(captions.path),
       format: path.extname(captions.path).slice(1).toLowerCase(),
+      cue_count: captionTiming.cueCount,
+      ends_at_seconds: captionTiming.endsAtSeconds,
     } : null,
     output: {
       path: output,
@@ -273,8 +310,12 @@ export async function main(argv = process.argv.slice(2)) {
     },
     passed: true,
   };
-  await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-  process.stdout.write(`${JSON.stringify({ passed: true, output, report: reportPath }, null, 2)}\n`);
+    await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    process.stdout.write(`${JSON.stringify({ passed: true, output, report: reportPath }, null, 2)}\n`);
+  } catch (error) {
+    if (outputCreated) await fs.rm(output, { force: true }).catch(() => {});
+    throw error;
+  }
 }
 
 const invokedDirectly = process.argv[1]

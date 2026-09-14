@@ -11,6 +11,16 @@ test("parseEvidenceLines preserves owner notes separately from URLs", () => {
   );
 });
 
+test("parseEvidenceLines accepts bare links without descriptions", () => {
+  assert.deepEqual(
+    parseEvidenceLines("https://www.youtube.com/watch?v=abc123DEF45\nhttps://bsky.app/profile/science.example/post/3bare"),
+    [
+      { url: "https://www.youtube.com/watch?v=abc123DEF45", note: "" },
+      { url: "https://bsky.app/profile/science.example/post/3bare", note: "" },
+    ],
+  );
+});
+
 test("parseEvidenceLines rejects non-HTTPS input", () => {
   assert.throws(() => parseEvidenceLines("http://example.com/post"), /must use HTTPS/);
 });

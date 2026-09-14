@@ -2458,7 +2458,7 @@ export const feedPassportApi = {
     if (!safeRequest || safeRequest.length > 1200) {
       throw new CuratorApiError(
         422,
-        "A Feature Clerk request must contain between one and 1200 text characters.",
+        "Your request must contain between one and 1200 text characters.",
         null,
       );
     }
@@ -2814,8 +2814,8 @@ export const feedPassportApi = {
           ...captured,
           activity: {
             id: reply.trace_id,
-            actor: "Passport agent",
-            detail: `Classified as ${commandName}. ${reply.message}`,
+            actor: "Curate",
+            detail: reply.message,
             time: "NOW",
             state: reply.requires_confirmation ? "Plan only" : "Verified",
           },

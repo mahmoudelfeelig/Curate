@@ -462,7 +462,7 @@ export function App() {
         }
       } catch (error) {
         if (active && hydrationRevision === identityRevisionRef.current) {
-          setConnectionNotice((current) => current || `Connected commission history is unavailable: ${error.message}`);
+          setConnectionNotice((current) => current || `Account run history is unavailable: ${error.message}`);
         }
       }
       const state = await feedPassportApi.listState();
@@ -794,7 +794,7 @@ export function App() {
       setMigrationCaptureNotice(`Passport ${capturedId} captured with receipt ${captureReceipt.id}.`);
       setActivity([{
         id: `ACT-CAPTURE-${capturedId}`,
-        actor: "Passport agent",
+        actor: "Curate",
         detail: migrationSource === "lab"
           ? `Captured certified Lab source evidence as Passport ${capturedId}.`
           : `Saved the available ${source?.name || migrationSource} starting point as Passport ${capturedId}.`,
@@ -1169,7 +1169,7 @@ export function App() {
       setMigrationDestination("youtube");
       setReceipts([receipt]);
       setSelectedReceipt(receipt);
-      setActivity([{ id: `ACT-IMPORT-${importedId}`, actor: "Passport agent", detail: `Imported a strict portable policy document as ${importedId}.`, time: "NOW", state: "Recorded" }]);
+      setActivity([{ id: `ACT-IMPORT-${importedId}`, actor: "Curate", detail: `Imported a portable feed profile as ${importedId}.`, time: "NOW", state: "Recorded" }]);
       setPortabilityNotice(`Imported as ${importedId}. This is a new local Passport identity.`);
     }, "Passport import was rejected");
     input.value = "";
@@ -1347,40 +1347,40 @@ export function App() {
     return runBusy("live-commission-preview", async () => {
       const result = await feedPassportApi.previewLiveCommission(connectedAgentForm);
       setLiveCommission(result.data);
-      addActivity(`Connected commission ${result.data.id} sealed an exact one-shot plan and is ready to run.`, "Plan only", "Local model clerk");
-    }, "Connected commission preview failed");
+      addActivity(`Account run ${result.data.id} is planned and ready.`, "Plan ready", "Curate");
+    }, "Account run preview failed");
   };
   const handleLiveCommissionRun = () => {
     if (!liveCommission?.id || rejectWhileBusy()) return;
     return runBusy("live-commission-run", async () => {
       const result = await feedPassportApi.runLiveCommission(liveCommission.id);
       setLiveCommission(result.data);
-      addActivity(`Connected commission ${result.data.id} completed its single sealed provider pass and recorded the outcome.`, "Receipt recorded", "You");
-    }, "Connected commission execution stopped");
+      addActivity(`Account run ${result.data.id} finished and recorded the result.`, "Result recorded", "You");
+    }, "Account run stopped");
   };
   const handleLiveCommissionReconcile = () => {
     if (!liveCommission?.id || rejectWhileBusy()) return;
     return runBusy("live-commission-reconcile", async () => {
       const result = await feedPassportApi.reconcileLiveCommission(liveCommission.id);
       setLiveCommission(result.data);
-      addActivity(`Connected commission ${result.data.id} reconciled only its durable provider attempts.`, "Boundary checked");
-    }, "Connected commission reconciliation failed");
+      addActivity(`Account run ${result.data.id} checked its completed changes.`, "Changes checked");
+    }, "Account run check failed");
   };
   const handleLiveCommissionCancel = () => {
     if (!liveCommission?.id || rejectWhileBusy()) return;
     return runBusy("live-commission-cancel", async () => {
       const result = await feedPassportApi.cancelLiveCommission(liveCommission.id);
       setLiveCommission(result.data);
-      addActivity(`Connected commission ${result.data.id} was cancelled before provider execution.`, "Boundary kept", "You");
-    }, "Connected commission cancellation failed");
+      addActivity(`Account run ${result.data.id} was cancelled before it changed anything.`, "Cancelled", "You");
+    }, "Account run cancellation failed");
   };
   const handleLiveCommissionRollback = () => {
     if (!liveCommission?.id || rejectWhileBusy()) return;
     return runBusy("live-commission-rollback", async () => {
       const result = await feedPassportApi.rollbackLiveCommission(liveCommission.id);
       setLiveCommission(result.data);
-      addActivity(`Connected commission ${result.data.id} attempted the exact inverse controls from its receipt.`, result.data.status === "rolled_back" ? "Restored" : "Needs attention", "You");
-    }, "Connected commission rollback failed");
+      addActivity(`Account run ${result.data.id} used its saved changes to restore the starting state.`, result.data.status === "rolled_back" ? "Restored" : "Needs attention", "You");
+    }, "Account run undo failed");
   };
 
   const handleFeedEvidenceAnalyze = (stage) => {
@@ -1517,12 +1517,12 @@ export function App() {
     && modelStatus?.online === true
     && modelStatus?.readiness === "ready";
   const featureClerkReadinessReason = featureClerkReady
-    ? `${modelStatus.model_id || "Configured local model"} is reachable through ${modelStatus.endpoint_scope || "the loopback endpoint"}; external and paid fallbacks remain disabled.`
+    ? `${modelStatus.model_id || "Curate"} is ready to interpret this request.`
     : apiMode === "checking"
-      ? "Checking the local Curator service and loopback model."
+      ? "Checking whether Curate is ready."
       : apiMode !== "service"
         ? "A quick practice preview is still available. Connect the local model to ask Curate for a fresh interpretation."
-        : modelStatus?.reason || "The configured loopback model is not ready.";
+        : modelStatus?.reason || "Curate is not ready yet.";
   const sectionTitle = useMemo(() => NAV_ITEMS.find(([id]) => id === activeSection)?.[1] || "Passport", [activeSection]);
   const workspaceLocked = Boolean(busyAction) || initialHydrationPending;
   const navigate = (section) => {

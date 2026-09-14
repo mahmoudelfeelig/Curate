@@ -192,7 +192,7 @@ const STATUS_VIEWS = Object.freeze({
 
 export function commissionStatusView(status) {
   return STATUS_VIEWS[String(status || "")] || {
-    label: "No connected commission",
+    label: "No account run yet",
     tone: "purple",
     detail: "Choose an eligible connected account and request one exact preview.",
     action: "preview",

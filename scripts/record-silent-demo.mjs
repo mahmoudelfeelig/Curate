@@ -30,18 +30,18 @@ const exactGoal = "Make it 50% astronomy, 15% coding, 12% drawing, 3% anime, 10%
 const beforeLinks = [
   "https://www.youtube.com/watch?v=b4RageBt001 | Breaking outrage clip with no sources or useful context.",
   "https://www.youtube.com/watch?v=b4DramaBt02 | Creator drama framed to keep people angry.",
-  "https://www.instagram.com/p/curate-before-rumor/ | A rumor thread presented as settled fact.",
-  "https://www.instagram.com/reel/curate-before-clickbait/ | Shocking claims and an urgent clickbait caption.",
   "https://www.youtube.com/watch?v=b4SpaceSc03 | A short astronomy explainer about Europa.",
-  "https://www.instagram.com/p/curate-before-sketch/ | A quiet sketchbook study.",
+  "https://bsky.app/profile/curate.demo/post/3before01 | A rumor thread presented as settled fact.",
+  "https://bsky.app/profile/curate.demo/post/3before02 | Shocking claims and an urgent ragebait caption.",
+  "https://bsky.app/profile/curate.demo/post/3before03 | A quiet sketchbook study.",
 ].join("\n");
 const afterLinks = [
   "https://www.youtube.com/watch?v=afSpaceSc01 | An astrophysicist explains new evidence about Europa.",
   "https://www.youtube.com/watch?v=afCodeSci02 | A calm programming lesson about graph traversal.",
-  "https://www.instagram.com/p/curate-after-science/ | A research paper explained with links to its methods.",
-  "https://www.instagram.com/p/curate-after-drawing/ | A step-by-step character drawing study.",
   "https://www.youtube.com/watch?v=afAnimeAn03 | A thoughtful Naruto and One Piece animation analysis.",
-  "https://www.instagram.com/reel/curate-after-perfume/ | A fragrance chemistry guide with ingredient context.",
+  "https://bsky.app/profile/curate.demo/post/3after001 | A research paper explained with links to its methods.",
+  "https://bsky.app/profile/curate.demo/post/3after002 | A step-by-step character drawing study.",
+  "https://bsky.app/profile/curate.demo/post/3after003 | A fragrance chemistry guide with ingredient context.",
 ].join("\n");
 
 function assertLoopbackOrigin(value, label) {
@@ -109,11 +109,16 @@ async function sourceAttestation() {
     throw new Error(`The silent demo must be recorded from a clean commit; ${dirtyPaths.length} tracked path(s) are dirty.`);
   }
   const manifest = JSON.parse(manifestText);
+  const evidenceSourceSha256 = manifest?.source?.snapshot_sha256;
+  const evidenceSourceFiles = manifest?.source?.snapshot_file_count;
+  if (!evidenceSourceSha256 || !Number.isInteger(evidenceSourceFiles)) {
+    throw new Error("The evidence manifest is missing its source snapshot binding.");
+  }
   return {
     git_revision: revision.trim(),
     git_clean: true,
-    evidence_source_sha256: manifest?.source?.sha256 || null,
-    evidence_source_files: manifest?.source?.files || null,
+    evidence_source_sha256: evidenceSourceSha256,
+    evidence_source_files: evidenceSourceFiles,
   };
 }
 
@@ -289,8 +294,16 @@ const condensedWaits = [];
 const visibleEvidence = {
   starting_feed_cards: 0,
   curated_feed_cards: 0,
+  starting_youtube_cards: 0,
+  starting_bluesky_cards: 0,
+  curated_youtube_cards: 0,
+  curated_bluesky_cards: 0,
   vague_goal_shown: false,
   exact_goal_shown: false,
+  copy_feed_previewed: false,
+  incognito_issued: false,
+  incognito_revoked: false,
+  blend_page_shown: false,
 };
 let missionProof = {
   planned_with_local_model: false,
@@ -359,6 +372,8 @@ try {
   await page.getByTestId("feed-before").waitFor({ timeout: 15_000 });
   await center(page.getByTestId("feed-before"), 4_500);
   visibleEvidence.starting_feed_cards = await page.getByTestId("feed-before").locator("article").count();
+  visibleEvidence.starting_youtube_cards = await page.getByTestId("feed-before").locator('[data-platform="youtube"]').count();
+  visibleEvidence.starting_bluesky_cards = await page.getByTestId("feed-before").locator('[data-platform="bluesky"]').count();
   await page.getByTestId("evidence-apply").click();
   await page.locator('.curate-result[data-proposal-status="applied_to_passport"]').waitFor({ timeout: 15_000 });
   await pause(2_500);
@@ -418,6 +433,31 @@ try {
   await page.getByTestId("feed-after").waitFor({ timeout: 15_000 });
   await center(page.getByTestId("feed-after"), 7_000);
   visibleEvidence.curated_feed_cards = await page.getByTestId("feed-after").locator("article").count();
+  visibleEvidence.curated_youtube_cards = await page.getByTestId("feed-after").locator('[data-platform="youtube"]').count();
+  visibleEvidence.curated_bluesky_cards = await page.getByTestId("feed-after").locator('[data-platform="bluesky"]').count();
+
+  await openDesk("migration");
+  await page.getByLabel("Source Passport capture").selectOption("youtube");
+  await page.getByLabel("Migration destination").selectOption("bluesky");
+  await page.getByTestId("migration-preview").click();
+  await page.locator(".manifest-actions").waitFor({ timeout: 15_000 });
+  visibleEvidence.copy_feed_previewed = true;
+  await center(page.locator(".translation-loss"), 6_500);
+
+  await openDesk("temporary");
+  await page.getByTestId("temporary-issue").click();
+  await page.locator(".temporary-visa.active").waitFor({ timeout: 15_000 });
+  visibleEvidence.incognito_issued = true;
+  await center(page.locator(".temporary-visa.active"), 6_000);
+  await page.getByTestId("temporary-revoke").click();
+  await page.locator(".temporary-visa.revoked").waitFor({ timeout: 15_000 });
+  visibleEvidence.incognito_revoked = true;
+  await pause(2_500);
+
+  await openDesk("companion");
+  await page.getByText("Shape the shared view").waitFor();
+  visibleEvidence.blend_page_shown = true;
+  await pause(5_500);
   await page.getByRole("button", { name: "Open Curate passport" }).click();
   await pause(4_500);
 } finally {
@@ -477,6 +517,14 @@ const report = {
     && visibleEvidence.exact_goal_shown
     && visibleEvidence.starting_feed_cards >= 3
     && visibleEvidence.curated_feed_cards >= 3
+    && visibleEvidence.starting_youtube_cards >= 3
+    && visibleEvidence.starting_bluesky_cards >= 3
+    && visibleEvidence.curated_youtube_cards >= 3
+    && visibleEvidence.curated_bluesky_cards >= 3
+    && visibleEvidence.copy_feed_previewed
+    && visibleEvidence.incognito_issued
+    && visibleEvidence.incognito_revoked
+    && visibleEvidence.blend_page_shown
     && missionProof.planned_with_local_model
     && missionProof.executed_on_local_twin
     && missionProof.rollback_state_verified

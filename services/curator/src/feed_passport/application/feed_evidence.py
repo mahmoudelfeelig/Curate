@@ -90,6 +90,7 @@ class FeedEvidenceService:
         http_client: HttpClient,
         connections: ExternalConnectionRepository | None = None,
         credentials: CredentialProvider | None = None,
+        public_metadata_enabled: bool = True,
         clock: Callable[[], datetime] = _now_utc,
         id_factory: Callable[[], str] | None = None,
     ) -> None:
@@ -98,6 +99,7 @@ class FeedEvidenceService:
         self.http = http_client
         self.connections = connections
         self.credentials = credentials
+        self.public_metadata_enabled = public_metadata_enabled
         self.clock = clock
         self.id_factory = id_factory or (lambda: uuid4().hex)
 
@@ -474,6 +476,19 @@ class FeedEvidenceService:
         if not match:
             raise ValueError("Bluesky evidence links must identify one public post")
         handle, rkey = match.groups()
+        link_only = {
+            "platform": "bluesky",
+            "provider_id": f"web:{handle}:{rkey}",
+            "metadata_source": "user_selected_link_only",
+            "metadata_verified": False,
+            "observed_at": observed_at.isoformat(),
+            "title": "",
+            "description": "",
+            "author": handle,
+            "tags": [],
+        }
+        if not self.public_metadata_enabled:
+            return link_only
         resolved = self.http.request(
             "GET",
             "https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle",
@@ -481,10 +496,10 @@ class FeedEvidenceService:
             params={"handle": handle},
         )
         if resolved.status_code != 200 or not isinstance(resolved.json(), dict):
-            raise ValueError("Bluesky could not resolve the public post author")
+            return link_only
         did = str(resolved.json().get("did") or "")
         if not did.startswith("did:"):
-            raise ValueError("Bluesky returned an invalid author identifier")
+            return link_only
         uri = f"at://{did}/app.bsky.feed.post/{rkey}"
         response = self.http.request(
             "GET",
@@ -495,7 +510,7 @@ class FeedEvidenceService:
         payload = response.json() if response.status_code == 200 else None
         posts = payload.get("posts") if isinstance(payload, dict) else None
         if not isinstance(posts, list) or len(posts) != 1 or not isinstance(posts[0], dict):
-            raise ValueError("Bluesky did not return one public post record")
+            return link_only
         post = posts[0]
         record = post.get("record") if isinstance(post.get("record"), dict) else {}
         author = post.get("author") if isinstance(post.get("author"), dict) else {}

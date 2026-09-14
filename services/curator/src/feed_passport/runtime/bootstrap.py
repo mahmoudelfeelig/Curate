@@ -392,6 +392,9 @@ def build_service_bundle(
         http_client=evidence_http_client,
         connections=connection_registry,
         credentials=oauth_vault,
+        public_metadata_enabled=os.getenv(
+            "FEED_PASSPORT_PUBLIC_EVIDENCE_METADATA", "enabled"
+        ).strip().casefold() not in {"0", "false", "disabled", "off"},
     )
     return ServiceBundle(
         store=store,

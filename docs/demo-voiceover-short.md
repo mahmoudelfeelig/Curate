@@ -1,13 +1,19 @@
 # Curate short voiceover
 
-Target read: about one minute. Read conversationally and leave only a short breath wherever the screen changes.
+Target read: about eighty seconds. Read conversationally and leave a short breath wherever the screen changes.
 
-Recommendation feeds learn us over years, then make us start over on every new account. Curate turns that history into something portable.
+Recommendation feeds learn us for years, then new accounts make us start over. Curate turns that taste into a portable Passport.
 
-I can speak naturally: “I want less ragebait and more science-based pages.” I give Curate a few posts from my feed. It reads only what I chose, separates evidence from inference, and builds a mix I can inspect.
+I describe what I want naturally: less ragebait and more science, or an exact mix across astronomy, coding, drawing, anime, and fragrance.
 
-It also understands precision. Here I ask for fifty percent astronomy, fifteen percent coding, twelve percent drawing, plus anime, Naruto, One Piece, and perfumes. The request stays a sentence; Curate turns it into a clear plan for the selected app.
+I paste a few YouTube and Bluesky links. Notes are optional. Curate shows both platforms before and after, with calmer content and more variety, and a measurable drop in ragebait.
 
-Then Curate runs the plan on a safe practice feed. The result is visible: outrage and unsupported claims move out, while astronomy, programming, research, drawing, anime analysis, and fragrance chemistry move in.
+The local agent builds the plan, runs it in a safe practice feed, and measures the result, then restores the starting state.
 
-Finally, Curate restores the starting state and verifies the match. Natural language in, a measurable feed out, and a return route if I change my mind.
+The same Passport can be copied from one app to another; Curate shows what carries over and what needs a different route.
+
+Incognito creates a temporary feed for a conference or deep-work session, then expires automatically or closes immediately.
+
+A shared view can blend selected tastes with another person without merging accounts.
+
+Natural language in, a feed that feels like yours out, and a way back.

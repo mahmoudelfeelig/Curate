@@ -206,7 +206,7 @@ function CommissionControls({
   }
   if (statusView.action === "terminal") {
     return (
-      <section className="connected-agent-terminal" aria-label="Connected commission result">
+      <section className="connected-agent-terminal" aria-label="Account run result">
         <div>
           <b>{statusView.label}</b>
           <p>{statusView.detail}</p>

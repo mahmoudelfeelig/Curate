@@ -23,10 +23,11 @@ documentation commits so its clean-tree gate can bind the final indexed source.
 | --- | --- |
 | Full Curator suite | 550 passed, 159 subtests passed, two upstream dependency deprecation warnings |
 | Independent live recovery/concurrency focus | 146 passed; no remaining material race, mutation bypass, lock inversion, or deadlock found |
-| Root browser/API contract suite | 103 passed |
+| Root browser/API contract suite | 108 passed |
 | AT Protocol sidecar suite | 58 passed |
 | Responsive browser matrix | Five viewports passed with zero overflow, clipped audited controls, unlabeled controls, failed requests, console errors, page errors, or rollback collisions |
 | Final silent video | 62.891 seconds, 1440 by 900, no audio track; independent eight-frame audit matched SHA-256 `22f3df13821771ce0625a0fe8ff7e20513592aa2ddba09dd4a813216c0b846cf` |
+| Narration finalizer | Passed against the final silent video with a synthetic 60-second audio fixture: VP9 video preserved, Opus audio normalized, duration held at 62.9 seconds, captions and all inputs hashed into the release report |
 | Python bytecode compilation | Passed for `services/curator/src` and `evaluation` |
 | Python dependency consistency | `pip check` reported no broken requirements |
 | Owned local service proof | 14 assertions passed against a disposable loopback API and database; the owned process and database were removed afterward |

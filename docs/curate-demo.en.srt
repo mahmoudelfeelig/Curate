@@ -1,0 +1,59 @@
+1
+00:00:00,000 --> 00:00:04,350
+Recommendation feeds learn us over years,
+then make us start over
+
+2
+00:00:04,350 --> 00:00:08,700
+on every new account. Curate turns that history
+into something portable.
+
+3
+00:00:08,700 --> 00:00:13,500
+I can speak naturally: “I want less ragebait
+and more science-based pages.”
+
+4
+00:00:13,500 --> 00:00:18,800
+I give Curate a few posts from my feed.
+It reads only what I chose,
+
+5
+00:00:18,800 --> 00:00:23,700
+separates evidence from inference,
+and builds a mix I can inspect.
+
+6
+00:00:23,700 --> 00:00:30,500
+It also understands precision. Here I ask for fifty
+percent astronomy, fifteen percent coding,
+
+7
+00:00:30,500 --> 00:00:35,300
+twelve percent drawing, plus anime, Naruto,
+One Piece, and perfumes.
+
+8
+00:00:35,300 --> 00:00:39,900
+The request stays a sentence; the agent turns it into
+a bounded plan for the selected app.
+
+9
+00:00:39,900 --> 00:00:46,200
+Then Curate runs the plan on a safe practice feed.
+The result is visible: outrage and unsupported claims
+
+10
+00:00:46,200 --> 00:00:52,600
+move out, while astronomy, programming, research,
+drawing, anime analysis, and fragrance chemistry move in.
+
+11
+00:00:52,600 --> 00:00:57,350
+Finally, Curate restores the starting state
+and verifies the match.
+
+12
+00:00:57,350 --> 00:01:02,890
+Natural language in, a measurable feed out,
+and a return route if I change my mind.

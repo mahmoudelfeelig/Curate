@@ -1,20 +1,20 @@
 {
   "schema": "feed-passport/evidence-manifest/v3",
-  "generated_at": "2026-09-14T00:22:44Z",
+  "generated_at": "2026-09-14T00:44:11Z",
   "source": {
     "branch": "main",
-    "commit_count": 121,
+    "commit_count": 122,
     "snapshot_scope": "all tracked Git index blobs except artifacts/evidence/**",
-    "snapshot_file_count": 381,
+    "snapshot_file_count": 385,
     "snapshot_algorithm": "sha256(path+NUL+blob_sha256+LF)",
-    "snapshot_sha256": "d7b6f4ff4efc5106c642c9e04245a5f2345d0e8bb62889fc7381b7afa1d095db",
+    "snapshot_sha256": "19493fdbb18bdaee9e3a4ccb9e3ca0ae7b04a321c8d4058ba5678a0bac2e0d73",
     "byte_source": "canonical Git index blobs",
     "checkout_line_ending_independent": true,
     "tracked_tree_clean_required": true,
     "history_rewritten_to_logical_commits": true,
     "sanitized_baseline_commit": "d6727618fbe9339d1c95281806498002096dbdbd",
     "sanitized_baseline_commit_count": 40,
-    "append_only_commits_after_sanitized_baseline": 81
+    "append_only_commits_after_sanitized_baseline": 82
   },
   "environment": {
     "operating_system": "win32-x64",
@@ -74,8 +74,8 @@
       "gate": "python",
       "command": ".\\services\\curator\\.venv\\Scripts\\python.exe -m pytest services/curator/tests -o addopts= -q -p no:cacheprovider",
       "status": "passed",
-      "tests": 534,
-      "subtests": 156,
+      "tests": 550,
+      "subtests": 159,
       "warnings": 2,
       "warning_scope": "upstream Starlette and Pydantic deprecations"
     },
@@ -83,7 +83,7 @@
       "gate": "node",
       "command": "npm test",
       "status": "passed",
-      "tests": 93
+      "tests": 108
     },
     {
       "gate": "independent_live_recovery_security_focus",
@@ -153,10 +153,10 @@
       "gate": "silent_end_to_end_demo",
       "command": "node scripts/record-silent-demo.mjs",
       "status": "passed",
-      "duration_ms": 310961,
-      "video_sha256": "460658a9f89533f00aa12a01fd430148161cc57550185785c4b8e98482e7f310",
+      "duration_ms": 62891,
+      "video_sha256": "22f3df13821771ce0625a0fe8ff7e20513592aa2ddba09dd4a813216c0b846cf",
       "artifact_scope": "local ignored submission artifact",
-      "artifact_path": "artifacts/local/submission/feed-passport-silent-demo.webm",
+      "artifact_path": "curate-silent-demo.webm (local ignored release artifact)",
       "planned_with_local_model": true,
       "executed_on_local_twin": true,
       "rollback_state_verified": true,
@@ -166,14 +166,26 @@
       "social_accounts_accessed": 0
     },
     {
+      "gate": "narration_finalizer",
+      "command": "node scripts/finalize-demo-media.mjs with final silent video and synthetic audio fixture",
+      "status": "passed",
+      "source_video_sha256": "22f3df13821771ce0625a0fe8ff7e20513592aa2ddba09dd4a813216c0b846cf",
+      "video_stream_preserved": true,
+      "output_video_codec": "vp9",
+      "output_audio_codec": "opus",
+      "output_duration_seconds": 62.9,
+      "captions_hashed": true,
+      "submission_narration_used": false
+    },
+    {
       "gate": "evidence_manifest",
       "command": "npm run test:evidence",
       "status": "passed",
       "artifacts": 13,
-      "source_files": 368,
+      "source_files": 385,
       "tracked_tree_clean": true,
       "byte_source": "git-index-blobs",
-      "commit_count": 90
+      "commit_count": 122
     },
     {
       "gate": "deterministic_evaluation",

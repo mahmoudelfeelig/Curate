@@ -75,6 +75,7 @@ test("the recorder uses compact overlays instead of explanatory slides", async (
   assert.match(source, /function showBeat/);
   assert.match(source, /function showPlatformWipe/);
   assert.match(source, /FEED_PASSPORT_AWS_SCREENSHOT/);
+  assert.match(source, /more research, independent creators, thoughtful design, and local culture/);
   assert.doesNotMatch(source, /https:[^"\n]+\s\|/);
 });
 

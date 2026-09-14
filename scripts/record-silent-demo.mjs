@@ -52,6 +52,7 @@ const managedProofDirectory = path.resolve(
 const personaById = Object.fromEntries(demoPersonas.map((persona) => [persona.id, persona]));
 const vagueGoal = personaById["tune-vague"].prompt;
 const exactGoal = personaById["precise-mix"].prompt;
+const agentGoal = "I run a small creative studio. Cut the ragebait and give me more research, independent creators, thoughtful design, and local culture.";
 const beforeLinks = [
   "https://www.youtube.com/watch?v=b4RageBt001",
   "https://www.youtube.com/watch?v=b4DramaBt02",
@@ -932,7 +933,7 @@ try {
   await showBeat("agent");
   await openDesk("agent");
   const missionGoal = page.getByRole("textbox", { name: /outcome for the agent|what should curate change/i });
-  await missionGoal.fill(exactGoal);
+  await missionGoal.fill(agentGoal);
   await pause(4_000);
   await waitWithoutRecording(
     "local model planning",
@@ -1075,6 +1076,7 @@ const report = {
   goals_demonstrated: [
     { kind: "vague", text: vagueGoal },
     { kind: "exact_100_percent_mix", text: exactGoal },
+    { kind: "agent_action_goal", text: agentGoal },
   ],
   prompt_personalities: demoPersonas.map(({ id, feature, label, prompt }) => ({
     id,

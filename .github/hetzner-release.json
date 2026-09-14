@@ -17,12 +17,12 @@
       {
         "name": "api",
         "context": "services/curator",
-        "dockerfile": "Dockerfile"
+        "dockerfile": "services/curator/Dockerfile"
       },
       {
         "name": "oauth",
         "context": "services/atproto-oauth",
-        "dockerfile": "Dockerfile"
+        "dockerfile": "services/atproto-oauth/Dockerfile"
       },
       {
         "name": "tunnel",
@@ -32,4 +32,3 @@
     ]
   }
 }
-

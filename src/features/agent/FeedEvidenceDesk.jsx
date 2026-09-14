@@ -96,13 +96,13 @@ export function FeedEvidenceDesk({
           <Field label="Natural-language outcome" hint="Percentages become measurable Passport targets. Qualitative constraints become explicit guardrails.">
             <textarea rows="4" value={form.goal} onChange={(event) => update("goal", event.target.value)} disabled={Boolean(busyAction)} />
           </Field>
-          <Field label="Links from the feed" hint="One per line. Add your context after ‘ | ’. Maximum 12 links; YouTube, Bluesky, and Instagram only.">
+          <Field label="Links from the feed" hint="One link per line; descriptions are optional. Add context after ‘ | ’ only when it helps. Maximum 12 links; YouTube, Bluesky, and Instagram only.">
             <textarea
               rows="7"
               value={form.linksText}
               onChange={(event) => update("linksText", event.target.value)}
               disabled={Boolean(busyAction)}
-              placeholder={"https://www.youtube.com/watch?v=… | Why I noticed it\nhttps://bsky.app/profile/…/post/…"}
+              placeholder={"https://www.youtube.com/watch?v=…\nhttps://bsky.app/profile/…/post/…"}
             />
           </Field>
           <Field label="YouTube metadata connection" hint="Optional. Without owner OAuth, the video ID is recorded but title, tags, and channel remain unverified.">

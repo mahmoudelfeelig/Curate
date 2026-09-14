@@ -11,6 +11,10 @@ test("Hetzner release is bound to the renamed public repository and immutable ga
   assert.equal(manifest.source.repository, "mahmoudelfeelig/curate");
   assert.deepEqual(manifest.source.required_workflows, ["Curate CI"]);
   assert.deepEqual(manifest.release.components.map(({ name }) => name), ["api", "oauth", "tunnel"]);
+  for (const component of manifest.release.components) {
+    assert.ok(component.dockerfile.includes("/"), `${component.name} Dockerfile must be source-root relative`);
+    await read(`../${component.dockerfile}`);
+  }
   assert.match(workflow, /HetznerReleaseGateway\/.github\/workflows\/release\.yml@[0-9a-f]{40}/);
   assert.doesNotMatch(workflow, /secrets\./);
 });
@@ -23,4 +27,3 @@ test("tunnel exposes only the Curate API and the public AT Protocol boundary", a
   assert.match(config, /service: http_status:404/);
   assert.doesNotMatch(config, /host\.docker\.internal|127\.0\.0\.1/);
 });
-

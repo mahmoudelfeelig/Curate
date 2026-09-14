@@ -37,7 +37,7 @@ export const demoChapters = Object.freeze([
 export const platformFeedStory = Object.freeze({
   youtube: Object.freeze({
     comparison: Object.freeze({
-      before: Object.freeze({ frameIndex: 4, labels: Object.freeze(["ragebait", "creator drama"]) }),
+      before: Object.freeze({ frameIndex: 0, labels: Object.freeze(["ragebait", "reaction-heavy"]) }),
       after: Object.freeze({ frameIndex: 0, labels: Object.freeze(["science", "drawing and making"]) }),
     }),
     before: Object.freeze({
@@ -80,8 +80,8 @@ export const platformFeedStory = Object.freeze({
   }),
   bluesky: Object.freeze({
     comparison: Object.freeze({
-      before: Object.freeze({ frameIndex: 0, labels: Object.freeze(["political outrage", "breaking-news loop"]) }),
-      after: Object.freeze({ frameIndex: 8, labels: Object.freeze(["art and nature", "calming wildlife"]) }),
+      before: Object.freeze({ frameIndex: 1, labels: Object.freeze(["political outrage", "useful nature post"]) }),
+      after: Object.freeze({ frameIndex: 8, labels: Object.freeze(["calming bird video", "still mixed: current events"]) }),
     }),
     before: Object.freeze({
       frameHolds: readableFrameHolds(1, 5, 10),

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build --configLoader runner && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
-    "test": "node --test src/apiClient.test.mjs src/api/agentCoreGateway.test.mjs src/auth/browserOidc.test.mjs src/auth/socialOauthPopup.test.mjs src/features/agent/connectedAgentDesk.test.mjs src/features/agent/feedEvidence.test.mjs src/features/featureClerk.test.mjs src/features/passport/instagramImportView.test.mjs src/webmcp.test.mjs tests/assets.test.mjs tests/aws-budget.test.mjs tests/contracts.test.mjs tests/finalize-demo-media.test.mjs tests/hosting-headers.test.mjs tests/platform-feed-capture-evidence.test.mjs tests/sites-worker.test.mjs tests/ui-fixtures.test.mjs tests/webmcp.test.mjs",
+    "test": "node --test src/apiClient.test.mjs src/api/agentCoreGateway.test.mjs src/auth/browserOidc.test.mjs src/auth/socialOauthPopup.test.mjs src/features/agent/connectedAgentDesk.test.mjs src/features/agent/feedEvidence.test.mjs src/features/featureClerk.test.mjs src/features/passport/instagramImportView.test.mjs src/webmcp.test.mjs tests/assets.test.mjs tests/aws-budget.test.mjs tests/contracts.test.mjs tests/demo-storyboard.test.mjs tests/finalize-demo-media.test.mjs tests/hosting-headers.test.mjs tests/platform-feed-capture-evidence.test.mjs tests/sites-worker.test.mjs tests/ui-fixtures.test.mjs tests/webmcp.test.mjs",
     "test:evidence": "node scripts/verify-evidence.mjs",
     "evidence:index": "node scripts/verify-evidence.mjs --print-source-index",
     "test:live-service": "node scripts/run-live-service-proof.mjs",

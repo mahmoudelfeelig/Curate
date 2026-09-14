@@ -11,6 +11,14 @@ import {
   loadPlatformFeedCaptureManifest,
   publicCaptureAttestation,
 } from "./platform-feed-capture-evidence.mjs";
+import {
+  DEMO_RUNTIME_BOUNDS_MS,
+  demoChapters,
+  managedAwsProof,
+  platformFeedStory,
+  tutorialFeatures,
+  validateDemoStoryboard,
+} from "./demo-storyboard.mjs";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const execFileAsync = promisify(execFile);
@@ -29,6 +37,11 @@ const outputDirectory = path.join(path.resolve(outputRoot), runName);
 const rawVideoPath = path.join(outputDirectory, "curate-silent-demo-raw.webm");
 const videoPath = path.join(outputDirectory, "curate-silent-demo.webm");
 const reportPath = path.join(outputDirectory, "report.json");
+const keyframeDirectory = path.join(outputDirectory, "keyframes");
+const managedProofDirectory = path.resolve(
+  process.env.FEED_PASSPORT_MANAGED_PROOF_DIR
+    || path.join(projectRoot, "artifacts", "local", "judge-access"),
+);
 
 const vagueGoal = "I want less ragebait and more science-based pages.";
 const exactGoal = "Make it 50% astronomy, 15% coding, 12% drawing, 3% anime, 10% Naruto, 5% One Piece, and 5% perfumes.";
@@ -282,8 +295,39 @@ async function condenseWaitingTime(executablePath, sourcePath, destinationPath, 
 }
 
 await fs.mkdir(outputDirectory, { recursive: true });
+await fs.mkdir(keyframeDirectory, { recursive: true });
+validateDemoStoryboard();
 const source = await sourceAttestation();
 const platformCaptureEvidence = await loadPlatformFeedCaptureManifest(platformCaptureManifestPath);
+async function managedProofAttestation() {
+  const [healthReceipt, planReceipt] = await Promise.all([
+    fs.readFile(path.join(managedProofDirectory, "managed-health-receipt.json"), "utf8").then(JSON.parse),
+    fs.readFile(path.join(managedProofDirectory, "managed-plan-feed-receipt.json"), "utf8").then(JSON.parse),
+  ]);
+  const valid = healthReceipt.schema === "curate/managed-agentcore-proof/v1"
+    && healthReceipt.operation === "health"
+    && healthReceipt.invocation_count === 1
+    && healthReceipt.result?.status === "healthy"
+    && planReceipt.schema === "curate/managed-agentcore-proof/v1"
+    && planReceipt.operation === "plan_feed"
+    && planReceipt.invocation_count === 1
+    && planReceipt.result?.kind === "feed_goal_proposal"
+    && planReceipt.result?.approved === false
+    && planReceipt.result?.executed === false
+    && planReceipt.result?.consent_created === false
+    && planReceipt.result?.evidence?.explicit_percentages_enforced === true;
+  if (!valid) throw new Error("The redacted managed AgentCore proof is incomplete or unsafe to present.");
+  return {
+    available: true,
+    health: "healthy",
+    plan_returned: true,
+    exact_percentages_preserved: true,
+    account_changes: false,
+    current_source: healthReceipt.source_commit === source.git_revision
+      && planReceipt.source_commit === source.git_revision,
+  };
+}
+const managedProof = await managedProofAttestation();
 const health = await expectOk(`${apiUrl}/health`);
 const model = await expectOk(`${apiUrl}/api/agent/model/status`);
 if (health.status !== "healthy" || model.readiness !== "ready" || model.endpoint_scope !== "loopback_only") {
@@ -307,11 +351,22 @@ const visibleEvidence = {
   vague_goal_shown: false,
   exact_goal_shown: false,
   copy_feed_previewed: false,
+  copy_feed_result_shown: false,
   incognito_issued: false,
   incognito_revoked: false,
   blend_page_shown: false,
+  blend_invitation_created: false,
+  blend_activated: false,
+  blend_stopped: false,
   actual_platform_pages_before: 0,
   actual_platform_pages_after: 0,
+  platform_scroll_sequences: 0,
+  platform_comparisons: 0,
+  feed_labels_shown: 0,
+  tutorial_chapters_shown: [],
+  tutorial_features_shown: [],
+  managed_aws_receipt_shown: false,
+  keyframes: [],
 };
 let missionProof = {
   planned_with_local_model: false,
@@ -355,51 +410,122 @@ async function openDesk(section, settleMs = 1_600) {
   await pause(settleMs);
 }
 
-async function showPlatformFeedCapture(capture, milliseconds = 3_600) {
+async function saveKeyframe(name) {
+  const file = path.join(keyframeDirectory, `${name}.png`);
+  await page.screenshot({ path: file });
+  visibleEvidence.keyframes.push(path.basename(file));
+}
+
+async function showChapter(id, milliseconds = 2_800) {
+  const chapter = demoChapters.find((item) => item.id === id);
+  if (!chapter) throw new Error(`Unknown demo chapter ${id}.`);
+  await page.evaluate((item) => {
+    document.querySelector("#curate-demo-chapter")?.remove();
+    const overlay = document.createElement("section");
+    overlay.id = "curate-demo-chapter";
+    overlay.innerHTML = `
+      <style>
+        #curate-demo-chapter { position: fixed; inset: 0; z-index: 100100; display: grid; place-items: center; background: radial-gradient(circle at 72% 26%, rgba(196,61,69,.28), transparent 34%), #10192a; color: #f7edda; font-family: Georgia, serif; }
+        #curate-demo-chapter div { width: min(860px, 78vw); padding: 58px 64px; border: 1px solid rgba(247,237,218,.34); border-radius: 28px; background: rgba(20,34,55,.92); box-shadow: 0 28px 80px rgba(0,0,0,.35); }
+        #curate-demo-chapter small { color: #ef9a9f; font: 800 15px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+        #curate-demo-chapter h2 { margin: 18px 0 14px; font-size: clamp(44px, 5vw, 72px); line-height: .98; letter-spacing: -.035em; }
+        #curate-demo-chapter p { margin: 0; max-width: 720px; color: #d8cdb8; font: 500 24px/1.45 system-ui, sans-serif; }
+      </style>
+      <div><small></small><h2></h2><p></p></div>`;
+    overlay.querySelector("small").textContent = item.eyebrow;
+    overlay.querySelector("h2").textContent = item.title;
+    overlay.querySelector("p").textContent = item.detail;
+    document.body.append(overlay);
+  }, chapter);
+  visibleEvidence.tutorial_chapters_shown.push(id);
+  await pause(milliseconds);
+  await page.evaluate(() => document.querySelector("#curate-demo-chapter")?.remove());
+}
+
+async function showGuide(title, detail, milliseconds = 2_200) {
+  await page.evaluate(({ guideTitle, guideDetail }) => {
+    document.querySelector("#curate-demo-guide")?.remove();
+    const guide = document.createElement("aside");
+    guide.id = "curate-demo-guide";
+    guide.innerHTML = `<style>
+      #curate-demo-guide { position: fixed; right: 28px; bottom: 28px; z-index: 100090; width: 390px; padding: 18px 20px; border: 1px solid rgba(247,237,218,.45); border-left: 7px solid #c43d45; border-radius: 16px; background: rgba(16,25,42,.94); color: #f7edda; box-shadow: 0 16px 40px rgba(0,0,0,.3); font-family: system-ui, sans-serif; }
+      #curate-demo-guide b { display: block; font-size: 17px; }
+      #curate-demo-guide span { display: block; margin-top: 5px; color: #d8cdb8; font-size: 14px; line-height: 1.35; }
+    </style><b></b><span></span>`;
+    guide.querySelector("b").textContent = guideTitle;
+    guide.querySelector("span").textContent = guideDetail;
+    document.body.append(guide);
+  }, { guideTitle: title, guideDetail: detail });
+  await pause(milliseconds);
+  await page.evaluate(() => document.querySelector("#curate-demo-guide")?.remove());
+}
+
+async function showPlatformFeedCapture(capture, milliseconds = 9_000) {
+  const scene = platformFeedStory[capture.platform]?.[capture.phase];
+  if (!scene) throw new Error(`Missing storyboard for ${capture.platform}:${capture.phase}.`);
   const dataUrl = `data:${capture.mime_type};base64,${capture.bytes.toString("base64")}`;
-  await page.evaluate(({ captureDataUrl, platform, phase, capturedAt }) => {
+  await page.evaluate(({ captureDataUrl, platform, phase, story }) => {
     document.querySelector("#platform-feed-capture")?.remove();
     const overlay = document.createElement("section");
     overlay.id = "platform-feed-capture";
     overlay.setAttribute("role", "img");
-    overlay.setAttribute("aria-label", `${platform} dummy-account home feed, ${phase}`);
+    overlay.setAttribute("aria-label", `${platform} dummy-account home feed, ${phase}, scrolling walkthrough`);
     const style = document.createElement("style");
     style.textContent = `
-      #platform-feed-capture { position: fixed; inset: 0; z-index: 100000; display: grid; grid-template-rows: auto 1fr; background: #111827; color: #f5ead1; font-family: Georgia, serif; }
-      #platform-feed-capture header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px 24px; border-bottom: 3px double #c43d45; background: #17243a; }
-      #platform-feed-capture header div { display: grid; gap: 4px; }
-      #platform-feed-capture header b { font: 800 18px/1.1 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
-      #platform-feed-capture header span { color: #d9c9a8; font: 700 11px/1.2 ui-monospace, monospace; letter-spacing: .04em; }
-      #platform-feed-capture header strong { border: 2px solid #d8b15a; padding: 8px 12px; color: #f7d787; font: 900 15px/1 ui-monospace, monospace; letter-spacing: .08em; transform: rotate(-2deg); }
-      #platform-feed-capture figure { min-height: 0; margin: 0; padding: 18px 24px 24px; display: grid; place-items: center; }
-      #platform-feed-capture img { width: 100%; height: 100%; min-height: 0; object-fit: contain; background: #fff; border: 1px solid rgba(245,234,209,.45); box-shadow: 0 12px 30px rgba(0,0,0,.38); }
+      #platform-feed-capture { position: fixed; inset: 0; z-index: 100000; overflow: hidden; background: #0b1020; color: #fff; font-family: system-ui, sans-serif; }
+      #platform-feed-capture .feed-sheet { position: absolute; inset: 0 0 auto; transform: translateY(var(--from)); transition: transform 5.2s cubic-bezier(.22,.74,.24,1); }
+      #platform-feed-capture.scrolling .feed-sheet { transform: translateY(var(--to)); }
+      #platform-feed-capture img { display: block; width: 100%; height: auto; }
+      #platform-feed-capture .platform-pill { position: fixed; z-index: 4; right: 24px; top: 22px; padding: 10px 15px; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: rgba(11,16,32,.82); backdrop-filter: blur(12px); font: 800 15px/1 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
+      #platform-feed-capture .goal { position: fixed; z-index: 4; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(840px, calc(100vw - 56px)); padding: 13px 20px; border: 1px solid rgba(255,255,255,.42); border-radius: 16px; background: rgba(11,16,32,.88); box-shadow: 0 14px 40px rgba(0,0,0,.35); text-align: center; font-weight: 800; }
+      #platform-feed-capture .label { position: absolute; z-index: 3; left: var(--x); top: var(--y); transform: translate(-50%, -50%); padding: 8px 12px; border: 2px solid currentColor; border-radius: 999px; background: rgba(11,16,32,.9); box-shadow: 0 8px 24px rgba(0,0,0,.35); font: 850 14px/1 system-ui, sans-serif; white-space: nowrap; }
+      #platform-feed-capture .label::after { content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 28px; background: currentColor; opacity: .8; }
+      #platform-feed-capture .label[data-tone="down"] { color: #ff8a92; }
+      #platform-feed-capture .label[data-tone="up"] { color: #8ee0b8; }
+      #platform-feed-capture .label[data-tone="change"] { color: #ffd16b; }
+      #platform-feed-capture .label[data-tone="neutral"] { color: #8ac7ff; }
     `;
-    const header = document.createElement("header");
-    const heading = document.createElement("div");
-    const title = document.createElement("b");
-    title.textContent = `${platform} home feed`;
-    const context = document.createElement("span");
-    context.textContent = `Archived dummy-account capture · ${new Date(capturedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`;
-    const phaseMark = document.createElement("strong");
-    phaseMark.textContent = phase;
-    heading.append(title, context);
-    header.append(heading, phaseMark);
-    const figure = document.createElement("figure");
+    const sheet = document.createElement("div");
+    sheet.className = "feed-sheet";
+    sheet.style.setProperty("--from", `${story.scrollFrom}px`);
+    sheet.style.setProperty("--to", `${story.scrollTo}px`);
     const image = document.createElement("img");
     image.alt = `${platform} home feed ${phase}`;
     image.src = captureDataUrl;
-    figure.append(image);
-    overlay.append(style, header, figure);
+    sheet.append(image);
+    for (const item of story.labels) {
+      const label = document.createElement("span");
+      label.className = "label";
+      label.dataset.tone = item.tone;
+      label.textContent = item.text;
+      label.style.setProperty("--x", `${item.x}%`);
+      label.style.setProperty("--y", `${item.y}%`);
+      sheet.append(label);
+    }
+    const pill = document.createElement("div");
+    pill.className = "platform-pill";
+    pill.textContent = `${platform} · ${phase}`;
+    const goal = document.createElement("div");
+    goal.className = "goal";
+    goal.textContent = `Goal: less ragebait · more trustworthy, useful content`;
+    overlay.append(style, sheet, pill, goal);
     document.body.append(overlay);
     return image.decode();
   }, {
     captureDataUrl: dataUrl,
     platform: capture.platform === "youtube" ? "YouTube" : "Bluesky",
     phase: capture.phase.toUpperCase(),
-    capturedAt: capture.captured_at,
+    story: scene,
   });
-  await pause(milliseconds);
+  await pause(1_400);
+  if (capture.platform === "youtube" && capture.phase === "before") await saveKeyframe("01-youtube-before-scroll");
+  await page.evaluate(() => document.querySelector("#platform-feed-capture")?.classList.add("scrolling"));
+  await pause(Math.max(4_500, milliseconds - 2_800));
+  if (capture.platform === "youtube" && capture.phase === "after") await saveKeyframe("04-youtube-after-scroll");
+  await pause(1_400);
   await page.evaluate(() => document.querySelector("#platform-feed-capture")?.remove());
+  visibleEvidence.platform_scroll_sequences += 1;
+  visibleEvidence.feed_labels_shown += scene.labels.length;
 }
 
 async function showCapturedFeeds(phase) {
@@ -408,28 +534,128 @@ async function showCapturedFeeds(phase) {
   visibleEvidence[`actual_platform_pages_${phase}`] = captures.length;
 }
 
+async function showPlatformComparison(platform, milliseconds = 5_500) {
+  const captures = Object.fromEntries(platformCaptureEvidence.captures
+    .filter((capture) => capture.platform === platform)
+    .map((capture) => [capture.phase, `data:${capture.mime_type};base64,${capture.bytes.toString("base64")}`]));
+  const copy = platform === "youtube"
+    ? { title: "Ragebait recommendation", result: "shown → removed", detail: "The science and calm-listening choices stay in view." }
+    : { title: "First recommendation", result: "changed", detail: "The selected post is gone and a different item moves up." };
+  await page.evaluate(({ platformName, images, text }) => {
+    const overlay = document.createElement("section");
+    overlay.id = "curate-feed-comparison";
+    overlay.innerHTML = `<style>
+      #curate-feed-comparison { position: fixed; inset: 0; z-index: 100050; display: grid; grid-template-rows: auto 1fr auto; gap: 20px; padding: 26px; background: #10192a; color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-feed-comparison header { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+      #curate-feed-comparison small { color: #ef9a9f; font: 800 13px/1 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+      #curate-feed-comparison h2 { margin: 7px 0 0; font: 700 38px/1 Georgia, serif; }
+      #curate-feed-comparison header strong { color: #ffd16b; font-size: 30px; }
+      #curate-feed-comparison .pair { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      #curate-feed-comparison figure { position: relative; min-height: 0; margin: 0; overflow: hidden; border: 1px solid rgba(247,237,218,.35); border-radius: 18px; background: #070b13; }
+      #curate-feed-comparison img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+      #curate-feed-comparison figcaption { position: absolute; left: 14px; top: 14px; padding: 8px 12px; border-radius: 999px; background: rgba(7,11,19,.86); border: 1px solid rgba(255,255,255,.55); font: 900 14px/1 ui-monospace, monospace; letter-spacing: .08em; }
+      #curate-feed-comparison p { margin: 0; text-align: center; color: #d8cdb8; font-size: 19px; }
+    </style>
+    <header><div><small></small><h2></h2></div><strong></strong></header>
+    <div class="pair"><figure><img><figcaption>Before</figcaption></figure><figure><img><figcaption>After</figcaption></figure></div><p></p>`;
+    overlay.querySelector("small").textContent = `${platformName} · same dummy account`;
+    overlay.querySelector("h2").textContent = text.title;
+    overlay.querySelector("strong").textContent = text.result;
+    const imageNodes = overlay.querySelectorAll("img");
+    imageNodes[0].src = images.before;
+    imageNodes[1].src = images.after;
+    overlay.querySelector("p").textContent = text.detail;
+    document.body.append(overlay);
+    return Promise.all([...imageNodes].map((image) => image.decode()));
+  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: captures, text: copy });
+  await pause(1_000);
+  await saveKeyframe(platform === "youtube" ? "05-youtube-before-after" : "06-bluesky-before-after");
+  await pause(milliseconds - 1_000);
+  await page.evaluate(() => document.querySelector("#curate-feed-comparison")?.remove());
+  visibleEvidence.platform_comparisons += 1;
+}
+
+async function showManagedAwsProof(milliseconds = 4_500) {
+  await page.evaluate((proof) => {
+    const overlay = document.createElement("section");
+    overlay.id = "curate-aws-proof";
+    overlay.innerHTML = `<style>
+      #curate-aws-proof { position: fixed; inset: 0; z-index: 100100; display: grid; place-items: center; background: #10192a; color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-aws-proof article { width: 760px; padding: 44px; border: 1px solid rgba(247,237,218,.38); border-radius: 24px; background: #17243a; box-shadow: 0 24px 70px rgba(0,0,0,.35); }
+      #curate-aws-proof header { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 28px; }
+      #curate-aws-proof h2 { margin: 0; font: 700 40px/1 Georgia, serif; }
+      #curate-aws-proof small { padding: 8px 11px; border: 2px solid #c43d45; color: #ef9a9f; font: 800 12px/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; transform: rotate(-2deg); }
+      #curate-aws-proof dl { margin: 0; display: grid; gap: 10px; }
+      #curate-aws-proof dl div { display: flex; justify-content: space-between; padding: 15px 18px; border-radius: 12px; background: rgba(7,11,19,.44); }
+      #curate-aws-proof dt { color: #d8cdb8; }
+      #curate-aws-proof dd { margin: 0; color: #8ee0b8; font-weight: 900; }
+    </style><article><header><h2></h2><small></small></header><dl></dl></article>`;
+    overlay.querySelector("h2").textContent = proof.title;
+    overlay.querySelector("small").textContent = proof.stamp;
+    const list = overlay.querySelector("dl");
+    for (const [label, value] of proof.rows) {
+      const row = document.createElement("div");
+      const term = document.createElement("dt");
+      const description = document.createElement("dd");
+      term.textContent = label;
+      description.textContent = value;
+      row.append(term, description);
+      list.append(row);
+    }
+    document.body.append(overlay);
+  }, managedAwsProof);
+  visibleEvidence.managed_aws_receipt_shown = true;
+  await pause(1_000);
+  await saveKeyframe("03-aws-managed-proof");
+  await pause(milliseconds - 1_000);
+  await page.evaluate(() => document.querySelector("#curate-aws-proof")?.remove());
+}
+
+async function showAgentWorking() {
+  await page.evaluate(() => {
+    const overlay = document.createElement("section");
+    overlay.id = "curate-agent-working";
+    overlay.innerHTML = `<style>
+      #curate-agent-working { position: fixed; inset: 0; z-index: 100100; display: grid; place-items: center; background: rgba(16,25,42,.97); color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-agent-working article { width: 720px; }
+      #curate-agent-working h2 { margin: 0 0 26px; font: 700 46px/1 Georgia, serif; }
+      #curate-agent-working ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+      #curate-agent-working li { padding: 16px 18px; border-radius: 13px; background: #17243a; color: #d8cdb8; opacity: .48; animation: curateStep 3.6s infinite; }
+      #curate-agent-working li:nth-child(2) { animation-delay: 1.2s; } #curate-agent-working li:nth-child(3) { animation-delay: 2.4s; }
+      #curate-agent-working b { color: #f7edda; }
+      @keyframes curateStep { 0%, 24% { opacity: .45; transform: translateX(0); } 30%, 62% { opacity: 1; transform: translateX(8px); box-shadow: inset 6px 0 #c43d45; } 70%, 100% { opacity: .45; transform: translateX(0); } }
+    </style><article><h2>Curate is working</h2><ol><li><b>Understanding</b> your request</li><li><b>Mapping</b> it to each platform</li><li><b>Checking</b> the expected shift</li></ol></article>`;
+    document.body.append(overlay);
+  });
+  await pause(4_200);
+  await saveKeyframe("02-agent-working");
+}
+
 async function waitWithoutRecording(label, action, completion) {
   await action();
-  await pause(1_500);
+  await showAgentWorking();
   const startMs = elapsed();
   await completion();
   const endMs = elapsed();
   if (endMs - startMs >= 1_000) condensedWaits.push({ label, start_ms: startMs, end_ms: endMs });
-  await pause(1_000);
+  await page.evaluate(() => document.querySelector("#curate-agent-working")?.remove());
+  await pause(700);
 }
 
 try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.locator(".desk-tabs").waitFor({ state: "visible", timeout: 30_000 });
-  await pause(3_000);
+  await pause(2_000);
+  await showChapter("starting-feeds");
   await showCapturedFeeds("before");
+  await showChapter("describe");
   await openDesk("evidence");
 
   const textboxes = page.getByRole("textbox");
   await textboxes.nth(0).fill(vagueGoal);
   await textboxes.nth(1).fill(beforeLinks);
   visibleEvidence.vague_goal_shown = (await textboxes.nth(0).inputValue()) === vagueGoal;
-  await pause(3_000);
+  await showGuide("Write it naturally", "A few links are enough. Descriptions are optional.", 3_200);
   await page.getByTestId("evidence-capture").click();
   await page.getByTestId("feed-before").waitFor({ timeout: 15_000 });
   await center(page.getByTestId("feed-before"), 4_500);
@@ -450,11 +676,12 @@ try {
     { timeout: 15_000 },
   );
   await page.locator(".target-stamp-grid").waitFor({ timeout: 15_000 });
-  await center(page.locator(".target-stamp-grid"), 5_000);
+  await center(page.locator(".target-stamp-grid"), 6_000);
   await page.getByTestId("evidence-apply").click();
   await page.locator('.curate-result[data-proposal-status="applied_to_passport"]').waitFor({ timeout: 15_000 });
   await pause(2_500);
 
+  await showChapter("agent");
   await openDesk("agent");
   const missionGoal = page.getByRole("textbox", { name: /outcome for the agent|what should curate change/i });
   await missionGoal.fill(exactGoal);
@@ -466,6 +693,7 @@ try {
       timeout: localModelWaitMs,
     }),
   );
+  await showManagedAwsProof();
   await center(page.locator(".mission-docket"), 3_500);
   const plannerDetails = page.locator(".model-planner-evidence");
   await plannerDetails.waitFor();
@@ -486,6 +714,7 @@ try {
   await page.getByText(/STATE VERIFIED|STARTING STATE RESTORED|START RESTORED/i).waitFor();
   missionProof.rollback_state_verified = true;
   await pause(3_500);
+  await showChapter("results");
   await openDesk("evidence");
 
   const updatedTextboxes = page.getByRole("textbox");
@@ -498,17 +727,28 @@ try {
   visibleEvidence.curated_youtube_cards = await page.getByTestId("feed-after").locator('[data-platform="youtube"]').count();
   visibleEvidence.curated_bluesky_cards = await page.getByTestId("feed-after").locator('[data-platform="bluesky"]').count();
   await showCapturedFeeds("after");
+  await showPlatformComparison("youtube");
+  await showPlatformComparison("bluesky");
 
+  await showChapter("copy");
   await openDesk("migration");
+  await showGuide("Choose the route", "Copy from YouTube to Bluesky, then preview what carries over.", 2_800);
   const migrationSelects = page.locator(".route-ticket select");
   await migrationSelects.nth(0).selectOption("youtube");
   await migrationSelects.nth(1).selectOption("bluesky");
   await page.getByTestId("migration-preview").click();
   await page.locator(".manifest-actions").waitFor({ timeout: 15_000 });
   visibleEvidence.copy_feed_previewed = true;
-  await center(page.locator(".translation-loss"), 6_500);
+  await center(page.locator(".translation-loss"), 4_500);
+  await page.locator(".approval-block button").click();
+  await page.locator(".approval-block .success-note").waitFor({ timeout: 15_000 });
+  visibleEvidence.copy_feed_result_shown = true;
+  await showGuide("Preview ready", "Curate shows what transfers and what needs a different route.", 3_500);
+  visibleEvidence.tutorial_features_shown.push("tune", "copy");
 
+  await showChapter("incognito");
   await openDesk("temporary");
+  await showGuide("Pick a purpose and duration", "This temporary feed can expire on its own.", 2_800);
   await page.getByTestId("temporary-issue").click();
   await page.locator(".temporary-visa.active").waitFor({ timeout: 15_000 });
   visibleEvidence.incognito_issued = true;
@@ -516,14 +756,30 @@ try {
   await page.getByTestId("temporary-revoke").click();
   await page.locator(".temporary-visa.revoked").waitFor({ timeout: 15_000 });
   visibleEvidence.incognito_revoked = true;
-  await pause(2_500);
+  await showGuide("Closed", "Your usual Passport is unchanged.", 3_000);
+  visibleEvidence.tutorial_features_shown.push("incognito");
 
+  await showChapter("blend");
   await openDesk("companion");
   await page.getByText("Shape the shared view").waitFor();
   visibleEvidence.blend_page_shown = true;
-  await pause(5_500);
+  await showGuide("Choose what to share", "Both people keep separate accounts and Passports.", 2_800);
+  await page.locator('input[placeholder="HARBOR-1936"]').fill("CURATE-DEMO");
+  await page.getByRole("button", { name: "ISSUE COMPANION INVITATION" }).click();
+  await page.locator(".second-principal-consent").waitFor({ timeout: 15_000 });
+  visibleEvidence.blend_invitation_created = true;
+  await showGuide("Second person chooses", "Only the selected tastes enter this shared view.", 2_800);
+  await page.getByRole("button", { name: "ACTIVATE SHARED VIEW" }).click();
+  await page.locator(".companion-active").waitFor({ timeout: 15_000 });
+  visibleEvidence.blend_activated = true;
+  await showGuide("Shared view active", "The mix stays temporary and can be stopped at any time.", 3_800);
+  await page.getByRole("button", { name: "STOP COMPANION SYNC" }).click();
+  await page.locator(".companion-active").waitFor({ state: "detached", timeout: 15_000 });
+  visibleEvidence.blend_stopped = true;
+  await showGuide("Shared view closed", "Both original Passports remain separate.", 2_800);
+  visibleEvidence.tutorial_features_shown.push("blend");
   await page.getByRole("button", { name: "Open Curate passport" }).click();
-  await pause(4_500);
+  await pause(5_000);
 } finally {
   await page.close();
   await video.saveAs(rawVideoPath);
@@ -535,7 +791,7 @@ try {
 const edit = await condenseWaitingTime(executablePath, rawVideoPath, videoPath, condensedWaits);
 const videoBytes = await fs.readFile(videoPath);
 const report = {
-  schema: "curate/silent-demo-capture/v4",
+  schema: "curate/silent-demo-capture/v5",
   generated_at: new Date().toISOString(),
   source,
   video: videoPath,
@@ -561,6 +817,12 @@ const report = {
   visible_evidence: visibleEvidence,
   local_passport_revised: true,
   local_mission: missionProof,
+  managed_aws_proof: managedProof,
+  tutorial: {
+    runtime_bounds_ms: DEMO_RUNTIME_BOUNDS_MS,
+    chapters: demoChapters.map(({ id }) => id),
+    features: tutorialFeatures.map(({ id }) => id),
+  },
   edit: {
     method: "browser_canvas_media_recorder",
     disclosure: "Only inactive local-model wait time was removed; no result or interaction was synthesized.",
@@ -575,6 +837,7 @@ const report = {
   },
   social_account_accessed_during_recording: false,
   social_action_executed_during_recording: false,
+  aws_invoked_during_recording: false,
   external_requests: externalRequests,
   console_errors: consoleErrors,
   page_errors: pageErrors,
@@ -587,15 +850,28 @@ const report = {
     && visibleEvidence.curated_youtube_cards >= 3
     && visibleEvidence.curated_bluesky_cards >= 3
     && visibleEvidence.copy_feed_previewed
+    && visibleEvidence.copy_feed_result_shown
     && visibleEvidence.incognito_issued
     && visibleEvidence.incognito_revoked
     && visibleEvidence.blend_page_shown
+    && visibleEvidence.blend_invitation_created
+    && visibleEvidence.blend_activated
+    && visibleEvidence.blend_stopped
     && visibleEvidence.actual_platform_pages_before === 2
     && visibleEvidence.actual_platform_pages_after === 2
+    && visibleEvidence.platform_scroll_sequences === 4
+    && visibleEvidence.platform_comparisons === 2
+    && visibleEvidence.feed_labels_shown >= 8
+    && new Set(visibleEvidence.tutorial_chapters_shown).size === demoChapters.length
+    && new Set(visibleEvidence.tutorial_features_shown).size === tutorialFeatures.length
+    && visibleEvidence.managed_aws_receipt_shown
+    && managedProof.available
+    && managedProof.account_changes === false
     && missionProof.planned_with_local_model
     && missionProof.executed_on_local_twin
     && missionProof.rollback_state_verified
-    && edit.outputDurationMs < 180_000
+    && edit.outputDurationMs >= DEMO_RUNTIME_BOUNDS_MS.minimum
+    && edit.outputDurationMs <= DEMO_RUNTIME_BOUNDS_MS.maximum
     && edit.outputWidth === 1440
     && edit.outputHeight === 900
     && externalRequests.length === 0

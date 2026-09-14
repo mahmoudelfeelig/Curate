@@ -14,7 +14,7 @@
     "test:live-service:against-running": "node scripts/live-service-smoke.mjs",
     "test:browser:platforms": "node scripts/run-browser-platform-portability-qa.mjs",
     "demo:record": "node scripts/record-silent-demo.mjs",
-    "test:sites": "node --test tests/sites-worker.test.mjs"
+    "test:sites": "node --test tests/sites-worker.test.mjs tests/sites-build.test.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "5.0.4",

@@ -77,8 +77,11 @@ const HOST_ALLOWLIST = Object.freeze({
 function readableTopicQuery(value) {
   const text = String(value || "")
     .replace(/https?:\/\/\S+/gi, " ")
-    .replace(/\b(?:less|reduce|remove|avoid|without|no)\b[^,.;&]*(?:[,.;]|$)/gi, " ")
-    .replace(/\b(?:make|my|feed|more|show|me|want|please|content|pages|posts|videos|about|and|the|a|an)\b/gi, " ")
+    .replace(
+      /\b(?:less|reduce|remove|avoid|without|no)\b.*?(?=\b(?:and|but)\s+(?:more|add|include|prefer|show|give)\b|[,.;]|$)/gi,
+      " ",
+    )
+    .replace(/\b(?:i|we|this|that|it|make|my|our|feed|more|add|include|prefer|give|show|me|us|want|please|content|pages|posts|videos|about|and|but|the|a|an)\b/gi, " ")
     .replace(/\b\d+(?:\.\d+)?\s*%/g, " ")
     .replace(/[^\p{L}\p{N}_+#.-]+/gu, " ")
     .trim()

@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://feed-passport-87e9c75ecda1.auth.eu-north-1.amazoncognito.com https://feed-passport-gateway-mtwxhzeqqa.gateway.bedrock-agentcore.eu-north-1.amazonaws.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.curate.elfeel.me https://feed-passport-87e9c75ecda1.auth.eu-north-1.amazoncognito.com https://feed-passport-gateway-mtwxhzeqqa.gateway.bedrock-agentcore.eu-north-1.amazonaws.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY

@@ -21,6 +21,9 @@ const IMAGE_TYPES = {
   ".webp": "image/webp",
 };
 
+const MIN_CAPTURE_WIDTH = 800;
+const MIN_CAPTURE_HEIGHT = 450;
+
 function assertExactKeys(value, allowed, label) {
   const unexpected = Object.keys(value).filter((key) => !allowed.includes(key));
   if (unexpected.length) throw new Error(`${label} has unexpected field(s): ${unexpected.join(", ")}`);
@@ -42,6 +45,50 @@ function assertImageSignature(bytes, mimeType, label) {
   if ((mimeType === "image/png" && !png) || (mimeType === "image/jpeg" && !jpeg) || (mimeType === "image/webp" && !webp)) {
     throw new Error(`${label} does not match its image extension.`);
   }
+}
+
+function jpegDimensions(bytes, label) {
+  let offset = 2;
+  while (offset + 8 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    while (bytes[offset] === 0xff) offset += 1;
+    const marker = bytes[offset];
+    offset += 1;
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (offset + 2 > bytes.length) break;
+    const segmentLength = bytes.readUInt16BE(offset);
+    if (segmentLength < 2 || offset + segmentLength > bytes.length) break;
+    if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {
+      if (segmentLength < 7) break;
+      return { width: bytes.readUInt16BE(offset + 5), height: bytes.readUInt16BE(offset + 3) };
+    }
+    offset += segmentLength;
+  }
+  throw new Error(`${label} JPEG dimensions could not be read.`);
+}
+
+function webpDimensions(bytes, label) {
+  const chunk = bytes.subarray(12, 16).toString("ascii");
+  if (chunk === "VP8X" && bytes.length >= 30) {
+    return { width: bytes.readUIntLE(24, 3) + 1, height: bytes.readUIntLE(27, 3) + 1 };
+  }
+  if (chunk === "VP8L" && bytes.length >= 25 && bytes[20] === 0x2f) {
+    const bits = bytes.readUInt32LE(21);
+    return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+  }
+  if (chunk === "VP8 " && bytes.length >= 30 && bytes.subarray(23, 26).equals(Buffer.from([0x9d, 0x01, 0x2a]))) {
+    return { width: bytes.readUInt16LE(26) & 0x3fff, height: bytes.readUInt16LE(28) & 0x3fff };
+  }
+  throw new Error(`${label} WebP dimensions could not be read.`);
+}
+
+function imageDimensions(bytes, mimeType, label) {
+  if (mimeType === "image/png") return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+  if (mimeType === "image/jpeg") return jpegDimensions(bytes, label);
+  return webpDimensions(bytes, label);
 }
 
 export async function loadPlatformFeedCaptureManifest(manifestPath) {
@@ -99,6 +146,10 @@ export async function loadPlatformFeedCaptureManifest(manifestPath) {
     const bytes = await fs.readFile(imagePath);
     if (!bytes.length || bytes.length > 12 * 1024 * 1024) throw new Error(`${label} image must be between 1 byte and 12 MiB.`);
     assertImageSignature(bytes, mimeType, label);
+    const dimensions = imageDimensions(bytes, mimeType, label);
+    if (dimensions.width < MIN_CAPTURE_WIDTH || dimensions.height < MIN_CAPTURE_HEIGHT) {
+      throw new Error(`${label} must be at least ${MIN_CAPTURE_WIDTH} by ${MIN_CAPTURE_HEIGHT} pixels so the platform feed is legible.`);
+    }
     const digest = createHash("sha256").update(bytes).digest("hex");
     if (digest !== capture.sha256) throw new Error(`${label} image hash does not match the reviewed manifest.`);
     captures.push({
@@ -110,6 +161,7 @@ export async function loadPlatformFeedCaptureManifest(manifestPath) {
       source_origin: capture.source_origin,
       sha256: digest,
       mime_type: mimeType,
+      ...dimensions,
       bytes,
     });
   }
@@ -122,6 +174,9 @@ export async function loadPlatformFeedCaptureManifest(manifestPath) {
     const after = captures.find((capture) => capture.platform === platform && capture.phase === "after");
     if (after.captured_at_ms <= before.captured_at_ms) {
       throw new Error(`${platform} after capture must be newer than its before capture.`);
+    }
+    if (after.sha256 === before.sha256) {
+      throw new Error(`${platform} before and after captures must be visibly distinct files.`);
     }
   }
 

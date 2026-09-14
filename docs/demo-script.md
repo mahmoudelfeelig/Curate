@@ -28,7 +28,7 @@ Return to **Tune my feed**, replace the input sample with the six after-links, a
 - Start the pinned loopback model, local Curator API, and Vite client.
 - Confirm `/health` reports a healthy API and active scheduler.
 - Confirm `/api/agent/model/status` reports `ready`, `loopback_only`, and no paid or external model calls.
-- Confirm the capture manifest contains exactly one reviewed dummy-account home-feed screenshot for each YouTube/Bluesky before/after state, with a matching SHA-256 for every image.
+- Confirm the capture manifest contains exactly one reviewed dummy-account home-feed screenshot for each YouTube/Bluesky before/after state, with a matching SHA-256 for every image. Every capture must be at least 800 by 450 pixels, and each platform's before/after files must be distinct.
 - Run the final integrated Node and Python checks.
 - Open the browser at 1440 by 900 and confirm there is no horizontal clipping.
 
@@ -73,7 +73,7 @@ Store the four images and a manifest in an ignored local directory. The manifest
 }
 ```
 
-Include the analogous `bluesky:before`, `youtube:after`, and `bluesky:after` entries. Each after timestamp must be later than its platform's before timestamp. Image paths must be relative to the manifest and stay inside its directory.
+Include the analogous `bluesky:before`, `youtube:after`, and `bluesky:after` entries. Each after timestamp must be later than its platform's before timestamp. Image paths must be relative to the manifest and stay inside its directory. The recorder rejects captures below 800 by 450 pixels and rejects a platform pair whose before and after hashes are identical.
 
 Generate the capture with:
 

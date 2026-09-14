@@ -1,6 +1,6 @@
 # Curate demo script
 
-Target runtime: about **two minutes**, with the silent screen capture kept below three minutes. The recording is an edited product walkthrough: it removes inactive local-model wait time but does not synthesize a result or hide any user decision.
+Verified runtime: **1:02.891**. The recording is an edited product walkthrough: it removes inactive local-model wait time but does not synthesize a result or hide any user decision.
 
 ## The story
 
@@ -35,14 +35,12 @@ Return to **Tune my feed**, replace the input sample with the six after-links, a
 
 | Time | Screen and operator action | Narration |
 | --- | --- | --- |
-| 0:00–0:12 | Open on Curate, then choose **Tune my feed**. | State the problem and the portable-passport idea. |
-| 0:12–0:35 | Enter the vague request, capture the six-link sample, and center the starting content cards. | Explain that someone can begin conversationally. |
-| 0:35–0:48 | Show the inferred mix and save it to the Passport. | Explain that Curate turns the request into usable preferences. |
-| 0:48–1:08 | Enter the exact seven-topic request. Show the compact wait briefly, then cut to the returned local proposal. | Explain that precise percentages work too. |
-| 1:08–1:28 | Run the **Practice feed** and center the visible starting and curated cards. | Describe the content shift before mentioning metrics. |
-| 1:28–1:38 | Restore the starting state and pause on the verified mark. | Emphasize reversibility. |
-| 1:38–1:58 | Compare the after-sample and hold on both feed columns. | Explain the measurable comparison. |
-| 1:58–2:08 | End on the Curate passport cover. | Close with the product promise. |
+| 0:00–0:08 | Open on Curate and its portable exact mix. | State the problem and the portable-passport idea. |
+| 0:08–0:22 | Enter the vague request, show the six-link sample, and reveal the interpreted mix. | Explain that someone can begin conversationally. |
+| 0:22–0:32 | Save the result and move into the practice run. | Explain that Curate turns the request into usable preferences. |
+| 0:32–0:46 | Enter the exact seven-topic request. Show the compact wait briefly, then cut to the returned local proposal. | Explain that precise percentages work too. |
+| 0:46–0:58 | Run the **Practice feed** and hold on the six starting cards beside the six curated cards. | Describe the visible content shift. |
+| 0:58–1:03 | Show the restored state and end on the Curate passport. | Emphasize reversibility and close with the product promise. |
 
 ## Recording boundary
 

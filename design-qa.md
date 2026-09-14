@@ -2,7 +2,7 @@
 
 ## Status
 
-**PASSED for the evidence manifest's recorded local prototype snapshot.** Those committed receipts do not automatically certify later commits. A final-current claim requires rerunning the matrix after the final commit and rebinding the evidence manifest. This is not a claim of full WCAG conformance or live social-platform behavior.
+**PASSED for the current Curate browser implementation and the archived manifest-bound prototype evidence.** The fresh current matrix is retained outside Git because it contains a large screenshot set; the evidence manifest separately binds the tracked source and immutable curated artifacts. This is not a claim of full WCAG conformance or live social-platform ranking behavior.
 
 ## Visual source and implementation contract
 
@@ -27,7 +27,11 @@
 
 ## Render and responsive matrix
 
-For the manifest's recorded source snapshot, all twelve desks, including Feature Clerk, were captured at `1440 x 1024`, `1024 x 768`, `768 x 1024`, and `390 x 844`. Overview and Agent mission were additionally captured at `195 x 422` effective 200% reflow. That run produced 50 screenshots; the committed report retains every screenshot path and all validation results, with representative captures curated beside it.
+The fresh Curate run covers all fourteen desks at `1440 x 1024`, `1024 x 768`, `768 x 1024`, and `390 x 844`. Passport, Practice run, and Live run are additionally covered at `195 x 422` effective 200% reflow. Its local report is `C:\Users\mahmo\.codex\visualizations\2026\08\29\01a04e17-cc1f-77d1-a8d1-d1b3481b39f5\curate-browser-qa\final-current\report.json`.
+
+The first current pass found a stale tab-order map plus two narrow-screen clipping defects: the feed-request example row did not wrap, a decorative empty-state image kept its natural 512-pixel width, and the 200% overview action row stayed on one line. The runner and CSS were corrected. The final rerun passed all five viewports with zero recorded violations, external requests, console errors, page errors, failed requests, root horizontal overflow, clipped audited elements, unlabeled controls, or rollback intersections.
+
+For the older manifest-recorded snapshot, all twelve then-existing desks were captured at the same four standard viewports, with Overview and Agent mission additionally captured at 200% reflow. Those immutable screenshots remain useful historical evidence rather than being relabeled as current output.
 
 The final passive run recorded:
 
@@ -55,7 +59,7 @@ The final passive run recorded:
 
 `artifacts/evidence/browser/final-official-b8184-model/report.json` exercised both rendered agent protocols with genuine local planning. Feature Clerk called `inspect_selected_passport`, `inspect_safe_feature_catalog`, and `submit_temporary_visa_proposal`, used 5,491 tokens, displayed only deterministic server-rendered prose, left stable service state unchanged, and made zero API requests when Apply merely pre-filled the Temporary desk. The separate mission planner called exactly `inspect_selected_passport`, `inspect_selected_control_surface`, and `submit_mission_proposal`; its plan used 3,521 tokens. Server-side validation reduced the action families to the allowed subset, execution stayed disabled until one-time consent, and the separately approved rollback restored the exact pre-run local control-state fingerprint. The report records zero paid or external model calls, console errors, page errors, failed requests, blocked requests, or external network attempts.
 
-Compact copies of these reports live under `artifacts/evidence/browser/`. The committed [evidence manifest](artifacts/evidence/manifest.json) binds every curated file and screenshot to one exact tracked source snapshot using canonical Git-blob bytes, independent of checkout line endings. They are archived reference receipts until regenerated and rebound after the final commit.
+Compact copies of the archived reports live under `artifacts/evidence/browser/`. The committed [evidence manifest](artifacts/evidence/manifest.json) binds every curated file and screenshot plus the current tracked source using canonical Git-blob bytes, independent of checkout line endings. The fresh Curate matrix remains a separate local release receipt.
 
 ## Comparison and fix history
 
@@ -72,4 +76,4 @@ Compact copies of these reports live under `artifacts/evidence/browser/`. The co
 
 The browser checks combine rendered inspection, keyboard traversal, accessible-name heuristics, ARIA snapshots, a targeted CSS-token contrast assertion, network/console capture, and visual comparison. They do not replace a complete assistive-technology matrix, manual screen-reader study, or formal WCAG audit. External social accounts, OAuth, and live-platform recommender behavior were deliberately not exercised.
 
-Manifest-snapshot browser-design verdict: **PASSED for the account-free demo and its declared evidence boundaries at that exact source snapshot. Re-run before making a final-current verdict.**
+Current browser-design verdict: **PASSED for the Curate practice demo and its declared evidence boundaries.**

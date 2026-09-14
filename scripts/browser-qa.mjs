@@ -6,7 +6,9 @@ import { pathToFileURL } from "node:url";
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const baseUrl = process.env.FEED_PASSPORT_BASE_URL || "http://127.0.0.1:5173";
 const passName = process.argv.find((argument) => argument.startsWith("--pass="))?.split("=")[1] || "pass-01";
-const outputDir = path.join(projectRoot, "artifacts", "browser-qa", passName);
+const outputDir = process.env.CURATE_BROWSER_QA_OUTPUT_DIR
+  ? path.resolve(process.env.CURATE_BROWSER_QA_OUTPUT_DIR)
+  : path.join(projectRoot, "artifacts", "browser-qa", passName);
 
 const viewports = [
   { name: "desktop", width: 1440, height: 1024 },
@@ -17,7 +19,10 @@ const viewports = [
 ];
 
 const sections = [
-  { id: "overview", heading: "Feed Constitution" },
+  { id: "overview", heading: "Your feed, on your terms" },
+  { id: "evidence", heading: "Tell Curate what you want" },
+  { id: "agent", heading: "Let Curate try the route" },
+  { id: "connected-agent", heading: "Commission One Exact Trip" },
   { id: "constitution", heading: "Write the Constitution" },
   { id: "visas", heading: "Visa Ledger" },
   { id: "migration", heading: "Migration Desk" },
@@ -28,9 +33,6 @@ const sections = [
   { id: "templates", heading: "Policy Template Book" },
   { id: "history", heading: "Action Archive" },
   { id: "clerk", heading: "Feature Clerk" },
-  { id: "agent", heading: "Set the Mission" },
-  { id: "connected-agent", heading: "Commission One Exact Trip" },
-  { id: "evidence", heading: "Inspect the Signal" },
 ];
 
 async function loadPlaywright() {
@@ -339,12 +341,12 @@ async function captureViewport(browser, viewport) {
   }
   const navigationHistory = { supported: false, beforeBack: "", afterBack: "", activeHeading: "" };
   if (!viewport.sections) {
-    await page.getByRole("button", { name: "Open passport overview" }).click();
-    await page.locator(".desk-tabs button").nth(1).click();
-    await page.locator(".desk-tabs button").nth(10).click();
+    await page.getByRole("button", { name: "Open Curate passport" }).click();
+    await page.locator(".desk-tabs button").nth(4).click();
+    await page.locator(".desk-tabs button").nth(13).click();
     navigationHistory.beforeBack = page.url();
     await page.goBack({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => window.location.hash === "#constitution" && document.querySelector(".desk-tabs [aria-current='page']")?.textContent?.includes("Constitution"));
+    await page.waitForFunction(() => window.location.hash === "#constitution" && document.querySelector(".desk-tabs [aria-current='page']")?.dataset.section === "constitution");
     navigationHistory.afterBack = page.url();
     navigationHistory.activeHeading = await page.getByRole("heading", { level: 2 }).first().innerText();
     navigationHistory.supported = navigationHistory.afterBack.endsWith("#constitution") && navigationHistory.activeHeading === "Write the Constitution";

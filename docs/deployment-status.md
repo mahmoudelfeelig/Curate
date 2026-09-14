@@ -6,9 +6,9 @@ The final managed deployment completed successfully and the stack resources are 
 
 Those were the only final managed invocations authorized for release verification. They are not repeated by the normal test suite. Redacted summaries belong in submission material; full receipts remain in the ignored local evidence directory.
 
-The public experience supports two evidence paths:
+After the required private judge sign-in, the public workspace supports two evidence paths:
 
-- Anyone can use the account-free Curate Lab to compare visible feed cards and metrics before and after a vague or percentage-based request, then roll the change back.
-- Judges with the private local credential handoff can sign in through Cognito and request a managed proposal. The managed agent can interpret and explain a goal but cannot approve, execute, or roll back platform actions.
+- The Curate Lab path needs no social-media account. It compares visible feed cards and metrics before and after a vague or percentage-based request, then rolls the practice change back.
+- The retained managed path lets a signed-in judge request a proposal. The managed agent can interpret and explain a goal but cannot approve, execute, or roll back platform actions.
 
 The current release boundary remains deliberate: local twins prove the orchestration and measurement loop, while live YouTube and Bluesky writes require owner-bound credentials plus an exact-revision conformance certificate. Instagram supports the supplied export intake and guided native controls; it does not claim an unsupported consumer-feed write API.

@@ -1,6 +1,6 @@
 # Verification report
 
-Date: 9 September 2026
+Date: 14 September 2026
 
 This report covers the current append-only integration work built on the public,
 sanitized 40-commit baseline
@@ -11,21 +11,22 @@ documentation commits so its clean-tree gate can bind the final indexed source.
 
 ## Verdict
 
-- **Account-free deadline demo:** Pass. Instagram portability intake plus exact Guided handoffs for Instagram, YouTube, and Bluesky run locally without a social account. The owned browser proof uses a disposable API/database and makes no non-local request.
-- **Live integration implementation:** Pass at the source and contract-test boundary. YouTube subscriptions and Bluesky follows, actor mutes, and muted words have owner-bound OAuth transports, signed exact-revision certification, consent, journals, reconciliation, and rollback safeguards. No live account or provider call was used, so neither platform is promoted beyond Guided.
+- **Social-account-free practice demo:** Pass. Vague and exact goals, visible six-card before/after comparison, a real loopback-model plan, deterministic execution, measurement, and verified rollback appear in the final 62.891-second Curate capture.
+- **Live integration implementation:** Historical live conformance pass at revision `60a2d149`. Authorized dummy YouTube and Bluesky accounts completed one reversible subscription/follow, post-write reconciliation, reverse rollback, and connection revocation. Exact-revision policy intentionally keeps those older certificates from promoting the current revision.
 - **Instagram boundary:** Pass and deliberately narrower. The app parses only a user-supplied Accounts Center-format following export, retains no raw upload, and merges only explicitly selected handles into Passport intent. It does not log in to Instagram, write an Instagram control, or claim access to consumer recommendation state.
-- **Agent boundary:** Pass locally. The internal YouTube/Bluesky Strands planner may return only a complete priority ordering of certified action families for an already compiled plan. Deterministic code withholds exact targets, fixes the budget, seals the action sequence, owns consent, and performs any later write. External model profiles fail closed. This commission lifecycle is not exposed through HTTP or the mounted browser UI pending an explicit live-endpoint authorization decision.
-- **Release readiness:** Ready for the local hackathon demo and source review. Not live-provider validated and not AWS-deployed. Provider registrations, dummy-account OAuth, signed live receipts, AWS deployment/invocation, and the entrant's Builder ID remain external gates.
+- **Agent boundary:** Pass. Owner-authenticated commission routes are exposed for certified YouTube/Bluesky connections, while the retained managed AgentCore path remains proposal-only. One final managed health result and one Bedrock `PlanFeed` result are preserved locally; both report no execution authority.
+- **Release readiness:** Product, public judge build, retained AWS proposal service, silent video, responsive matrix, and local verification are ready. Entrant-owned finishing work is narration/public video upload, Builder ID/disclosures, and Devpost submission.
 
 ## Fresh verification gates
 
 | Gate | Fresh result |
 | --- | --- |
-| Full Curator suite | 519 passed, 155 subtests passed, two upstream dependency deprecation warnings |
+| Full Curator suite | 550 passed, 159 subtests passed, two upstream dependency deprecation warnings |
 | Independent live recovery/concurrency focus | 146 passed; no remaining material race, mutation bypass, lock inversion, or deadlock found |
-| Root browser/API contract suite | 76 passed |
-| AT Protocol sidecar suite | 52 passed; every sidecar source module also passed `node --check` |
-| Production client build | 48 modules transformed; `dist/client`, `dist/server`, and `dist/.openai` prepared |
+| Root browser/API contract suite | 103 passed |
+| AT Protocol sidecar suite | 58 passed |
+| Responsive browser matrix | Five viewports passed with zero overflow, clipped audited controls, unlabeled controls, failed requests, console errors, page errors, or rollback collisions |
+| Final silent video | 62.891 seconds, 1440 by 900, no audio track; independent eight-frame audit matched SHA-256 `22f3df13821771ce0625a0fe8ff7e20513592aa2ddba09dd4a813216c0b846cf` |
 | Python bytecode compilation | Passed for `services/curator/src` and `evaluation` |
 | Python dependency consistency | `pip check` reported no broken requirements |
 | Owned local service proof | 14 assertions passed against a disposable loopback API and database; the owned process and database were removed afterward |
@@ -60,19 +61,15 @@ The local ignored report is `artifacts/browser-qa/final-platform-portability-own
 - Expired forward and rollback leases, provider outcome-unknown results, untyped rollback failures, and legacy unknown rollback records terminate in `needs_human` rather than replaying a mutation. Active journal leases cover the whole migration, action state is refreshed before each compare-and-swap, and deterministic create-only receipt IDs prevent duplicate receipts across competing processes.
 - OAuth callback restoration during an active Guided handoff discards the pending provider callback instead of exchanging or storing it. Initial browser hydration keeps mutation and WebMCP tools fail-closed until authoritative owner state is loaded.
 
-## External boundary and deliberately unperformed actions
+## External boundary and retained proof
 
-During this integration and verification work:
+The live YouTube and Bluesky proof used only newly created dummy accounts. Each final conformance run applied one reversible control, verified the provider state, restored the original state, and revoked the connection. The ignored receipts are revision-bound and contain no reusable credential. Instagram's honest boundary remains local export intake plus guided native controls; no general consumer recommendation-feed write API is claimed.
 
-- social accounts used: 0;
-- OAuth authorizations or platform API requests: 0;
-- external or paid model calls: 0;
-- AWS deployments or AgentCore invocations: 0;
-- competition credits or other paid services used: 0.
+The minimal AgentCore stack remains deployed in `eu-north-1`. Exactly one final managed health invocation and one final Bedrock `PlanFeed` invocation were made under the user's explicit authorization. The redacted receipts record a healthy proposal-only runtime, no mutation tools, `approved=false`, and `executed=false`. They are not repeated by any normal test. The USD 5 AWS Budget is an alert, not a hard cap, and promotional-credit coverage is not claimed.
 
-YouTube still needs an owner-created Google Cloud project, enabled YouTube Data API v3, testing-mode consent screen, OAuth web client, and dummy YouTube account. Bluesky still needs the account owner's dummy account plus a public HTTPS metadata/JWKS/callback origin and private sidecar configuration. Instagram has no general consumer recommendation-control write API represented here; its honest deadline path is the local export intake plus exact native-control handoff.
+Cloudflare Pages currently serves [curate.elfeel.me](https://curate.elfeel.me/) with the Curate title, branded assets, CSP, `no-referrer`, and frame-denial headers. The public workspace is private-judge-sign-in-gated. The social-account-free Lab and managed proposal path become available after that Cognito sign-in.
 
-AWS credentials were not inspected and SSO was not refreshed. The local readiness checker found partial AgentCore inputs invalid and classified actual deployment/invocation as `zero_spend_blocked`, because a budget or promotional credit is not a hard guarantee of zero charges. Builder ID is an entrant-owned identity step and cannot be created or accepted by the repository.
+Judge credentials and the expired token artifact remain ignored and now have owner-only Windows ACLs plus SYSTEM access. Builder ID, public video upload, disclosure confirmation, and Devpost submission remain entrant-owned actions.
 
 ## Curated evidence provenance
 

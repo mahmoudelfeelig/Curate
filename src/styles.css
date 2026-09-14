@@ -3286,6 +3286,15 @@ dd {
     padding: 9px 6px 22px;
   }
 
+  .overview-primary-actions {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .overview-primary-actions .text-link {
+    white-space: normal;
+  }
+
   .passport-footer {
     display: grid;
     grid-template-columns: minmax(0, 1fr);

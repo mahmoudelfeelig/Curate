@@ -4,7 +4,7 @@ Curate is an agentic control layer for recommendation feeds. A person describes 
 
 It transfers **intent**, not a platform's proprietary algorithm, embeddings, hidden ranking state, or raw private history.
 
-**Public demo:** [curate.elfeel.me](https://curate.elfeel.me/) — a Cloudflare Pages build with a private judge sign-in for the managed proposal path and an account-free practice flow for the complete before-and-after experience.
+**Public demo:** [curate.elfeel.me](https://curate.elfeel.me/) — a judge-sign-in-gated Cloudflare Pages build. After sign-in, the same workspace offers the retained managed proposal path and a social-account-free practice flow for the complete before-and-after experience.
 
 The public name is Curate. Internal package names and `FEED_PASSPORT_*` environment variables remain stable so existing receipts, deployment scripts, and integrations stay compatible.
 
@@ -12,7 +12,7 @@ The public name is Curate. Internal package names and `FEED_PASSPORT_*` environm
 
 This repository deliberately separates a complete local proof from future platform integrations:
 
-- Public `main` is anchored by the sanitized 40-commit baseline at `d6727618fbe9339d1c95281806498002096dbdbd`. Work after that point is append-only. The committed evidence manifest remains the source-bound snapshot for that baseline until a new clean-tree evidence run is generated; its historical `git_pushes: 0` field is not the repository's current publication status.
+- Public `main` is anchored by the sanitized 40-commit baseline at `d6727618fbe9339d1c95281806498002096dbdbd`. Work after that point is append-only. The evidence manifest binds the current tracked source while keeping the immutable curated artifacts labeled with their historical provenance; its external-state counters describe only that archived evidence set, not current deployment status.
 - The public checkout contains no social credential, OAuth token, callback value, live-account receipt, cloud account identifier, or judge password. Owner-run YouTube and Bluesky OAuth/conformance evidence, the Instagram export-import receipt, managed AgentCore receipts, and private judge access are deliberately retained only under the ignored local evidence area. The public browser knows only the retained proposal-only Gateway URL and Cognito client configuration needed for judge sign-in.
 - The browser can run against the real local Curator API by setting `VITE_CURATOR_API_URL`. Without a configured service, or when the initial read-only service probe cannot connect, it uses deterministic fixtures and visibly labels that mode. A connectivity loss after a mutation starts is reported as an unknown outcome and never replaced with a fabricated fixture success.
 - The Python service provides the policy, consent, persistence, migration, expiry, evaluation, and rollback implementation. A client contract test verifies the browser-to-API mapping for the core Passport, checkpoint, preview, approval, and Lab execution flow.

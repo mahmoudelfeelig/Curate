@@ -12,6 +12,7 @@
 .source-note { background: var(--gold); }
 .source-inference { background: var(--purple); }
 .evidence-empty { min-height: 430px; display: grid; place-content: center; justify-items: center; text-align: center; color: var(--ink-muted); }
+.evidence-empty img { height: auto; max-width: 104px; width: 34%; }
 .evidence-empty b { margin-top: 12px; font: 800 12px/1.3 var(--font-mono); letter-spacing: .1em; color: var(--ink-navy); }
 .evidence-empty p { max-width: 350px; }
 .evidence-ledger { display: grid; gap: 13px; }
@@ -312,6 +313,8 @@
   .curate-waiting { min-height: 270px; }
 }
 @media (max-width: 620px) {
+  .goal-example-strip { flex-wrap: wrap; overflow-x: visible; }
+  .goal-example-strip button { flex: 1 1 110px; white-space: normal; }
   .sample-feed-row,
   .curate-next-actions,
   .curate-saved { align-items: stretch; flex-direction: column; }

@@ -1,6 +1,6 @@
 # Curate demo script
 
-Reference runtime: **about 3:10**. The source-bound capture report is authoritative. The recording is an edited product tutorial: it removes inactive local-model wait time but does not synthesize a result or hide any user decision.
+Reference runtime: **about 3:06**. The source-bound capture report is authoritative. The recording is an edited product tutorial: it removes inactive local-model wait time but does not synthesize a result or hide any user decision.
 
 ## The story
 
@@ -44,7 +44,7 @@ Return to **Tune my feed**, replace the input sample with the six after-links, a
 | 2:02–2:21 | Prepare **Copy Feed** from YouTube to Bluesky. | Teach the route, preview, and result. |
 | 2:21–2:42 | Issue and revoke **Incognito**. | Teach purpose, duration, expiry, and immediate closure. |
 | 2:42–3:05 | Create, activate, and stop **Blend** with two local test principals. | Teach both selections and the separate-account result. |
-| 3:05–3:10 | End on the Curate passport. | Close with the product promise. |
+| 3:05–3:06 | End on the Curate passport. | Close with the product promise. |
 
 ## Recording boundary
 

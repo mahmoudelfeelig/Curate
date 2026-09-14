@@ -59,7 +59,7 @@ OAuth recovery and reversible writes also required durable journals, reconciliat
 - Historical live dummy-account conformance for one YouTube subscription and one Bluesky follow, including verification, rollback, and revocation
 - A retained proposal-only AgentCore deployment with private judge access
 - A responsive Curate interface that passes the current five-viewport browser matrix
-- An approximately 190-second audited tutorial with scrolling real-platform before/after captures, direct comparisons, no external browser request during recording, and no hidden result synthesis
+- An approximately 186-second audited tutorial with scrolling real-platform before/after captures, direct comparisons, no external browser request during recording, and no hidden result synthesis
 
 ## What we learned
 

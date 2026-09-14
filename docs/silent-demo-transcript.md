@@ -1,6 +1,6 @@
 # Curate silent demo and transcript
 
-Reference runtime: **about 3:10**, silent, 1440 by 900. The source-bound capture report records the exact final duration; inactive local-model wait time is removed by the recorder and disclosed there.
+Reference runtime: **about 3:06**, silent, 1440 by 900. The source-bound capture report records the exact final duration; inactive local-model wait time is removed by the recorder and disclosed there.
 
 | Time | Silent screen action | Voiceover |
 | --- | --- | --- |
@@ -12,7 +12,7 @@ Reference runtime: **about 3:10**, silent, 1440 by 900. The source-bound capture
 | 2:02–2:21 | Choose the Copy Feed route and show its prepared result. | Teach what transfers and what needs a different route. |
 | 2:21–2:42 | Issue, show, and revoke Incognito. | Teach purpose, duration, expiry, and immediate closure. |
 | 2:42–3:05 | Create a Blend invitation, make the second selection, activate it, and stop it. | Teach the two-person flow and separate-account result. |
-| 3:05–3:10 | Finish on the Curate cover. | Close with the product promise and return route. |
+| 3:05–3:06 | Finish on the Curate cover. | Close with the product promise and return route. |
 
 The final video must not show narration text burned into the product UI. Record the voiceover as WAV or high-bitrate MP3. Captions may be added during final editing as long as they do not cover the content cards or alter the meaning of the proof.
 

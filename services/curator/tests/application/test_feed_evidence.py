@@ -159,6 +159,10 @@ class FeedEvidenceServiceTests(unittest.TestCase):
             {"cute_drawing": 0.2, "exploration": 0.2, "pet_science": 0.6},
         )
         self.assertEqual(result["proposal"]["passport_changes"]["max_outrage"], 0.03)
+        self.assertEqual(
+            result["proposal"]["passport_changes"]["creator_preferences"],
+            {"did:plc:animal-science": 1.0},
+        )
         self.assertIn("not the platform's private FYP", self.store.get_projection(
             "feed_evidence_snapshots", result["snapshot_id"]
         )[1]["claim_boundary"])
@@ -204,6 +208,25 @@ class FeedEvidenceServiceTests(unittest.TestCase):
         self.assertEqual(item["metadata_source"], "user_selected_link_only")
         self.assertEqual(item["user_note"], "")
         self.assertEqual(self.http.calls, [])
+
+    def test_verified_ragebait_source_becomes_an_exact_negative_creator_target(self) -> None:
+        result = self.service.analyze(
+            actor_id="person-a",
+            passport_id=self.passport.id,
+            goal="Reduce ragebait and show me more pet science.",
+            stage="before",
+            links=(
+                EvidenceLink(
+                    "https://bsky.app/profile/pets.example/post/3rage",
+                    "This specific source keeps posting shocking ragebait.",
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            result["proposal"]["passport_changes"]["creator_preferences"],
+            {"did:plc:animal-science": -1.0},
+        )
 
     def test_apply_requires_unchanged_version_and_records_versioned_result(self) -> None:
         result = self.service.analyze(

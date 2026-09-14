@@ -618,6 +618,7 @@ class FeedEvidenceService:
 
     def _proposal(self, passport, goal: str, items, metrics) -> dict[str, Any]:
         targets = self._target_topics(goal, dict(passport.topic_targets))
+        wanted_topics = {topic for topic, weight in targets.items() if float(weight) > 0}
         lowered = goal.casefold()
         reduce_ragebait = any(
             phrase in lowered
@@ -633,12 +634,23 @@ class FeedEvidenceService:
             changes["hard_exclusions"] = sorted(exclusions)
             changes["max_outrage"] = min(float(passport.max_outrage), 0.03)
         authors_by_platform: dict[str, list[dict[str, str]]] = {}
+        resolved_creator_preferences = dict(passport.creator_preferences)
         for item in items:
             author_id = str(item.get("author_id") or "").strip()
             if author_id:
                 authors_by_platform.setdefault(str(item["platform"]), []).append(
                     {"id": author_id, "label": str(item.get("author") or author_id)}
                 )
+            if not author_id or not bool(item.get("metadata_verified")):
+                continue
+            inference = item.get("inference") or {}
+            item_topics = {str(topic) for topic in inference.get("topics") or ()}
+            if reduce_ragebait and bool(inference.get("ragebait_signal")):
+                resolved_creator_preferences[author_id] = -1.0
+            elif item_topics & wanted_topics:
+                resolved_creator_preferences[author_id] = 1.0
+        if resolved_creator_preferences != dict(passport.creator_preferences):
+            changes["creator_preferences"] = resolved_creator_preferences
         controls = [
             {
                 "platform": "youtube",
@@ -757,5 +769,6 @@ class FeedEvidenceService:
             "topic_targets": dict(passport.topic_targets),
             "hard_exclusions": sorted(passport.hard_exclusions),
             "max_outrage": passport.max_outrage,
+            "creator_preferences": dict(passport.creator_preferences),
             "updated_at": passport.updated_at.isoformat(),
         }

@@ -43,6 +43,23 @@
   line-height: 1.45;
 }
 
+.connected-agent-connect-strip {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px dashed rgba(30, 57, 76, .38);
+  background: rgba(255, 255, 255, .28);
+  position: relative;
+  z-index: 1;
+}
+
+.connected-agent-connect-strip > div:first-child { display: grid; gap: 3px; }
+.connected-agent-connect-strip > div:first-child b { font-family: "Libre Baskerville", Georgia, serif; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
+.connected-agent-connect-strip > div:first-child span { color: #5d564b; font-size: 10px; line-height: 1.4; }
+.connected-agent-connect-strip > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.connected-agent-connect-strip .action-button { min-height: 38px; padding-inline: 9px; font-size: 9px; }
+
 .connected-agent-form {
   display: grid;
   gap: 14px;

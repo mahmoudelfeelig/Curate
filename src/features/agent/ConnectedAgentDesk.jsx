@@ -238,6 +238,7 @@ export function ConnectedAgentDesk({
   busyAction,
   modelStatus,
   apiMode,
+  onConnectPlatform,
 }) {
   const connections = eligibleLiveConnections(eligibleConnections);
   const serviceReady = apiMode === "service";
@@ -284,6 +285,14 @@ export function ConnectedAgentDesk({
           </div>
           <StatusStamp tone={serviceReady ? "green" : "orange"} compact>{serviceReady ? "READY" : "LOCKED"}</StatusStamp>
         </aside>
+
+        <section className="connected-agent-connect-strip" aria-label="Connect a social account">
+          <div><b>Connect an account</b><span>Sign in once, then Curate can preview the controls that app supports.</span></div>
+          <div>
+            <ActionButton type="button" variant="quiet" onClick={() => onConnectPlatform?.("youtube")}>CONNECT YOUTUBE</ActionButton>
+            <ActionButton type="button" variant="quiet" onClick={() => onConnectPlatform?.("bluesky")}>CONNECT BLUESKY</ActionButton>
+          </div>
+        </section>
 
         <form className="connected-agent-form" onSubmit={onPreview}>
           <Field label="What should happen first?" hint="Choose how Curate should order the available changes.">

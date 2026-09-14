@@ -1415,6 +1415,36 @@ dd {
   padding-right: 110px;
 }
 
+.platform-guide {
+  position: relative;
+  margin-top: 12px;
+  padding: 15px;
+  border: 1px solid rgba(30, 57, 76, .28);
+  border-radius: 3px 12px 3px 12px;
+  background: linear-gradient(145deg, rgba(255,255,255,.45), rgba(239,220,179,.34));
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,.2);
+}
+
+.platform-guide::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px dashed rgba(182, 41, 54, .24);
+  pointer-events: none;
+}
+
+.platform-guide > * { position: relative; z-index: 1; }
+.platform-guide > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.platform-guide h3 { margin: 2px 0 0; font: 700 20px/1 var(--font-display); }
+.platform-guide > label { display: grid; gap: 5px; margin-top: 12px; color: var(--ink-muted); font: 700 10px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.platform-guide > label input { min-width: 0; padding: 10px 11px; border: 1px solid rgba(30, 57, 76, .25); border-radius: 5px; background: rgba(255,255,255,.62); color: var(--ink); font: 600 12px/1.35 var(--font-sans); text-transform: none; letter-spacing: normal; }
+.platform-guide-links { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }
+.platform-guide-links a { display: flex; min-height: 38px; align-items: center; justify-content: center; padding: 7px 9px; border: 1px solid rgba(30, 57, 76, .38); border-radius: 7px; background: #182d42; color: #fffaf0; opacity: 1; font: 800 10px/1.15 var(--font-mono); text-align: center; text-decoration: none; text-transform: uppercase; transition: transform .16s ease, background .16s ease; }
+.platform-guide-links a:first-child { grid-column: 1 / -1; background: #a92331; color: #fffaf0; }
+.platform-guide-links a:hover, .platform-guide-links a:focus-visible { transform: translateY(-2px) rotate(-.2deg); background: #243f57; }
+.platform-guide-links a:first-child:hover, .platform-guide-links a:first-child:focus-visible { background: #8f1e2a; }
+.platform-guide ol { margin: 10px 0 0; padding-left: 20px; color: var(--ink-muted); font-size: 11px; line-height: 1.45; }
+
 .evidence-note {
   padding: 14px 17px;
   border: 2px dotted #887454;

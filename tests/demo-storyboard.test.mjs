@@ -64,7 +64,8 @@ test("the final cut stays native 1080p and demonstrates five distinct personalit
   assert.deepEqual(demoPersonas.map(({ feature }) => feature), ["tune", "tune", "copy", "incognito", "blend"]);
   assert.ok(demoPersonas.every(({ prompt }) => prompt.length >= 40));
   assert.deepEqual(platformFeedStory.youtube.before.frameIndexes, [0, 8]);
-  assert.deepEqual(platformFeedStory.bluesky.before.frameIndexes, [1, 7]);
+  assert.deepEqual(platformFeedStory.bluesky.before.frameIndexes, [5, 7]);
+  assert.deepEqual(platformFeedStory.youtube.after.frameIndexes, [0, 2, 4, 8]);
   assert.ok(platformFeedStory.youtube.after.frameIndexes.length > platformFeedStory.youtube.before.frameIndexes.length);
   assert.ok(platformFeedStory.bluesky.after.frameIndexes.length > platformFeedStory.bluesky.before.frameIndexes.length);
   assert.ok(platformFeedStory.bluesky.after.labels.every(({ tone }) => tone === "up"));
@@ -81,6 +82,9 @@ test("the recorder uses compact overlays instead of explanatory slides", async (
   assert.match(source, /FEED_PASSPORT_AWS_SCREENSHOT/);
   assert.match(source, /class="capture"><img/);
   assert.match(source, /object-fit: contain/);
+  assert.match(source, /label-signal/);
+  assert.match(source, /item\.tone === "down" \? "less" : item\.tone === "up" \? "more" : "current"/);
+  assert.match(source, /card-label::after/);
   assert.match(source, /\.temporary-visa\.revoked"\)\.last\(\)\.waitFor/);
   assert.match(source, /more research, independent creators, thoughtful design, and local culture/);
   assert.doesNotMatch(source, /https:[^"\n]+\s\|/);

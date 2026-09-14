@@ -592,11 +592,15 @@ async function showPlatformFeedCapture(capture) {
       #platform-feed-capture .frame-progress { position: fixed; z-index: 4; left: 24px; top: 22px; padding: 10px 13px; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; background: rgba(11,16,32,.82); backdrop-filter: blur(12px); font: 750 13px/1 ui-monospace, monospace; }
       #platform-feed-capture .goal { position: fixed; z-index: 4; left: 22px; bottom: 18px; max-width: min(720px, calc(100vw - 44px)); padding: 9px 13px; border: 1px solid rgba(255,255,255,.42); border-radius: 9px; background: rgba(11,16,32,.9); box-shadow: 0 10px 28px rgba(0,0,0,.35); font-size: 14px; font-weight: 800; }
       #platform-feed-capture .labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-      #platform-feed-capture .label { position: absolute; left: clamp(70px, var(--x), calc(100% - 70px)); top: clamp(66px, var(--y), calc(100% - 76px)); transform: translate(-50%, -50%); width: max-content; max-width: min(210px, calc(100vw - 32px)); padding: 6px 9px; border: 2px solid currentColor; border-radius: 7px; background: rgba(5,9,17,.94); box-shadow: 0 7px 20px rgba(0,0,0,.42); font: 850 14px/1.15 system-ui, sans-serif; text-align: center; white-space: normal; }
-      #platform-feed-capture .label[data-tone="down"] { color: #ff8a92; }
-      #platform-feed-capture .label[data-tone="up"] { color: #8ee0b8; }
-      #platform-feed-capture .label[data-tone="change"] { color: #ffd16b; }
-      #platform-feed-capture .label[data-tone="neutral"] { color: #8ac7ff; }
+      #platform-feed-capture .label { --accent: #8ac7ff; position: absolute; left: clamp(104px, var(--x), calc(100% - 104px)); top: clamp(88px, var(--y), calc(100% - 46px)); transform: translate(-50%, calc(-100% - 13px)); display: inline-flex; align-items: center; gap: 7px; width: max-content; max-width: min(260px, calc(100vw - 32px)); padding: 5px 10px 5px 5px; border: 1px solid color-mix(in srgb, var(--accent) 70%, white 12%); border-radius: 6px; background: rgba(5,9,17,.96); color: #f8fbff; box-shadow: 0 10px 26px rgba(0,0,0,.5); font: 800 16px/1.1 system-ui, sans-serif; white-space: normal; }
+      #platform-feed-capture .label::after { content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 13px; background: var(--accent); box-shadow: 0 0 0 1px rgba(5,9,17,.7); }
+      #platform-feed-capture .label::before { content: ""; position: absolute; left: calc(50% - 4px); top: calc(100% + 10px); width: 8px; height: 8px; border: 2px solid #07101b; border-radius: 50%; background: var(--accent); }
+      #platform-feed-capture .label-signal { flex: none; padding: 4px 6px; border-radius: 3px; background: var(--accent); color: #07101b; font: 900 10px/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
+      #platform-feed-capture .label-text { overflow-wrap: anywhere; }
+      #platform-feed-capture .label[data-tone="down"] { --accent: #ff727d; }
+      #platform-feed-capture .label[data-tone="up"] { --accent: #67e3aa; }
+      #platform-feed-capture .label[data-tone="change"] { --accent: #ffd16b; }
+      #platform-feed-capture .label[data-tone="neutral"] { --accent: #78bdff; }
     `;
     const stage = document.createElement("div");
     stage.className = "feed-stage";
@@ -614,7 +618,13 @@ async function showPlatformFeedCapture(capture) {
       const label = document.createElement("span");
       label.className = "label";
       label.dataset.tone = item.tone;
-      label.textContent = item.text;
+      const signal = document.createElement("span");
+      signal.className = "label-signal";
+      signal.textContent = item.tone === "down" ? "less" : item.tone === "up" ? "more" : "current";
+      const text = document.createElement("span");
+      text.className = "label-text";
+      text.textContent = item.text;
+      label.append(signal, text);
       label.style.setProperty("--x", `${item.x}%`);
       label.style.setProperty("--y", `${item.y}%`);
       labels.append(label);
@@ -662,7 +672,13 @@ async function showPlatformFeedCapture(capture) {
         const label = document.createElement("span");
         label.className = "label";
         label.dataset.tone = item.tone;
-        label.textContent = item.text;
+        const signal = document.createElement("span");
+        signal.className = "label-signal";
+        signal.textContent = item.tone === "down" ? "less" : item.tone === "up" ? "more" : "current";
+        const text = document.createElement("span");
+        text.className = "label-text";
+        text.textContent = item.text;
+        label.append(signal, text);
         label.style.setProperty("--x", `${item.x}%`);
         label.style.setProperty("--y", `${item.y}%`);
         labelLayer.append(label);
@@ -718,10 +734,13 @@ async function showPlatformWipe(platform, milliseconds = 4_200) {
       #curate-feed-wipe.reveal .compare-panel.after { opacity: 1; transform: translateY(0); }
       #curate-feed-wipe .wipe-label { position: absolute; left: 18px; top: 18px; z-index: 3; padding: 9px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.92); font: 850 14px/1 ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; }
       #curate-feed-wipe .after .wipe-label { color: #8ee0b8; }
-      #curate-feed-wipe .card-label { position: absolute; z-index: 3; left: clamp(70px, var(--x), calc(100% - 70px)); top: clamp(58px, var(--y), calc(100% - 58px)); transform: translate(-50%, -50%); width: max-content; max-width: 190px; padding: 6px 9px; border: 2px solid currentColor; border-radius: 7px; background: rgba(5,9,17,.95); font: 850 14px/1.15 system-ui, sans-serif; text-align: center; white-space: normal; }
-      #curate-feed-wipe .card-label[data-tone="down"] { color: #ff8a92; }
-      #curate-feed-wipe .card-label[data-tone="up"] { color: #8ee0b8; }
-      #curate-feed-wipe .card-label[data-tone="neutral"] { color: #8ac7ff; }
+      #curate-feed-wipe .card-label { --accent: #78bdff; position: absolute; z-index: 3; left: clamp(86px, var(--x), calc(100% - 86px)); top: clamp(60px, var(--y), calc(100% - 34px)); transform: translate(-50%, calc(-100% - 9px)); display: inline-flex; align-items: center; gap: 5px; width: max-content; max-width: 210px; padding: 3px 7px 3px 3px; border: 1px solid var(--accent); border-radius: 5px; background: rgba(5,9,17,.97); color: #f8fbff; box-shadow: 0 7px 18px rgba(0,0,0,.5); font: 800 12px/1.1 system-ui, sans-serif; white-space: normal; }
+      #curate-feed-wipe .card-label::after { content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 9px; background: var(--accent); }
+      #curate-feed-wipe .card-label::before { content: ""; position: absolute; left: calc(50% - 3px); top: calc(100% + 7px); width: 6px; height: 6px; border: 1px solid #07101b; border-radius: 50%; background: var(--accent); }
+      #curate-feed-wipe .card-label .label-signal { flex: none; padding: 3px 4px; border-radius: 2px; background: var(--accent); color: #07101b; font: 900 8px/1 ui-monospace, monospace; letter-spacing: .07em; text-transform: uppercase; }
+      #curate-feed-wipe .card-label[data-tone="down"] { --accent: #ff727d; }
+      #curate-feed-wipe .card-label[data-tone="up"] { --accent: #67e3aa; }
+      #curate-feed-wipe .card-label[data-tone="neutral"] { --accent: #78bdff; }
       #curate-feed-wipe .compare-goal { position: fixed; z-index: 4; right: 18px; bottom: 14px; max-width: 700px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.94); font-size: 13px; font-weight: 850; }
     </style>
     <article class="compare-panel before"><span class="wipe-label"></span><div class="capture"><img alt=""><div class="panel-labels"></div></div></article>
@@ -737,7 +756,12 @@ async function showPlatformWipe(platform, milliseconds = 4_200) {
         const label = document.createElement("span");
         label.className = "card-label";
         label.dataset.tone = item.tone;
-        label.textContent = item.text;
+        const signal = document.createElement("span");
+        signal.className = "label-signal";
+        signal.textContent = item.tone === "down" ? "less" : item.tone === "up" ? "more" : "current";
+        const text = document.createElement("span");
+        text.textContent = item.text;
+        label.append(signal, text);
         label.style.setProperty("--x", `${item.x}%`);
         label.style.setProperty("--y", `${item.y}%`);
         panel.querySelector(".panel-labels").append(label);

@@ -168,6 +168,25 @@ class FeedEvidenceApiTests(unittest.TestCase):
         )
         self.assertEqual(comparison_apply.status_code, 409)
 
+    def test_analyze_accepts_a_link_without_a_description(self) -> None:
+        response = self.client.post(
+            "/api/agent/feed-evidence/analyze",
+            json={
+                "actor_id": "person-a",
+                "passport_id": self.passport_id,
+                "goal": "Show me more thoughtful drawing.",
+                "stage": "before",
+                "links": [
+                    {"url": "https://www.instagram.com/p/linkonly123/"},
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        item = response.json()["snapshot"]["items"][0]
+        self.assertEqual(item["user_note"], "")
+        self.assertEqual(item["metadata_source"], "user_selected_link_only")
+
 
 if __name__ == "__main__":
     unittest.main()

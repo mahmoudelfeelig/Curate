@@ -15,8 +15,8 @@ test("parseEvidenceLines accepts bare links without descriptions", () => {
   assert.deepEqual(
     parseEvidenceLines("https://www.youtube.com/watch?v=abc123DEF45\nhttps://bsky.app/profile/science.example/post/3bare"),
     [
-      { url: "https://www.youtube.com/watch?v=abc123DEF45", note: "" },
-      { url: "https://bsky.app/profile/science.example/post/3bare", note: "" },
+      { url: "https://www.youtube.com/watch?v=abc123DEF45" },
+      { url: "https://bsky.app/profile/science.example/post/3bare" },
     ],
   );
 });

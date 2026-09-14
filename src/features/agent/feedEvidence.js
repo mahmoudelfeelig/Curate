@@ -23,7 +23,7 @@ export function parseEvidenceLines(value) {
     }
     if (parsed.protocol !== "https:") throw new Error("Evidence links must use HTTPS.");
     if (note.length > 600) throw new Error("Each evidence note must be 600 characters or fewer.");
-    return { url, note };
+    return note ? { url, note } : { url };
   });
 }
 

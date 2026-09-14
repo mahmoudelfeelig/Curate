@@ -97,3 +97,14 @@ test("the visible feed comparison stays scoped to the selected sample", async ()
   assert.match(source, /SAMPLE CHANGE MEASURED/);
   assert.match(source, /comparison\.claim_boundary/);
 });
+
+test("feed link entry teaches link-only input", async () => {
+  const [curateDesk, evidenceDesk] = await Promise.all([
+    readFile(new URL("../src/features/agent/CurateFeedDesk.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/agent/FeedEvidenceDesk.jsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(curateDesk, /No descriptions needed/);
+  assert.match(evidenceDesk, /No descriptions needed/);
+  assert.doesNotMatch(curateDesk, /instagram\.com\/p\/… \| Optional note/);
+});

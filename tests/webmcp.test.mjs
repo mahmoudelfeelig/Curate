@@ -50,14 +50,16 @@ test("WebMCP exposes preview and inspect boundaries but no self-approval or exec
     assert.equal(result.approvalGranted, false);
     assert.equal(result.accountAccessed, false);
     const evidenceTool = registered.find((tool) => tool.name === "feed_passport.preview_feed_evidence");
+    const linkOnlyEvidence = [{ url: "https://www.instagram.com/reel/example/" }];
     const evidenceResult = await evidenceTool.execute({
       goal: "Reduce ragebait",
-      links: [{ url: "https://www.instagram.com/reel/example/", note: "calm drawing" }],
+      links: linkOnlyEvidence,
     });
     assert.equal(evidenceResult.opened, "evidence");
     assert.equal(evidenceResult.approvalGranted, false);
     assert.equal(evidenceResult.passportChanged, false);
     assert.equal(evidenceResult.accountAccessed, false);
+    assert.deepEqual(evidenceResult.links, linkOnlyEvidence);
   } finally {
     if (previous === undefined) delete globalThis.webmcp;
     else globalThis.webmcp = previous;

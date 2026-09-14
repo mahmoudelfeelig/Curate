@@ -96,7 +96,7 @@ export function FeedEvidenceDesk({
           <Field label="Natural-language outcome" hint="Percentages become measurable Passport targets. Qualitative constraints become explicit guardrails.">
             <textarea rows="4" value={form.goal} onChange={(event) => update("goal", event.target.value)} disabled={Boolean(busyAction)} />
           </Field>
-          <Field label="Links from the feed" hint="One link per line; descriptions are optional. Add context after ‘ | ’ only when it helps. Maximum 12 links; YouTube, Bluesky, and Instagram only.">
+          <Field label="Links from the feed" hint="Paste just one link per line. No descriptions needed; add context after ‘ | ’ only if you want to. Maximum 12 links; YouTube, Bluesky, and Instagram only.">
             <textarea
               rows="7"
               value={form.linksText}

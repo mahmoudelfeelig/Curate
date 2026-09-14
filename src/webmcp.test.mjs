@@ -140,6 +140,22 @@ test("feed evidence WebMCP accepts only bounded HTTPS samples", () => {
       links: [{ url: "https://bsky.app/profile/pets.example/post/3abc", note: "pet science" }],
     },
   );
+  assert.deepEqual(
+    validateFeedEvidenceInput({
+      goal: "More useful science",
+      links: [
+        { url: "https://www.youtube.com/watch?v=abc123DEF45" },
+        { url: "https://bsky.app/profile/science.example/post/3bare" },
+      ],
+    }),
+    {
+      goal: "More useful science",
+      links: [
+        { url: "https://www.youtube.com/watch?v=abc123DEF45" },
+        { url: "https://bsky.app/profile/science.example/post/3bare" },
+      ],
+    },
+  );
   assert.throws(
     () => validateFeedEvidenceInput({ goal: "Research", links: [{ url: "http://example.com" }] }),
     /must use HTTPS/,

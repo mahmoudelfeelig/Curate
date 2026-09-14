@@ -48,7 +48,7 @@ export function validateFeedEvidenceInput(input = {}) {
     if (parsed.protocol !== "https:" || note.length > 600) {
       throw new TypeError("Feed evidence links must use HTTPS and notes must not exceed 600 characters.");
     }
-    return { url, note };
+    return note ? { url, note } : { url };
   });
   return { goal, links: normalized };
 }

@@ -13,6 +13,7 @@ import {
 } from "./platform-feed-capture-evidence.mjs";
 import {
   DEMO_RUNTIME_BOUNDS_MS,
+  autonomousRunStory,
   demoChapters,
   exactTopicTarget,
   managedAwsProof,
@@ -397,6 +398,9 @@ const visibleEvidence = {
   tutorial_features_shown: [],
   managed_aws_receipt_shown: false,
   managed_aws_trace_events: 0,
+  autonomous_agent_run_shown: false,
+  autonomous_agent_actions_shown: 0,
+  autonomous_agent_passes_shown: 0,
   computed_target_topics: [],
   computed_target_topic_count: 0,
   computed_target_total_percent: 0,
@@ -929,6 +933,50 @@ async function showAgentWorking() {
   await saveKeyframe("02-agent-working");
 }
 
+async function showAutonomousRunProof(run, milliseconds = 8_400) {
+  await page.evaluate(({ story, runEvidence }) => {
+    const overlay = document.createElement("section");
+    overlay.id = "curate-autonomous-run";
+    overlay.innerHTML = `<style>
+      #curate-autonomous-run { position: fixed; inset: 0; z-index: 100110; display: grid; grid-template-columns: .92fr 1.08fr; gap: 34px; align-items: center; padding: 54px 70px; background: radial-gradient(circle at 12% 8%, #3c2030 0, #151f35 38%, #0b1020 100%); color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-autonomous-run .copy small { color: #ff9b8e; font: 800 13px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+      #curate-autonomous-run h2 { margin: 18px 0 14px; max-width: 520px; font: 700 53px/.98 Georgia, serif; }
+      #curate-autonomous-run .copy > p { max-width: 510px; color: #d8cdb8; font-size: 18px; line-height: 1.5; }
+      #curate-autonomous-run .route { display: grid; gap: 11px; }
+      #curate-autonomous-run .step { display: grid; grid-template-columns: 38px 90px 1fr; align-items: center; gap: 12px; padding: 15px 17px; border: 1px solid rgba(255,255,255,.14); border-radius: 14px; background: rgba(23,36,58,.86); opacity: 0; transform: translateY(14px); animation: autonomousStep .45s forwards; animation-delay: calc(var(--i) * .7s); }
+      #curate-autonomous-run .step span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: #b62936; font-weight: 900; }
+      #curate-autonomous-run .step b { color: #ffd16b; text-transform: uppercase; letter-spacing: .06em; }
+      #curate-autonomous-run .step p { margin: 0; color: #d8cdb8; }
+      #curate-autonomous-run .result { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 18px; padding: 15px 18px; border: 1px solid rgba(142,224,184,.48); border-radius: 14px; background: rgba(40,111,83,.22); color: #8ee0b8; font: 800 15px/1.3 ui-monospace, monospace; }
+      @keyframes autonomousStep { to { opacity: 1; transform: translateY(0); } }
+    </style><div class="copy"><small>Autonomous control run</small><h2></h2><p>The person sets the outcome once. Curate chooses the route, carries out the available controls, measures the result, and stops by itself.</p></div><div class="route"></div><div class="result"><span class="actions"></span><span class="passes"></span><span class="stop"></span></div>`;
+    overlay.querySelector("h2").textContent = story.title;
+    const route = overlay.querySelector(".route");
+    story.steps.forEach((step, index) => {
+      const row = document.createElement("article");
+      row.className = "step";
+      row.style.setProperty("--i", index);
+      const number = document.createElement("span");
+      number.textContent = String(index + 1);
+      const label = document.createElement("b");
+      label.textContent = step.label;
+      const detail = document.createElement("p");
+      detail.textContent = step.detail;
+      row.append(number, label, detail);
+      route.append(row);
+    });
+    overlay.querySelector(".actions").textContent = `${runEvidence.actions} controls applied`;
+    overlay.querySelector(".passes").textContent = `${runEvidence.passes} measured pass${runEvidence.passes === 1 ? "" : "es"}`;
+    overlay.querySelector(".stop").textContent = runEvidence.stop;
+    document.body.append(overlay);
+  }, { story: autonomousRunStory, runEvidence: run });
+  visibleEvidence.autonomous_agent_run_shown = true;
+  visibleEvidence.autonomous_agent_actions_shown = run.actions;
+  visibleEvidence.autonomous_agent_passes_shown = run.passes;
+  await pause(milliseconds);
+  await page.evaluate(() => document.querySelector("#curate-autonomous-run")?.remove());
+}
+
 async function waitWithoutRecording(label, action, completion) {
   await action();
   await showAgentWorking();
@@ -1010,7 +1058,18 @@ try {
       + '.mission-ledger[data-mission-status="needs_human"]',
   ).waitFor({ timeout: 30_000 });
   missionProof.executed_on_local_twin = true;
+  const autonomousRun = await page.evaluate(() => {
+    const ledger = document.querySelector(".mission-ledger");
+    const terminal = ledger?.querySelector(".mission-terminal span")?.textContent?.trim() || "run complete";
+    return {
+      actions: ledger?.querySelectorAll(".mission-actions article").length || 0,
+      passes: ledger?.querySelectorAll(".iteration-ledger article").length || 0,
+      stop: terminal.replaceAll("_", " "),
+    };
+  });
+  if (autonomousRun.actions < 1 || autonomousRun.passes < 1) throw new Error("The autonomous run produced no visible actions or measured passes.");
   await center(page.locator(".mission-comparison"), 5_500);
+  await showAutonomousRunProof(autonomousRun);
   await page.getByTestId("mission-rollback").click();
   await page.locator('.mission-ledger[data-mission-status="rolled_back"]').waitFor({
     timeout: 30_000,
@@ -1199,6 +1258,9 @@ const report = {
     && new Set(visibleEvidence.tutorial_features_shown).size === tutorialFeatures.length
     && visibleEvidence.managed_aws_receipt_shown
     && visibleEvidence.managed_aws_trace_events === managedAwsProof.events.length
+    && visibleEvidence.autonomous_agent_run_shown
+    && visibleEvidence.autonomous_agent_actions_shown >= 1
+    && visibleEvidence.autonomous_agent_passes_shown >= 1
     && managedProof.available
     && managedProof.account_changes === false
     && missionProof.planned_with_local_model

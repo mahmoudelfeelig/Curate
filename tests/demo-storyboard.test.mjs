@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   DEMO_RUNTIME_BOUNDS_MS,
+  autonomousRunStory,
   demoChapters,
   exactTopicTarget,
   managedAwsProof,
@@ -51,4 +52,10 @@ test("the AWS replay is detailed, redacted, and non-executing", () => {
   assert.deepEqual(managedAwsProof.cloudWatchEvents.map(({ operation }) => operation), ["health", "plan_feed"]);
   const rendered = JSON.stringify(managedAwsProof);
   assert.doesNotMatch(rendered, /arn:|gateway|account id|token|credential|https?:\/\//i);
+});
+
+test("the autonomous run is shown as a complete agent loop", () => {
+  assert.equal(autonomousRunStory.steps.length, 4);
+  assert.deepEqual(autonomousRunStory.steps.map(({ label }) => label), ["Choose", "Apply", "Measure", "Stop"]);
+  assert.match(autonomousRunStory.title, /agent/i);
 });

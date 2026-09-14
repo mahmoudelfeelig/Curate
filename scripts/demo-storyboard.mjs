@@ -23,15 +23,15 @@ export const platformFeedStory = Object.freeze({
     }),
     after: Object.freeze({
       labels: Object.freeze([
-        { text: "astronomy moves up", tone: "up", x: 23, y: 34, frameIndex: 0 },
-        { text: "coding and drawing surface", tone: "up", x: 72, y: 67, frameIndex: 4 },
-        { text: "anime and fragrance join the mix", tone: "change", x: 50, y: 43, frameIndex: 8 },
+        { text: "anime, drawing and code lead", tone: "up", x: 50, y: 34, frameIndex: 0 },
+        { text: "research and calculus repeat", tone: "up", x: 72, y: 67, frameIndex: 4 },
+        { text: "drawing, animation and science", tone: "change", x: 50, y: 43, frameIndex: 8 },
       ]),
-      summary: "The after sample visibly brings the requested learning and hobby topics forward.",
+      summary: "The refreshed sample visibly brings learning, drawing, anime, and science forward.",
     }),
   }),
   bluesky: Object.freeze({
-    comparison: Object.freeze({ before: Object.freeze({ frameIndex: 0 }), after: Object.freeze({ frameIndex: 0 }) }),
+    comparison: Object.freeze({ before: Object.freeze({ frameIndex: 0 }), after: Object.freeze({ frameIndex: 8 }) }),
     before: Object.freeze({
       labels: Object.freeze([
         { text: "breaking-news loop", tone: "down", x: 50, y: 24, frameIndex: 1 },
@@ -42,11 +42,11 @@ export const platformFeedStory = Object.freeze({
     }),
     after: Object.freeze({
       labels: Object.freeze([
-        { text: "astronomy leads", tone: "up", x: 50, y: 24, frameIndex: 1 },
-        { text: "art and programming appear", tone: "up", x: 50, y: 52, frameIndex: 5 },
-        { text: "the requested hobbies repeat", tone: "change", x: 50, y: 43, frameIndex: 10 },
+        { text: "science enters the scroll", tone: "up", x: 50, y: 24, frameIndex: 3 },
+        { text: "climate science repeats deeper", tone: "up", x: 50, y: 52, frameIndex: 8 },
+        { text: "art breaks up the news loop", tone: "change", x: 50, y: 43, frameIndex: 10 },
       ]),
-      summary: "The after sample repeats the chosen interests more often across the scroll.",
+      summary: "The refreshed sample is still mixed, but science and art recur through the scroll.",
     }),
   }),
 });
@@ -96,6 +96,16 @@ export const managedAwsProof = Object.freeze({
   ]),
 });
 
+export const autonomousRunStory = Object.freeze({
+  title: "The agent carries out the route",
+  steps: Object.freeze([
+    Object.freeze({ label: "Choose", detail: "Pick the best available feed controls" }),
+    Object.freeze({ label: "Apply", detail: "Run the reversible changes in one bounded pass" }),
+    Object.freeze({ label: "Measure", detail: "Check whether the feed moved toward the request" }),
+    Object.freeze({ label: "Stop", detail: "Finish at the target or when no useful change remains" }),
+  ]),
+});
+
 export function validateDemoStoryboard() {
   const chapterIds = new Set(demoChapters.map(({ id }) => id));
   if (chapterIds.size !== demoChapters.length) throw new Error("Demo chapter ids must be unique.");
@@ -113,6 +123,7 @@ export function validateDemoStoryboard() {
   if (exactTopicTarget.reduce((sum, [, percent]) => sum + percent, 0) !== 100) throw new Error("The exact target must total 100%.");
   if (practiceFeedTour.minimumScrollPixels < 900 || practiceFeedTour.minimumCardsPerPhase < 6) throw new Error("The practice feed tour is too slight.");
   if (managedAwsProof.events.length < 8) throw new Error("Managed AWS proof is too thin for the demo.");
+  if (autonomousRunStory.steps.length !== 4 || autonomousRunStory.steps.some(({ label, detail }) => !label || !detail)) throw new Error("The autonomous run story is incomplete.");
   if (managedAwsProof.infrastructure.stack !== "UPDATE_COMPLETE" || managedAwsProof.infrastructure.runtime !== "READY") throw new Error("Managed AWS infrastructure status is incomplete.");
   if (managedAwsProof.cloudWatchEvents.length !== 2 || managedAwsProof.cloudWatchEvents.some(({ message }) => message !== "Invocation completed successfully")) throw new Error("Managed AWS proof must include the retained CloudWatch health and plan events.");
   return true;

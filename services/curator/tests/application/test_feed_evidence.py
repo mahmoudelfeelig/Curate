@@ -279,6 +279,28 @@ class FeedEvidenceServiceTests(unittest.TestCase):
                 expected_passport_version=self.passport.version,
             )
 
+    def test_content_analysis_names_every_topic_supported_by_an_exact_mix(self) -> None:
+        result = self.service.analyze(
+            actor_id="person-a",
+            passport_id=self.passport.id,
+            goal=(
+                "Make it 50% astronomy, 15% coding, 12% drawing, 3% anime, "
+                "10% Naruto, 5% One Piece, and 5% perfumes."
+            ),
+            stage="before",
+            links=(
+                EvidenceLink(
+                    "https://www.instagram.com/p/exactmix123/",
+                    "Astronomy telescope coding drawing anime Naruto One Piece perfumes.",
+                ),
+            ),
+        )
+
+        self.assertTrue(
+            {"astronomy", "coding", "drawing", "anime", "naruto", "one_piece", "perfumes"}
+            <= set(result["snapshot"]["items"][0]["inference"]["topics"])
+        )
+
     def test_evidence_urls_are_canonicalized_and_stage_pairs_fail_closed(self) -> None:
         before = self.service.analyze(
             actor_id="person-a",

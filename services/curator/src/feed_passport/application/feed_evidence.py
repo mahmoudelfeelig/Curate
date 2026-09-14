@@ -33,6 +33,13 @@ _RAGEBAIT_TERMS = (
     "slams",
 )
 _TOPIC_LEXICON: Mapping[str, tuple[str, ...]] = {
+    "astronomy": ("astronomy", "nebula", "space", "telescope", "planet", "stars"),
+    "coding": ("coding", "programming", "software", "developer", "code"),
+    "drawing": ("drawing", "illustration", "sketch", "art"),
+    "anime": ("anime",),
+    "naruto": ("naruto",),
+    "one_piece": ("one piece",),
+    "perfumes": ("perfume", "perfumes", "fragrance"),
     "pet_science": (
         "pet science",
         "animal behavior",

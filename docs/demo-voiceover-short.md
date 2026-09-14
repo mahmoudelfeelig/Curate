@@ -1,6 +1,6 @@
 # Curate demo voiceover
 
-Target read: about three minutes and thirty-five seconds. Read conversationally and leave a short breath wherever the screen changes.
+Target read: about three minutes and forty-eight seconds. Read conversationally and leave a short breath wherever the screen changes.
 
 This is the starting point on our dummy YouTube account. An argument video leads the page, while a science explainer and calmer listening sit further down.
 
@@ -18,19 +18,19 @@ The agent reads the request, inspects the selected Passport and sample, maps the
 
 Here is the retained AWS run. AgentCore completed one health check, Bedrock used Nova Lite, and the agent called three bounded planning tools across three cycles. The proposal returned in three point three six seconds with no account changes.
 
-For this tutorial, the returned route runs in Curate's practice feed. We can inspect it, start it, measure the result, and keep an exact way back.
+For this tutorial, the returned route runs in Curate's practice feed. We start it once; Curate chooses three reversible controls, applies them, measures the new result, and stops by itself.
 
 First, the starting sample scrolls past six conflict-heavy posts. Every card is marked as unwanted, so the problem is visible before we look at a score.
 
 Then the curated sample scrolls through astronomy, research, coding, drawing, anime, Naruto, One Piece, and perfumes. The requested subjects are visible in the content, not only in a chart.
 
-The selected sample moves from zero to one hundred percent calm, gains source variety, and records every topic that gained ground. The practice run then restores its starting state.
+The selected sample moves from zero to one hundred percent calm, gains source variety, and records every topic that gained ground. The same receipt then restores its starting state.
 
-Back on the real dummy YouTube feed, the argument recommendation is removed while the science explainer and calm listening remain further down the page.
+Back on the real dummy YouTube feed, the refreshed page now opens with anime analysis, drawing, coding, and lessons. Research, calculus, manga, and science keep appearing as we scroll.
 
-On Bluesky, the selected first post is absent and another recommendation moves into view. We show the recorded result exactly as it appeared.
+Bluesky remains a mixed Discover feed, but science and art now recur deeper in the scroll. We show the recorded result exactly as it appeared instead of claiming a perfect rewrite.
 
-The paired frames make those native changes easy to verify. They prove the immediate feedback result; the seven-topic distribution remains Curate's explicit target and practice-feed demonstration.
+The paired frames make the visible sample change easy to inspect. The seven-topic distribution remains Curate's explicit target and measured practice-feed demonstration.
 
 Copy Feed follows the same pattern. Choose YouTube as the source, Bluesky as the destination, and preview what transfers cleanly before continuing.
 

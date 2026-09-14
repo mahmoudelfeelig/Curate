@@ -1,6 +1,7 @@
 # JavaScript dependencies, caches, and generated builds
 node_modules/
 dist/
+.dist-backup-*/
 build/
 .cache/
 .vite/

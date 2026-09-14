@@ -116,11 +116,11 @@ test("captions cover the complete voiceover without overrunning the verified cut
     assert.ok(cue.text.length > 0, "caption cues must contain text");
     previousEnd = cue.end;
   }
-  const plannedDurationSeconds = 217;
+  const plannedDurationSeconds = 228;
   assert.ok(plannedDurationSeconds * 1000 >= DEMO_RUNTIME_BOUNDS_MS.minimum);
   assert.ok(plannedDurationSeconds * 1000 <= DEMO_RUNTIME_BOUNDS_MS.maximum);
   assert.ok(previousEnd <= plannedDurationSeconds, "captions must end within the planned demo cut");
-  assert.deepEqual(validateSrtCaptions(srt, plannedDurationSeconds), { cueCount: 20, endsAtSeconds: 217 });
+  assert.deepEqual(validateSrtCaptions(srt, plannedDurationSeconds), { cueCount: 20, endsAtSeconds: 228 });
 
   const spokenParagraphs = voiceover
     .split(/\r?\n\r?\n/)

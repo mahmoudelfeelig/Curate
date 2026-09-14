@@ -31,49 +31,49 @@ The agent reads the request, inspects the selected Passport and sample, maps the
 Here is the retained AWS run. AgentCore completed one health check, Bedrock used Nova Lite, and the agent called three bounded planning tools across three cycles. The proposal returned in three point three six seconds with no account changes.
 
 9
-00:01:27,000 --> 00:01:37,000
-For this tutorial, the returned route runs in Curate's practice feed. We can inspect it, start it, measure the result, and keep an exact way back.
+00:01:27,000 --> 00:01:38,000
+For this tutorial, the returned route runs in Curate's practice feed. We start it once; Curate chooses three reversible controls, applies them, measures the new result, and stops by itself.
 
 10
-00:01:37,000 --> 00:01:47,000
+00:01:38,000 --> 00:01:48,000
 First, the starting sample scrolls past six conflict-heavy posts. Every card is marked as unwanted, so the problem is visible before we look at a score.
 
 11
-00:01:47,000 --> 00:01:59,000
+00:01:48,000 --> 00:02:00,000
 Then the curated sample scrolls through astronomy, research, coding, drawing, anime, Naruto, One Piece, and perfumes. The requested subjects are visible in the content, not only in a chart.
 
 12
-00:01:59,000 --> 00:02:09,000
-The selected sample moves from zero to one hundred percent calm, gains source variety, and records every topic that gained ground. The practice run then restores its starting state.
+00:02:00,000 --> 00:02:10,000
+The selected sample moves from zero to one hundred percent calm, gains source variety, and records every topic that gained ground. The same receipt then restores its starting state.
 
 13
-00:02:09,000 --> 00:02:20,000
-Back on the real dummy YouTube feed, the argument recommendation is removed while the science explainer and calm listening remain further down the page.
+00:02:10,000 --> 00:02:22,000
+Back on the real dummy YouTube feed, the refreshed page now opens with anime analysis, drawing, coding, and lessons. Research, calculus, manga, and science keep appearing as we scroll.
 
 14
-00:02:20,000 --> 00:02:30,000
-On Bluesky, the selected first post is absent and another recommendation moves into view. We show the recorded result exactly as it appeared.
+00:02:22,000 --> 00:02:33,000
+Bluesky remains a mixed Discover feed, but science and art now recur deeper in the scroll. We show the recorded result exactly as it appeared instead of claiming a perfect rewrite.
 
 15
-00:02:30,000 --> 00:02:41,000
-The paired frames make those native changes easy to verify. They prove the immediate feedback result; the seven-topic distribution remains Curate's explicit target and practice-feed demonstration.
+00:02:33,000 --> 00:02:43,000
+The paired frames make the visible sample change easy to inspect. The seven-topic distribution remains Curate's explicit target and measured practice-feed demonstration.
 
 16
-00:02:41,000 --> 00:02:53,000
+00:02:43,000 --> 00:02:55,000
 Copy Feed follows the same pattern. Choose YouTube as the source, Bluesky as the destination, and preview what transfers cleanly before continuing.
 
 17
-00:02:53,000 --> 00:03:07,000
+00:02:55,000 --> 00:03:09,000
 Incognito creates a temporary feed for a conference, trip, or study session. Choose its purpose and duration, start it, then close it immediately or let it expire without changing the usual Passport.
 
 18
-00:03:07,000 --> 00:03:19,000
+00:03:09,000 --> 00:03:21,000
 Blend lets two people make a shared view without merging their accounts. The first person chooses what to share, and the second person independently chooses what they bring.
 
 19
-00:03:19,000 --> 00:03:31,000
+00:03:21,000 --> 00:03:40,000
 Only after both choices are visible does the shared view activate. Either person can stop it, leaving both original Passports intact.
 
 20
-00:03:31,000 --> 00:03:37,000
+00:03:40,000 --> 00:03:48,000
 Curate makes the whole loop understandable: show what you have, describe what you want, let the agent plan it, and see what changed.

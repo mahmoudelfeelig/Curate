@@ -71,9 +71,9 @@ Choose its purpose and duration, start it, then close it immediately or let it e
 Blend lets two people build a shared view while keeping both accounts separate. The first person chooses what to share, and the second person chooses what they bring.
 
 19
-00:02:55,000 --> 00:03:05,000
+00:02:55,000 --> 00:03:04,000
 Only after both choices are visible does the shared view activate. Either person can stop it, and both original Passports remain intact.
 
 20
-00:03:05,000 --> 00:03:06,000
+00:03:04,000 --> 00:03:05,000
 Curate makes feed changes understandable: show what you have, describe what you want, let the agent plan it, and see what changed.

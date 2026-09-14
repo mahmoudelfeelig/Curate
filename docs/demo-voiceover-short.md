@@ -1,21 +1,43 @@
-# Curate short voiceover
+# Curate demo voiceover
 
-Target read: about ninety seconds. Read conversationally and leave a short breath wherever the screen changes.
+Target read: about three minutes. Read conversationally and leave a short breath wherever the screen changes.
 
-This is the starting point on our dummy YouTube account. And this is the dummy Bluesky feed before curation.
+This is the starting point on our dummy YouTube account. The first recommendation is an argument video, while useful science and calm listening sit lower in the feed.
 
-Recommendation feeds learn us for years, then new accounts make us start over. Curate turns what you want into a portable Passport that works across platforms.
+On Bluesky, a political post leads Discover. These labels simply mark what is already visible so the change is easy to follow.
 
-You can ask naturally: less ragebait, more science-based pages. Or give an exact mix across astronomy, coding, drawing, anime, and fragrance.
+Curate starts with one question: what do you want your feed to feel like?
 
-Paste a few YouTube and Bluesky links. Descriptions are optional. The agent reads the sample, turns the request into a plan, and tests it in a bounded practice feed.
+You can answer naturally: less ragebait and more science-based pages. Then paste a few links from the feed you have now. The links are enough; descriptions are optional.
 
-Curate measures the shift instead of stopping at a list of suggested actions. Here is the YouTube feed after the change. And here is Bluesky after the same intent was translated.
+Curate turns that request into a Passport: a portable statement of your interests, boundaries, and priorities.
 
-Copy Feed carries the useful parts of your taste from one app to another. Curate shows what transfers cleanly, what needs another route, and how to roll back.
+If you know the exact balance you want, you can give that too. Here, astronomy gets half the feed, followed by coding, drawing, Naruto, One Piece, perfumes, and anime. The percentages stay exactly as written.
 
-Incognito creates a temporary feed for a conference, trip, or deep-work session. It expires automatically, or you can close it immediately without changing your normal feed.
+Now the agent reads the request, maps it to the controls each platform supports, and checks the expected shift before anything reaches an account.
 
-Blend creates a shared view from selected tastes without merging accounts.
+The same planning path is deployed on AWS. This retained check shows AgentCore ready and a Bedrock plan returned without making account changes.
 
-Natural language in, a feed that feels like yours out, and a way back.
+For the demo, the returned plan runs in a bounded practice feed. We can inspect its actions, start the run, and measure the content-level result.
+
+The comparison makes the target visible: less unwanted conflict, more of the requested subjects, and the exact topic mix preserved.
+
+The practice run can also restore its starting state, so the full route has a tested way back.
+
+Now compare the real dummy feeds. On YouTube, the argument recommendation has been removed while the science explainer and calm listening remain.
+
+On Bluesky, the selected top post is gone and a different recommendation moves up. The paired frames keep the before and after result next to each other.
+
+Copy Feed teaches the same pattern. Choose the source account, choose the destination, and preview how the Passport translates to the controls available there.
+
+The result shows what carries over cleanly and what needs a different route. You can review that before applying anything.
+
+Incognito creates a temporary feed for a conference, trip, study session, or anything you do not want folded into your usual recommendations.
+
+Choose its purpose and duration, start it, then close it immediately or let it expire. Your normal Passport stays unchanged.
+
+Blend lets two people build a shared view while keeping both accounts separate. The first person chooses what to share, and the second person chooses what they bring.
+
+Only after both choices are visible does the shared view activate. Either person can stop it, and both original Passports remain intact.
+
+Curate makes feed changes understandable: show what you have, describe what you want, let the agent plan it, and see what changed.

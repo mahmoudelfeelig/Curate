@@ -1,80 +1,79 @@
 1
-00:00:00,000 --> 00:00:04,000
-This is the starting point on our dummy YouTube account.
+00:00:00,000 --> 00:00:10,000
+This is the starting point on our dummy YouTube account. The first recommendation is an argument video, while useful science and calm listening sit lower in the feed.
 
 2
-00:00:04,000 --> 00:00:08,000
-And this is the dummy Bluesky feed before curation.
+00:00:10,000 --> 00:00:20,000
+On Bluesky, a political post leads Discover. These labels simply mark what is already visible so the change is easy to follow.
 
 3
-00:00:08,000 --> 00:00:15,000
-Recommendation feeds learn us for years,
-then new accounts make us start over.
+00:00:20,000 --> 00:00:25,000
+Curate starts with one question: what do you want your feed to feel like?
 
 4
-00:00:15,000 --> 00:00:22,000
-Curate turns what you want into a portable Passport
-that works across platforms.
+00:00:25,000 --> 00:00:36,000
+You can answer naturally: less ragebait and more science-based pages. Then paste a few links from the feed you have now. The links are enough; descriptions are optional.
 
 5
-00:00:22,000 --> 00:00:29,000
-You can ask naturally: less ragebait,
-more science-based pages.
+00:00:36,000 --> 00:00:43,000
+Curate turns that request into a Passport: a portable statement of your interests, boundaries, and priorities.
 
 6
-00:00:29,000 --> 00:00:36,000
-Or give an exact mix across astronomy, coding,
-drawing, anime, and fragrance.
+00:00:43,000 --> 00:00:56,000
+If you know the exact balance you want, you can give that too. Here, astronomy gets half the feed, followed by coding, drawing, Naruto, One Piece, perfumes, and anime. The percentages stay exactly as written.
 
 7
-00:00:36,000 --> 00:00:43,000
-Paste a few YouTube and Bluesky links.
-Descriptions are optional.
+00:00:56,000 --> 00:01:05,000
+Now the agent reads the request, maps it to the controls each platform supports, and checks the expected shift before anything reaches an account.
 
 8
-00:00:43,000 --> 00:00:52,000
-The agent reads the sample, turns the request into a plan,
-and tests it in a bounded practice feed.
+00:01:05,000 --> 00:01:14,000
+The same planning path is deployed on AWS. This retained check shows AgentCore ready and a Bedrock plan returned without making account changes.
 
 9
-00:00:52,000 --> 00:00:59,000
-Curate measures the shift instead of stopping
-at a list of suggested actions.
+00:01:14,000 --> 00:01:24,000
+For the demo, the returned plan runs in a bounded practice feed. We can inspect its actions, start the run, and measure the content-level result.
 
 10
-00:00:59,000 --> 00:01:04,000
-Here is the YouTube feed after the change.
+00:01:24,000 --> 00:01:33,000
+The comparison makes the target visible: less unwanted conflict, more of the requested subjects, and the exact topic mix preserved.
 
 11
-00:01:04,000 --> 00:01:08,000
-And here is Bluesky after the same intent was translated.
+00:01:33,000 --> 00:01:40,000
+The practice run can also restore its starting state, so the full route has a tested way back.
 
 12
-00:01:08,000 --> 00:01:15,000
-Copy Feed carries the useful parts of your taste
-from one app to another.
+00:01:40,000 --> 00:01:51,000
+Now compare the real dummy feeds. On YouTube, the argument recommendation has been removed while the science explainer and calm listening remain.
 
 13
-00:01:15,000 --> 00:01:22,000
-Curate shows what transfers cleanly,
-what needs another route, and how to roll back.
+00:01:51,000 --> 00:02:02,000
+On Bluesky, the selected top post is gone and a different recommendation moves up. The paired frames keep the before and after result next to each other.
 
 14
-00:01:22,000 --> 00:01:29,000
-Incognito creates a temporary feed for a conference,
-trip, or deep-work session.
+00:02:02,000 --> 00:02:13,000
+Copy Feed teaches the same pattern. Choose the source account, choose the destination, and preview how the Passport translates to the controls available there.
 
 15
-00:01:29,000 --> 00:01:36,000
-It expires automatically, or you can close it immediately
-without changing your normal feed.
+00:02:13,000 --> 00:02:21,000
+The result shows what carries over cleanly and what needs a different route. You can review that before applying anything.
 
 16
-00:01:36,000 --> 00:01:42,000
-Blend creates a shared view from selected tastes
-without merging accounts.
+00:02:21,000 --> 00:02:32,000
+Incognito creates a temporary feed for a conference, trip, study session, or anything you do not want folded into your usual recommendations.
 
 17
-00:01:42,000 --> 00:01:48,000
-Natural language in, a feed that feels like yours out,
-and a way back.
+00:02:32,000 --> 00:02:42,000
+Choose its purpose and duration, start it, then close it immediately or let it expire. Your normal Passport stays unchanged.
+
+18
+00:02:42,000 --> 00:02:55,000
+Blend lets two people build a shared view while keeping both accounts separate. The first person chooses what to share, and the second person chooses what they bring.
+
+19
+00:02:55,000 --> 00:03:05,000
+Only after both choices are visible does the shared view activate. Either person can stop it, and both original Passports remain intact.
+
+20
+00:03:05,000 --> 00:03:10,000
+Curate makes feed changes understandable: show what you have, describe what you want, let the agent plan it, and see what changed.

@@ -12,6 +12,7 @@ import {
   parseLoudnormAnalysis,
   validateSrtCaptions,
 } from "../scripts/finalize-demo-media.mjs";
+import { DEMO_RUNTIME_BOUNDS_MS } from "../scripts/demo-storyboard.mjs";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 
@@ -115,8 +116,11 @@ test("captions cover the complete voiceover without overrunning the verified cut
     assert.ok(cue.text.length > 0, "caption cues must contain text");
     previousEnd = cue.end;
   }
-  assert.ok(previousEnd <= 108, "captions must end within the planned demo cut");
-  assert.deepEqual(validateSrtCaptions(srt, 108), { cueCount: 17, endsAtSeconds: 108 });
+  const plannedDurationSeconds = 190;
+  assert.ok(plannedDurationSeconds * 1000 >= DEMO_RUNTIME_BOUNDS_MS.minimum);
+  assert.ok(plannedDurationSeconds * 1000 <= DEMO_RUNTIME_BOUNDS_MS.maximum);
+  assert.ok(previousEnd <= plannedDurationSeconds, "captions must end within the planned demo cut");
+  assert.deepEqual(validateSrtCaptions(srt, plannedDurationSeconds), { cueCount: 20, endsAtSeconds: 190 });
 
   const spokenParagraphs = voiceover
     .split(/\r?\n\r?\n/)

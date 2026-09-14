@@ -47,6 +47,15 @@ class FeedGoalTests(unittest.TestCase):
         self.assertGreater(result["science"], 0)
         self.assertTrue(math.isclose(sum(result.values()), 1.0, abs_tol=0.000001))
 
+    def test_ragebait_direction_is_a_cross_cutting_guardrail_not_a_topic(self) -> None:
+        current = {"research": 0.6, "drawing": 0.4}
+
+        result = target_topics_for_goal("Reduce ragebait.", current)
+
+        self.assertFalse(has_relative_topic_directions("Reduce ragebait."))
+        self.assertEqual(result, current)
+        self.assertNotIn("ragebait", result)
+
     def test_mixed_goal_locks_explicit_share_and_biases_only_remainder(self) -> None:
         result = target_topics_for_goal(
             "Keep 50% astronomy, add more coding, and show less drawing.",
@@ -57,19 +66,18 @@ class FeedGoalTests(unittest.TestCase):
         self.assertGreater(result["coding"], result["drawing"])
         self.assertTrue(math.isclose(sum(result.values()), 1.0, abs_tol=0.000001))
 
-    def test_underfilled_mix_preserves_existing_topics_in_the_remainder(self) -> None:
+    def test_underfilled_exact_mix_assigns_implicit_remainder_to_exploration(self) -> None:
         result = target_topics_for_goal(
-            "Make it 50% astronomy and 20% coding.",
+            "Make it 60% pet science and 20% cute drawing.",
             {"research": 0.75, "drawing": 0.25},
         )
 
         self.assertEqual(
             result,
             {
-                "astronomy": 0.5,
-                "coding": 0.2,
-                "drawing": 0.075,
-                "research": 0.225,
+                "cute_drawing": 0.2,
+                "exploration": 0.2,
+                "pet_science": 0.6,
             },
         )
 

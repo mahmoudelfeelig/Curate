@@ -1552,6 +1552,11 @@ test("browser-local feed evidence supports vague goals, before/after comparison,
     assert.equal(before.data.snapshot.items[0].metadata_source, "user_selected_link_only");
     assert.match(before.data.snapshot.claim_boundary, /No provider metadata/i);
     assert.ok(before.data.proposal.target_topic_weights.science > 0);
+    assert.equal(Object.hasOwn(before.data.proposal.target_topic_weights, "ragebait"), false);
+    assert.equal(
+      Math.round(Object.values(before.data.proposal.target_topic_weights).reduce((sum, value) => sum + value, 0) * 1_000_000),
+      1_000_000,
+    );
     assert.equal(before.data.proposal.passport_changes.hard_exclusions.includes("ragebait"), true);
 
     const applied = await feedPassportApi.applyFeedEvidence(
@@ -1608,6 +1613,40 @@ test("browser-local feed evidence preserves a detailed 100 percent topic request
       naruto: 0.1,
       one_piece: 0.05,
       perfumes: 0.05,
+    });
+    assert.equal(
+      Object.values(result.data.proposal.target_topic_weights).reduce((sum, value) => sum + value, 0),
+      1,
+    );
+  } finally {
+    if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
+    else globalThis.__CURATOR_API_URL__ = previousBase;
+    if (previousLegacyBase === undefined) delete globalThis.__FEED_PASSPORT_API_BASE__;
+    else globalThis.__FEED_PASSPORT_API_BASE__ = previousLegacyBase;
+  }
+});
+
+test("browser-local feed evidence makes an underfilled exact mix complete with exploration", async () => {
+  const previousBase = globalThis.__CURATOR_API_URL__;
+  const previousLegacyBase = globalThis.__FEED_PASSPORT_API_BASE__;
+  delete globalThis.__CURATOR_API_URL__;
+  delete globalThis.__FEED_PASSPORT_API_BASE__;
+  try {
+    const { feedPassportApi } = await import(`./apiClient.js?implicit-remainder=${Date.now()}`);
+    await feedPassportApi.loadPassport();
+    const result = await feedPassportApi.analyzeFeedEvidence({
+      goal: "Make it 60% pet science and 20% cute drawing.",
+      stage: "before",
+      links: [{
+        url: "https://www.youtube.com/watch?v=abcdefghijk",
+        note: "A veterinary explainer illustrated with a cute drawing.",
+      }],
+    });
+
+    assert.deepEqual(result.data.proposal.target_topic_weights, {
+      cute_drawing: 0.2,
+      exploration: 0.2,
+      pet_science: 0.6,
     });
     assert.equal(
       Object.values(result.data.proposal.target_topic_weights).reduce((sum, value) => sum + value, 0),

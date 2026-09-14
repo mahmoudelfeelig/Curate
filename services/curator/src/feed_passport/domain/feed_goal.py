@@ -49,6 +49,7 @@ _GENERIC_TOPIC_SUFFIXES = frozenset(
         "videos",
     }
 )
+_CROSS_CUTTING_CONSTRAINTS = frozenset({"ragebait", "rage_bait", "outrage"})
 
 
 def has_explicit_topic_targets(goal: str) -> bool:
@@ -62,9 +63,12 @@ def has_relative_topic_directions(goal: str) -> bool:
 def target_topics_for_goal(goal: str, current: Mapping[str, float]) -> dict[str, float]:
     """Resolve exact percentages and bounded relative topic directions.
 
-    Explicit percentages are immutable constraints. Relative phrases such as
-    ``more science`` or ``less ragebait`` can only shape the unallocated share.
-    A goal without either form of topic direction preserves the current mix.
+    Explicit percentages are immutable constraints. An exact-only mix that
+    leaves room assigns that implicit remainder to exploration, so unrelated
+    topics from the current Passport do not silently enter the request.
+    Relative phrases such as ``more science`` or ``less ragebait`` shape the
+    unallocated share. A goal without either form of topic direction preserves
+    the current mix.
     """
 
     explicit: dict[str, float] = {}
@@ -101,7 +105,8 @@ def target_topics_for_goal(goal: str, current: Mapping[str, float]) -> dict[str,
         )
     )
     result = dict(explicit)
-    if remaining > 0 and remainder_phrase:
+    exact_only = bool(explicit) and not (increased or decreased or removed)
+    if remaining > 0 and (remainder_phrase or exact_only):
         result["exploration"] = remaining
     elif remaining > 0:
         flexible = {
@@ -135,7 +140,7 @@ def _relative_topics(goal: str) -> tuple[set[str], set[str], set[str]]:
     for match in _RELATIVE_TARGET.finditer(goal):
         direction = " ".join(match.group("direction").casefold().split())
         topic = _relative_topic_slug(match.group("topic"))
-        if topic is None:
+        if topic is None or topic in _CROSS_CUTTING_CONSTRAINTS:
             continue
         if direction in _MORE_DIRECTIONS:
             increased.add(topic)

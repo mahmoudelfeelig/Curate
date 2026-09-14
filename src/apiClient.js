@@ -668,7 +668,7 @@ function fixtureGoalTargets(goal, current) {
     while (["account", "accounts", "channel", "channels", "content", "creator", "creators", "page", "pages", "post", "posts", "video", "videos"].includes(tokens.at(-1))) tokens.pop();
     if (tokens.at(-1) === "based") tokens.pop();
     const topic = evidenceTopicSlug(tokens.join(" "));
-    if (!topic) continue;
+    if (!topic || ["ragebait", "rage_bait", "outrage"].includes(topic)) continue;
     if (["more", "increase", "increased", "boost", "prioritize", "prioritise", "focus on"].includes(direction)) increased.add(topic);
     else if (["less", "fewer", "reduce", "decrease", "decreased", "cut back on"].includes(direction)) decreased.add(topic);
     else removed.add(topic);
@@ -683,7 +683,8 @@ function fixtureGoalTargets(goal, current) {
   if (!fixed.size && !increased.size && !decreased.size && !removed.size) return roundedTopicMix(current);
   const result = { ...explicit };
   const remaining = Math.max(0, 1 - explicitTotal);
-  if (remaining && /(?:remainder|rest)\s+(?:exploratory|exploration)/i.test(goal)) {
+  const exactOnly = fixed.size && !increased.size && !decreased.size && !removed.size;
+  if (remaining && (exactOnly || /(?:remainder|rest)\s+(?:exploratory|exploration)/i.test(goal))) {
     result.exploration = remaining;
     return roundedTopicMix(result, fixed);
   }

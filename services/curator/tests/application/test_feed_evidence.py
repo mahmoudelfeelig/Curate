@@ -142,8 +142,7 @@ class FeedEvidenceServiceTests(unittest.TestCase):
             actor_id="person-a",
             passport_id=self.passport.id,
             goal=(
-                "Reduce ragebait. Make my feed 60% pet science and 20% cute drawing; "
-                "keep the remainder exploratory."
+                "Reduce ragebait. Make my feed 60% pet science and 20% cute drawing."
             ),
             stage="before",
             links=(EvidenceLink("https://bsky.app/profile/pets.example/post/3abc"),),
@@ -330,8 +329,7 @@ class FeedEvidenceServiceTests(unittest.TestCase):
             actor_id="person-a",
             passport_id=self.passport.id,
             goal=(
-                "Reduce ragebait. Make this 60% pet science and 20% cute drawing; "
-                "keep the remainder exploratory."
+                "Reduce ragebait. Make this 60% pet science and 20% cute drawing."
             ),
             stage="before",
             links=(
@@ -363,8 +361,7 @@ class FeedEvidenceServiceTests(unittest.TestCase):
             actor_id="person-a",
             passport_id=self.passport.id,
             goal=(
-                "Reduce ragebait. Make this 60% pet science and 20% cute drawing; "
-                "keep the remainder exploratory."
+                "Reduce ragebait. Make this 60% pet science and 20% cute drawing."
             ),
             stage="before",
             links=(EvidenceLink("https://www.instagram.com/p/other123/", "calm"),),

@@ -1,0 +1,6 @@
+FROM cloudflare/cloudflared@sha256:b269e8abd07a5bf6f3f4be65d5050b2174eca89c56a0241a8ff32a16aec454e4
+
+COPY deploy/hetzner/tunnel.yml /etc/cloudflared/config.yml
+
+CMD ["tunnel", "--protocol", "http2", "--config", "/etc/cloudflared/config.yml", "run", "curate"]
+

@@ -5,7 +5,7 @@ Date: 14 September 2026
 This report covers the current append-only integration work built on the public,
 sanitized 40-commit baseline
 `d6727618fbe9339d1c95281806498002096dbdbd`. The public repository is
-[mahmoudelfeelig/feed-passport](https://github.com/mahmoudelfeelig/feed-passport).
+[mahmoudelfeelig/curate](https://github.com/mahmoudelfeelig/curate).
 The source-binding manifest is committed only after the implementation and
 documentation commits so its clean-tree gate can bind the final indexed source.
 

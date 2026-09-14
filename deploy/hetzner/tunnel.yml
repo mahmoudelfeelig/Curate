@@ -1,0 +1,16 @@
+tunnel: a31914a7-cd19-4bd1-a9ba-56f1bf559440
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: curate-api.elfeel.me
+    service: http://curate-api:8000
+  - hostname: curate-oauth.elfeel.me
+    path: ^/health$
+    service: http://curate-oauth:4310
+  - hostname: curate-oauth.elfeel.me
+    path: ^/oauth/atproto/(client-metadata\.json|jwks\.json|callback)$
+    service: http://curate-oauth:4310
+  - hostname: curate-oauth.elfeel.me
+    service: http_status:404
+  - service: http_status:404
+

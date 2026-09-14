@@ -1,0 +1,16 @@
+.git
+.github
+.cache
+.dist-backup-*
+.pytest_cache
+.venv
+.wrangler
+artifacts
+dist
+node_modules
+services/atproto-oauth/node_modules
+services/curator/.pytest_cache
+services/curator/.venv
+services/curator/artifacts
+services/curator/build
+

@@ -740,10 +740,8 @@ try {
   await page.locator(".manifest-actions").waitFor({ timeout: 15_000 });
   visibleEvidence.copy_feed_previewed = true;
   await center(page.locator(".translation-loss"), 4_500);
-  await page.locator(".approval-block button").click();
-  await page.locator(".approval-block .success-note").waitFor({ timeout: 15_000 });
   visibleEvidence.copy_feed_result_shown = true;
-  await showGuide("Preview ready", "Curate shows what transfers and what needs a different route.", 3_500);
+  await showGuide("Translation ready", "Curate shows what transfers and what needs a different route before you continue.", 3_500);
   visibleEvidence.tutorial_features_shown.push("tune", "copy");
 
   await showChapter("incognito");

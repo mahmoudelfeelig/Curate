@@ -128,7 +128,7 @@ async function executeGuidedMigration(page) {
       && /^\/api\/migrations\/[^/]+\/execute$/.test(parsed.pathname);
   });
   await page.getByRole("button", {
-    name: /^(?:PREPARE GUIDED HANDOFF|APPLY TRANSLATED PLAN)$/,
+    name: /^(?:PREPARE MY STEPS|PREPARE GUIDED HANDOFF|APPLY TRANSLATED PLAN)$/,
   }).click();
   const response = await responsePromise;
   assert(response.ok(), `Migration execution returned HTTP ${response.status()}`);

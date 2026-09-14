@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
 
 import {
   DEMO_RUNTIME_BOUNDS_MS,
   autonomousRunStory,
   demoChapters,
+  demoPersonas,
+  demoVideo,
   exactTopicTarget,
   managedAwsProof,
   platformFeedStory,
@@ -12,6 +16,8 @@ import {
   tutorialFeatures,
   validateDemoStoryboard,
 } from "../scripts/demo-storyboard.mjs";
+
+const projectRoot = path.resolve(import.meta.dirname, "..");
 
 test("the silent demo is a complete two-to-four minute tutorial", () => {
   assert.equal(validateDemoStoryboard(), true);
@@ -23,15 +29,53 @@ test("the silent demo is a complete two-to-four minute tutorial", () => {
 });
 
 test("every platform state annotates multiple recorded sequence frames", () => {
+  let totalLabels = 0;
   for (const platform of ["youtube", "bluesky"]) {
     for (const phase of ["before", "after"]) {
       const scene = platformFeedStory[platform][phase];
-      assert.ok(scene.labels.length >= 2);
+      assert.ok(scene.labels.length >= 6);
       assert.ok(new Set(scene.labels.map(({ frameIndex }) => frameIndex)).size >= 2);
       assert.ok(scene.labels.every(({ text, tone, x, y, frameIndex }) => text && tone && x >= 0 && x <= 100 && y >= 0 && y <= 100 && Number.isSafeInteger(frameIndex) && frameIndex >= 0));
+      const counts = new Map();
+      for (const label of scene.labels) counts.set(label.frameIndex, (counts.get(label.frameIndex) || 0) + 1);
+      assert.ok([...counts.values()].every((count) => count >= 2));
+      assert.ok([...counts.keys()].every((frameIndex) => scene.frameHolds[frameIndex] >= demoVideo.minimumLabeledFrameHoldMs));
       assert.ok(scene.summary.length > 20);
+      totalLabels += scene.labels.length;
     }
   }
+  assert.ok(totalLabels >= 24);
+});
+
+test("the second cut stays native 720p and demonstrates five distinct personalities", () => {
+  assert.deepEqual(demoVideo, {
+    width: 1280,
+    height: 720,
+    bitrate: 11_000_000,
+    minimumLabeledFrameHoldMs: 2_500,
+    defaultFrameHoldMs: 650,
+  });
+  assert.ok(demoVideo.bitrate >= 10_000_000 && demoVideo.bitrate <= 12_000_000);
+  assert.equal(demoPersonas.length, 5);
+  assert.equal(new Set(demoPersonas.map(({ id }) => id)).size, 5);
+  assert.equal(new Set(demoPersonas.map(({ prompt }) => prompt)).size, 5);
+  assert.deepEqual(demoPersonas.map(({ feature }) => feature), ["tune", "tune", "copy", "incognito", "blend"]);
+  assert.ok(demoPersonas.every(({ prompt }) => prompt.length >= 40));
+  assert.deepEqual(
+    platformFeedStory.bluesky.after.labels
+      .filter(({ frameIndex }) => frameIndex === 8)
+      .map(({ text }) => text),
+    ["calming bird video", "still mixed: current events"],
+  );
+});
+
+test("the recorder uses compact overlays instead of explanatory slides", async () => {
+  const source = await fs.readFile(path.join(projectRoot, "scripts", "record-silent-demo.mjs"), "utf8");
+  assert.doesNotMatch(source, /function showChapter|function showGuide|function showPlatformComparison|function showAutonomousRunProof/);
+  assert.match(source, /function showBeat/);
+  assert.match(source, /function showPlatformWipe/);
+  assert.match(source, /FEED_PASSPORT_AWS_SCREENSHOT/);
+  assert.doesNotMatch(source, /https:[^"\n]+\s\|/);
 });
 
 test("the exact target and practice feed tour cannot pass without an obvious change", () => {

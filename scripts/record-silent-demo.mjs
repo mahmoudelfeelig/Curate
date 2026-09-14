@@ -15,6 +15,8 @@ import {
   DEMO_RUNTIME_BOUNDS_MS,
   autonomousRunStory,
   demoChapters,
+  demoPersonas,
+  demoVideo,
   exactTopicTarget,
   managedAwsProof,
   platformFeedStory,
@@ -29,6 +31,7 @@ const baseUrl = process.env.FEED_PASSPORT_BASE_URL || "http://127.0.0.1:5173";
 const apiUrl = process.env.FEED_PASSPORT_API_URL || "http://127.0.0.1:8000";
 const acknowledgement = process.env.FEED_PASSPORT_DEMO_RECORDING_ACK || "";
 const platformCaptureManifestPath = process.env.FEED_PASSPORT_PLATFORM_CAPTURE_MANIFEST || "";
+const awsScreenshotPath = process.env.FEED_PASSPORT_AWS_SCREENSHOT || "";
 const pace = Number(process.env.FEED_PASSPORT_DEMO_PACE_SCALE || "1");
 const localModelWaitMs = 310_000;
 const runName = `curate-silent-demo-${new Date().toISOString().replaceAll(/[:.]/g, "-")}`;
@@ -46,23 +49,24 @@ const managedProofDirectory = path.resolve(
     || path.join(projectRoot, "artifacts", "local", "judge-access"),
 );
 
-const vagueGoal = "I want less ragebait and more science-based pages.";
-const exactGoal = "Make it 50% astronomy, 15% coding, 12% drawing, 3% anime, 10% Naruto, 5% One Piece, and 5% perfumes.";
+const personaById = Object.fromEntries(demoPersonas.map((persona) => [persona.id, persona]));
+const vagueGoal = personaById["tune-vague"].prompt;
+const exactGoal = personaById["precise-mix"].prompt;
 const beforeLinks = [
-  "https://www.youtube.com/watch?v=b4RageBt001 | Shocking political argument engineered as ragebait.",
-  "https://www.youtube.com/watch?v=b4DramaBt02 | Furious celebrity drama with no useful context.",
-  "https://www.youtube.com/watch?v=b4SpaceSc03 | An outrage-heavy space claim with no source.",
-  "https://bsky.app/profile/noise.curate/post/3before01 | Ragebait about a creator feud.",
-  "https://bsky.app/profile/noise.curate/post/3before02 | Shocking political outrage from the same loud account.",
-  "https://bsky.app/profile/noise.curate/post/3before03 | Another furious drama thread from the same source.",
+  "https://www.youtube.com/watch?v=b4RageBt001",
+  "https://www.youtube.com/watch?v=b4DramaBt02",
+  "https://www.youtube.com/watch?v=b4SpaceSc03",
+  "https://bsky.app/profile/noise.curate/post/3before01",
+  "https://bsky.app/profile/noise.curate/post/3before02",
+  "https://bsky.app/profile/noise.curate/post/3before03",
 ].join("\n");
 const afterLinks = [
-  "https://www.youtube.com/watch?v=afSpaceSc01 | A calm astronomy explainer citing a telescope study.",
-  "https://www.youtube.com/watch?v=afCodeSci02 | A practical coding lesson with a working example.",
-  "https://www.youtube.com/watch?v=afDrawArt03 | A quiet drawing process from sketch to final illustration.",
-  "https://bsky.app/profile/anime.curate/post/3after001 | Anime analysis comparing Naruto character arcs.",
-  "https://bsky.app/profile/manga.curate/post/3after002 | A thoughtful One Piece world-building thread.",
-  "https://bsky.app/profile/scent.curate/post/3after003 | Perfume notes and fragrance chemistry explained clearly.",
+  "https://www.youtube.com/watch?v=afSpaceSc01",
+  "https://www.youtube.com/watch?v=afCodeSci02",
+  "https://www.youtube.com/watch?v=afDrawArt03",
+  "https://bsky.app/profile/anime.curate/post/3after001",
+  "https://bsky.app/profile/manga.curate/post/3after002",
+  "https://bsky.app/profile/scent.curate/post/3after003",
 ].join("\n");
 
 function assertLoopbackOrigin(value, label) {
@@ -190,7 +194,7 @@ async function condenseWaitingTime(executablePath, sourcePath, destinationPath, 
   await editPage.setContent(`
     <input id="source" type="file" accept="video/webm">
     <video id="video" muted playsinline></video>
-    <canvas id="canvas" width="1440" height="900"></canvas>
+    <canvas id="canvas" width="${demoVideo.width}" height="${demoVideo.height}"></canvas>
   `);
   await editPage.locator("#source").setInputFiles(sourcePath);
   const metadata = await editPage.evaluate(async () => {
@@ -208,7 +212,7 @@ async function condenseWaitingTime(executablePath, sourcePath, destinationPath, 
   if (!segments.length) throw new Error("The wait-condensing edit removed the entire recording.");
 
   const downloadPromise = editPage.waitForEvent("download", { timeout: 600_000 });
-  const encoding = editPage.evaluate(async ({ requestedSegments }) => {
+  const encoding = editPage.evaluate(async ({ requestedSegments, videoBitrate }) => {
     const video = document.querySelector("#video");
     const canvas = document.querySelector("#canvas");
     const drawing = canvas.getContext("2d", { alpha: false });
@@ -217,7 +221,7 @@ async function condenseWaitingTime(executablePath, sourcePath, destinationPath, 
     const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type));
     if (!mimeType) throw new Error("This browser cannot encode a WebM canvas recording.");
     const chunks = [];
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5_500_000 });
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: videoBitrate });
     recorder.addEventListener("dataavailable", (event) => {
       if (event.data.size) chunks.push(event.data);
     });
@@ -253,7 +257,7 @@ async function condenseWaitingTime(executablePath, sourcePath, destinationPath, 
       mimeType,
       outputDurationMs: requestedSegments.reduce((sum, segment) => sum + segment.end - segment.start, 0),
     };
-  }, { requestedSegments: segments });
+  }, { requestedSegments: segments, videoBitrate: demoVideo.bitrate });
   const [download, result] = await Promise.all([downloadPromise, encoding]);
   await download.saveAs(destinationPath);
   await editPage.locator("#source").setInputFiles(destinationPath);
@@ -357,6 +361,27 @@ async function managedProofAttestation() {
   };
 }
 const managedProof = await managedProofAttestation();
+async function loadAwsScreenshot() {
+  if (!awsScreenshotPath) return null;
+  const absolutePath = path.resolve(awsScreenshotPath);
+  const extension = path.extname(absolutePath).toLowerCase();
+  const mimeType = extension === ".png"
+    ? "image/png"
+    : [".jpg", ".jpeg"].includes(extension)
+      ? "image/jpeg"
+      : extension === ".webp"
+        ? "image/webp"
+        : null;
+  if (!mimeType) throw new Error("FEED_PASSPORT_AWS_SCREENSHOT must be a PNG, JPEG, or WebP image.");
+  const bytes = await fs.readFile(absolutePath);
+  if (bytes.length < 10_000) throw new Error("The AWS screenshot is unexpectedly small.");
+  return {
+    dataUrl: `data:${mimeType};base64,${bytes.toString("base64")}`,
+    file: path.basename(absolutePath),
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+  };
+}
+const awsScreenshot = await loadAwsScreenshot();
 const health = await expectOk(`${apiUrl}/health`);
 const model = await expectOk(`${apiUrl}/api/agent/model/status`);
 if (health.status !== "healthy" || model.readiness !== "ready" || model.endpoint_scope !== "loopback_only") {
@@ -394,10 +419,15 @@ const visibleEvidence = {
   reviewed_unique_items_shown: 0,
   platform_comparisons: 0,
   feed_labels_shown: 0,
+  minimum_labeled_frame_hold_ms: demoVideo.minimumLabeledFrameHoldMs,
+  prompt_personalities_shown: [],
+  full_screen_explanation_slides: 0,
   tutorial_chapters_shown: [],
   tutorial_features_shown: [],
   managed_aws_receipt_shown: false,
   managed_aws_trace_events: 0,
+  aws_console_capture_shown: false,
+  aws_cli_fallback_shown: false,
   autonomous_agent_run_shown: false,
   autonomous_agent_actions_shown: 0,
   autonomous_agent_passes_shown: 0,
@@ -423,8 +453,8 @@ const browser = await chromium.launch({
   args: ["--disable-background-networking", "--disable-component-update"],
 });
 const context = await browser.newContext({
-  viewport: { width: 1440, height: 900 },
-  recordVideo: { dir: outputDirectory, size: { width: 1440, height: 900 } },
+  viewport: { width: demoVideo.width, height: demoVideo.height },
+  recordVideo: { dir: outputDirectory, size: { width: demoVideo.width, height: demoVideo.height } },
   serviceWorkers: "block",
 });
 await context.route("**/*", async (route) => {
@@ -459,48 +489,50 @@ async function saveKeyframe(name) {
   visibleEvidence.keyframes.push(path.basename(file));
 }
 
-async function showChapter(id, milliseconds = 2_800) {
+async function showBeat(id, milliseconds = 1_250) {
   const chapter = demoChapters.find((item) => item.id === id);
   if (!chapter) throw new Error(`Unknown demo chapter ${id}.`);
   await page.evaluate((item) => {
-    document.querySelector("#curate-demo-chapter")?.remove();
-    const overlay = document.createElement("section");
-    overlay.id = "curate-demo-chapter";
+    document.querySelector("#curate-demo-beat")?.remove();
+    const overlay = document.createElement("aside");
+    overlay.id = "curate-demo-beat";
     overlay.innerHTML = `
       <style>
-        #curate-demo-chapter { position: fixed; inset: 0; z-index: 100100; display: grid; place-items: center; background: radial-gradient(circle at 72% 26%, rgba(196,61,69,.28), transparent 34%), #10192a; color: #f7edda; font-family: Georgia, serif; }
-        #curate-demo-chapter div { width: min(860px, 78vw); padding: 58px 64px; border: 1px solid rgba(247,237,218,.34); border-radius: 28px; background: rgba(20,34,55,.92); box-shadow: 0 28px 80px rgba(0,0,0,.35); }
-        #curate-demo-chapter small { color: #ef9a9f; font: 800 15px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
-        #curate-demo-chapter h2 { margin: 18px 0 14px; font-size: clamp(44px, 5vw, 72px); line-height: .98; letter-spacing: -.035em; }
-        #curate-demo-chapter p { margin: 0; max-width: 720px; color: #d8cdb8; font: 500 24px/1.45 system-ui, sans-serif; }
+        #curate-demo-beat { position: fixed; left: 22px; top: 22px; z-index: 100100; max-width: 470px; padding: 11px 15px 12px; border: 1px solid rgba(247,237,218,.48); border-left: 6px solid #c43d45; border-radius: 10px; background: rgba(11,16,32,.92); color: #f7edda; box-shadow: 0 12px 32px rgba(0,0,0,.3); font-family: system-ui, sans-serif; pointer-events: none; }
+        #curate-demo-beat small { color: #ff9b8e; font: 800 11px/1 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+        #curate-demo-beat b { display: block; margin-top: 5px; font-size: 18px; line-height: 1.15; }
+        #curate-demo-beat span { display: block; margin-top: 3px; color: #d8cdb8; font-size: 13px; line-height: 1.3; }
       </style>
-      <div><small></small><h2></h2><p></p></div>`;
+      <small></small><b></b><span></span>`;
     overlay.querySelector("small").textContent = item.eyebrow;
-    overlay.querySelector("h2").textContent = item.title;
-    overlay.querySelector("p").textContent = item.detail;
+    overlay.querySelector("b").textContent = item.title;
+    overlay.querySelector("span").textContent = item.detail;
     document.body.append(overlay);
   }, chapter);
   visibleEvidence.tutorial_chapters_shown.push(id);
   await pause(milliseconds);
-  await page.evaluate(() => document.querySelector("#curate-demo-chapter")?.remove());
+  await page.evaluate(() => document.querySelector("#curate-demo-beat")?.remove());
 }
 
-async function showGuide(title, detail, milliseconds = 2_200) {
-  await page.evaluate(({ guideTitle, guideDetail }) => {
-    document.querySelector("#curate-demo-guide")?.remove();
-    const guide = document.createElement("aside");
-    guide.id = "curate-demo-guide";
-    guide.innerHTML = `<style>
-      #curate-demo-guide { position: fixed; right: 28px; bottom: 28px; z-index: 100090; width: 390px; padding: 18px 20px; border: 1px solid rgba(247,237,218,.45); border-left: 7px solid #c43d45; border-radius: 16px; background: rgba(16,25,42,.94); color: #f7edda; box-shadow: 0 16px 40px rgba(0,0,0,.3); font-family: system-ui, sans-serif; }
-      #curate-demo-guide b { display: block; font-size: 17px; }
-      #curate-demo-guide span { display: block; margin-top: 5px; color: #d8cdb8; font-size: 14px; line-height: 1.35; }
-    </style><b></b><span></span>`;
-    guide.querySelector("b").textContent = guideTitle;
-    guide.querySelector("span").textContent = guideDetail;
-    document.body.append(guide);
-  }, { guideTitle: title, guideDetail: detail });
+async function showPersona(id, milliseconds = 2_800) {
+  const persona = personaById[id];
+  if (!persona) throw new Error(`Unknown demo persona ${id}.`);
+  await page.evaluate((item) => {
+    document.querySelector("#curate-demo-persona")?.remove();
+    const note = document.createElement("aside");
+    note.id = "curate-demo-persona";
+    note.innerHTML = `<style>
+      #curate-demo-persona { position: fixed; right: 22px; bottom: 22px; z-index: 100095; width: min(520px, calc(100vw - 44px)); padding: 13px 16px; border: 1px solid rgba(247,237,218,.5); border-radius: 10px; background: rgba(11,16,32,.94); color: #f7edda; box-shadow: 0 12px 32px rgba(0,0,0,.3); font-family: system-ui, sans-serif; pointer-events: none; }
+      #curate-demo-persona b { display: block; color: #ffb1a7; font: 800 11px/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
+      #curate-demo-persona q { display: block; margin-top: 7px; font-size: 15px; line-height: 1.35; }
+    </style><b></b><q></q>`;
+    note.querySelector("b").textContent = item.label;
+    note.querySelector("q").textContent = item.prompt;
+    document.body.append(note);
+  }, persona);
+  visibleEvidence.prompt_personalities_shown.push(id);
   await pause(milliseconds);
-  await page.evaluate(() => document.querySelector("#curate-demo-guide")?.remove());
+  await page.evaluate(() => document.querySelector("#curate-demo-persona")?.remove());
 }
 
 function frameDataUrl(frame) {
@@ -515,7 +547,16 @@ function labelsForFrame(story, frameIndex, frameCount) {
   });
 }
 
-async function showPlatformFeedCapture(capture, milliseconds = 10_500) {
+async function waitForFrame(story, frameIndex, hasLabels) {
+  const configured = Number(story.frameHolds?.[frameIndex]);
+  const requested = Number.isFinite(configured) ? configured : demoVideo.defaultFrameHoldMs;
+  const actual = hasLabels
+    ? Math.max(requested * pace, demoVideo.minimumLabeledFrameHoldMs)
+    : requested * pace;
+  await new Promise((resolve) => setTimeout(resolve, actual));
+}
+
+async function showPlatformFeedCapture(capture) {
   const scene = platformFeedStory[capture.platform]?.[capture.phase];
   if (!scene) throw new Error(`Missing storyboard for ${capture.platform}:${capture.phase}.`);
   if (!Array.isArray(capture.frames) || capture.frames.length === 0) {
@@ -534,14 +575,13 @@ async function showPlatformFeedCapture(capture, milliseconds = 10_500) {
     style.textContent = `
       #platform-feed-capture { position: fixed; inset: 0; z-index: 100000; overflow: hidden; background: #0b1020; color: #fff; font-family: system-ui, sans-serif; }
       #platform-feed-capture .feed-stage { position: absolute; inset: 0; overflow: hidden; background: #080c14; }
-      #platform-feed-capture .feed-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; opacity: 0; transform: translateY(18px); transition: opacity 260ms ease, transform 360ms cubic-bezier(.22,.74,.24,1); }
+      #platform-feed-capture .feed-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; opacity: 0; transform: translateY(10px); transition: opacity 180ms ease, transform 260ms cubic-bezier(.22,.74,.24,1); image-rendering: auto; }
       #platform-feed-capture .feed-frame.is-active { opacity: 1; transform: translateY(0); }
       #platform-feed-capture .platform-pill { position: fixed; z-index: 4; right: 24px; top: 22px; padding: 10px 15px; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: rgba(11,16,32,.82); backdrop-filter: blur(12px); font: 800 15px/1 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
       #platform-feed-capture .frame-progress { position: fixed; z-index: 4; left: 24px; top: 22px; padding: 10px 13px; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; background: rgba(11,16,32,.82); backdrop-filter: blur(12px); font: 750 13px/1 ui-monospace, monospace; }
-      #platform-feed-capture .goal { position: fixed; z-index: 4; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(840px, calc(100vw - 56px)); padding: 13px 20px; border: 1px solid rgba(255,255,255,.42); border-radius: 16px; background: rgba(11,16,32,.88); box-shadow: 0 14px 40px rgba(0,0,0,.35); text-align: center; font-weight: 800; }
+      #platform-feed-capture .goal { position: fixed; z-index: 4; left: 22px; bottom: 18px; max-width: min(720px, calc(100vw - 44px)); padding: 9px 13px; border: 1px solid rgba(255,255,255,.42); border-radius: 9px; background: rgba(11,16,32,.9); box-shadow: 0 10px 28px rgba(0,0,0,.35); font-size: 14px; font-weight: 800; }
       #platform-feed-capture .labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-      #platform-feed-capture .label { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); padding: 8px 12px; border: 2px solid currentColor; border-radius: 999px; background: rgba(11,16,32,.9); box-shadow: 0 8px 24px rgba(0,0,0,.35); font: 850 14px/1 system-ui, sans-serif; white-space: nowrap; }
-      #platform-feed-capture .label::after { content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 28px; background: currentColor; opacity: .8; }
+      #platform-feed-capture .label { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); padding: 7px 10px; border: 2px solid currentColor; border-radius: 7px; background: rgba(5,9,17,.94); box-shadow: 0 7px 20px rgba(0,0,0,.42); font: 850 16px/1 system-ui, sans-serif; white-space: nowrap; }
       #platform-feed-capture .label[data-tone="down"] { color: #ff8a92; }
       #platform-feed-capture .label[data-tone="up"] { color: #8ee0b8; }
       #platform-feed-capture .label[data-tone="change"] { color: #ffd16b; }
@@ -590,10 +630,9 @@ async function showPlatformFeedCapture(capture, milliseconds = 10_500) {
   });
   visibleEvidence.platform_frames_shown += 1;
   visibleEvidence.feed_labels_shown += firstLabels.length;
-  await pause(1_000);
+  await waitForFrame(scene, 0, firstLabels.length > 0);
   if (capture.platform === "youtube" && capture.phase === "before") await saveKeyframe("01-youtube-before-scroll");
 
-  const transitionBudget = Math.max(900, (milliseconds - 2_000) / Math.max(1, capture.frames.length - 1));
   for (const [frameIndex, frame] of capture.frames.entries()) {
     if (frameIndex === 0) continue;
     const frameLabels = labelsForFrame(scene, frameIndex, capture.frames.length);
@@ -626,10 +665,9 @@ async function showPlatformFeedCapture(capture, milliseconds = 10_500) {
     });
     visibleEvidence.platform_frames_shown += 1;
     visibleEvidence.feed_labels_shown += frameLabels.length;
-    await pause(transitionBudget);
+    await waitForFrame(scene, frameIndex, frameLabels.length > 0);
   }
   if (capture.platform === "youtube" && capture.phase === "after") await saveKeyframe("04-youtube-after-scroll");
-  await pause(1_000);
   await page.evaluate(() => document.querySelector("#platform-feed-capture")?.remove());
   visibleEvidence.platform_sequences_completed += 1;
   visibleEvidence.reviewed_unique_items_shown += capture.reviewed_unique_feed_items || 0;
@@ -641,13 +679,10 @@ async function showCapturedFeeds(phase) {
   visibleEvidence[`actual_platform_pages_${phase}`] = captures.length;
 }
 
-async function showPlatformComparison(platform, milliseconds = 5_500) {
+async function showPlatformWipe(platform, milliseconds = 4_200) {
   const selectedCaptures = Object.fromEntries(platformCaptureEvidence.captures
     .filter((capture) => capture.platform === platform)
     .map((capture) => [capture.phase, capture]));
-  const copy = platform === "youtube"
-    ? { title: "What moved in the feed", result: "before → after", detail: "Two owner-recorded samples from the same dummy account, captured around the approved change." }
-    : { title: "How the feed shifted", result: "before → after", detail: "Two owner-recorded samples from the same dummy account, captured around the approved change." };
   const comparison = platformFeedStory[platform].comparison;
   const comparisonImages = Object.fromEntries(["before", "after"].map((phase) => {
     const capture = selectedCaptures[phase];
@@ -657,37 +692,32 @@ async function showPlatformComparison(platform, milliseconds = 5_500) {
       : 0;
     return [phase, frameDataUrl(capture.frames[frameIndex])];
   }));
-  await page.evaluate(({ platformName, images, text }) => {
+  await page.evaluate(({ platformName, images }) => {
     const overlay = document.createElement("section");
-    overlay.id = "curate-feed-comparison";
+    overlay.id = "curate-feed-wipe";
     overlay.innerHTML = `<style>
-      #curate-feed-comparison { position: fixed; inset: 0; z-index: 100050; display: grid; grid-template-rows: auto 1fr auto; gap: 20px; padding: 26px; background: #10192a; color: #f7edda; font-family: system-ui, sans-serif; }
-      #curate-feed-comparison header { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
-      #curate-feed-comparison small { color: #ef9a9f; font: 800 13px/1 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
-      #curate-feed-comparison h2 { margin: 7px 0 0; font: 700 38px/1 Georgia, serif; }
-      #curate-feed-comparison header strong { color: #ffd16b; font-size: 30px; }
-      #curate-feed-comparison .pair { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-      #curate-feed-comparison figure { position: relative; min-height: 0; margin: 0; overflow: hidden; border: 1px solid rgba(247,237,218,.35); border-radius: 18px; background: #070b13; }
-      #curate-feed-comparison img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
-      #curate-feed-comparison figcaption { position: absolute; left: 14px; top: 14px; padding: 8px 12px; border-radius: 999px; background: rgba(7,11,19,.86); border: 1px solid rgba(255,255,255,.55); font: 900 14px/1 ui-monospace, monospace; letter-spacing: .08em; }
-      #curate-feed-comparison p { margin: 0; text-align: center; color: #d8cdb8; font-size: 19px; }
+      #curate-feed-wipe { position: fixed; inset: 0; z-index: 100050; overflow: hidden; background: #070b13; color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-feed-wipe img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+      #curate-feed-wipe .after { clip-path: inset(0 100% 0 0); transition: clip-path 2.7s cubic-bezier(.2,.7,.2,1); }
+      #curate-feed-wipe.reveal .after { clip-path: inset(0 0 0 0); }
+      #curate-feed-wipe .wipe-line { position: absolute; inset: 0 auto 0 0; width: 3px; background: #ffd16b; box-shadow: 0 0 20px rgba(255,209,107,.7); transition: left 2.7s cubic-bezier(.2,.7,.2,1); }
+      #curate-feed-wipe.reveal .wipe-line { left: calc(100% - 3px); }
+      #curate-feed-wipe .wipe-label { position: absolute; left: 20px; top: 18px; padding: 9px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.9); font: 850 14px/1 ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; }
+      #curate-feed-wipe .after-label { left: auto; right: 20px; color: #8ee0b8; }
     </style>
-    <header><div><small></small><h2></h2></div><strong></strong></header>
-    <div class="pair"><figure><img><figcaption>Before</figcaption></figure><figure><img><figcaption>After</figcaption></figure></div><p></p>`;
-    overlay.querySelector("small").textContent = `${platformName} · same dummy account`;
-    overlay.querySelector("h2").textContent = text.title;
-    overlay.querySelector("strong").textContent = text.result;
+    <img class="before" alt=""><img class="after" alt=""><div class="wipe-line"></div><span class="wipe-label before-label"></span><span class="wipe-label after-label"></span>`;
     const imageNodes = overlay.querySelectorAll("img");
     imageNodes[0].src = images.before;
     imageNodes[1].src = images.after;
-    overlay.querySelector("p").textContent = text.detail;
+    overlay.querySelector(".before-label").textContent = `${platformName} · before`;
+    overlay.querySelector(".after-label").textContent = `${platformName} · after`;
     document.body.append(overlay);
-    return Promise.all([...imageNodes].map((image) => image.decode()));
-  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: comparisonImages, text: copy });
-  await pause(1_000);
+    return Promise.all([...imageNodes].map((image) => image.decode())).then(() => requestAnimationFrame(() => overlay.classList.add("reveal")));
+  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: comparisonImages });
+  await pause(2_900);
   await saveKeyframe(platform === "youtube" ? "05-youtube-before-after" : "06-bluesky-before-after");
-  await pause(milliseconds - 1_000);
-  await page.evaluate(() => document.querySelector("#curate-feed-comparison")?.remove());
+  await pause(Math.max(500, milliseconds - 2_900));
+  await page.evaluate(() => document.querySelector("#curate-feed-wipe")?.remove());
   visibleEvidence.platform_comparisons += 1;
 }
 
@@ -717,125 +747,23 @@ async function collectPracticeFeedTransformation() {
   });
 }
 
-async function showPracticeFeedTransformation(data, milliseconds = 22_000) {
-  const showPhase = async (phase, phaseLabel) => {
-    await page.evaluate(({ feed, label, exactTarget, tour }) => {
-      document.querySelector("#curate-practice-tour")?.remove();
-      const overlay = document.createElement("section");
-      overlay.id = "curate-practice-tour";
-      overlay.innerHTML = `<style>
-        #curate-practice-tour { position: fixed; inset: 0; z-index: 100100; overflow: hidden; background: #10192a; color: #f7edda; font-family: system-ui, sans-serif; }
-        #curate-practice-tour .tour-head { position: absolute; inset: 0 0 auto; z-index: 4; min-height: 150px; padding: 26px 38px 20px; background: linear-gradient(#10192a 78%, rgba(16,25,42,0)); }
-        #curate-practice-tour .tour-head small { color: #ef9a9f; font: 850 13px/1 ui-monospace, monospace; letter-spacing: .11em; text-transform: uppercase; }
-        #curate-practice-tour .tour-head h2 { margin: 8px 0 0; font: 700 42px/1 Georgia, serif; }
-        #curate-practice-tour .mix { display: flex; gap: 6px; margin-top: 15px; }
-        #curate-practice-tour .mix span { border: 1px solid rgba(247,237,218,.28); border-radius: 999px; padding: 7px 10px; color: #d8cdb8; font-size: 12px; white-space: nowrap; }
-        #curate-practice-tour .mix b { color: #fff4d6; }
-        #curate-practice-tour .metric-row { position: absolute; right: 36px; top: 32px; z-index: 5; display: flex; gap: 8px; }
-        #curate-practice-tour .metric-row span { display: grid; min-width: 88px; padding: 10px 12px; border: 1px solid rgba(247,237,218,.28); border-radius: 12px; background: #17243a; color: #d8cdb8; font-size: 10px; text-align: center; text-transform: uppercase; }
-        #curate-practice-tour .metric-row b { color: #8ee0b8; font-size: 18px; }
-        #curate-practice-tour .feed-window { position: absolute; inset: 146px 0 0; overflow: hidden; }
-        #curate-practice-tour .feed-track { width: min(980px, calc(100vw - 120px)); margin: 0 auto; padding: 16px 0 120px; transform: translateY(0); transition: transform 8s cubic-bezier(.18,.62,.22,1); }
-        #curate-practice-tour.scrolling .feed-track { transform: translateY(-930px); }
-        #curate-practice-tour .feed-card { min-height: 242px; box-sizing: border-box; margin-bottom: 18px; padding: 28px 32px; border: 1px solid rgba(247,237,218,.28); border-left: 9px solid #8ee0b8; border-radius: 20px; background: #17243a; box-shadow: 0 18px 45px rgba(0,0,0,.24); }
-        #curate-practice-tour .feed-card.unwanted { border-left-color: #ff8a92; background: #2a2030; }
-        #curate-practice-tour .feed-card header { display: flex; justify-content: space-between; align-items: center; }
-        #curate-practice-tour .feed-card header b { font: 850 13px/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
-        #curate-practice-tour .feed-card header em { border-radius: 999px; padding: 7px 10px; background: rgba(255,138,146,.14); color: #ffb2b8; font-size: 12px; font-style: normal; font-weight: 800; }
-        #curate-practice-tour .feed-card p { margin: 35px 0 28px; font: 650 27px/1.3 Georgia, serif; }
-        #curate-practice-tour .feed-card footer { color: #8ee0b8; font-size: 15px; font-weight: 800; }
-      </style><header class="tour-head"><small></small><h2></h2><div class="mix"></div></header><div class="metric-row"></div><div class="feed-window"><div class="feed-track"></div></div>`;
-      overlay.querySelector(".tour-head small").textContent = `Curate practice feed · ${label}`;
-      overlay.querySelector(".tour-head h2").textContent = tour.title;
-      const mix = overlay.querySelector(".mix");
-      for (const [topic, percent] of exactTarget) {
-        const chip = document.createElement("span");
-        const value = document.createElement("b");
-        value.textContent = `${percent}% `;
-        chip.append(value, topic.replaceAll("_", " "));
-        mix.append(chip);
-      }
-      const metrics = overlay.querySelector(".metric-row");
-      for (const metric of feed.metrics) {
-        const node = document.createElement("span");
-        const match = /^(\d+%?|\d+)\s*(.*)$/.exec(metric);
-        const value = document.createElement("b");
-        value.textContent = match?.[1] || metric;
-        node.append(value, match?.[2] || "");
-        metrics.append(node);
-      }
-      const track = overlay.querySelector(".feed-track");
-      for (const card of feed.cards) {
-        const node = document.createElement("article");
-        node.className = `feed-card${card.unwanted ? " unwanted" : ""}`;
-        const head = document.createElement("header");
-        const platform = document.createElement("b");
-        platform.textContent = card.platform;
-        head.append(platform);
-        if (card.unwanted) {
-          const flag = document.createElement("em");
-          flag.textContent = "Less of this";
-          head.append(flag);
-        }
-        const copy = document.createElement("p");
-        copy.textContent = card.copy;
-        const topics = document.createElement("footer");
-        topics.textContent = card.topics;
-        node.append(head, copy, topics);
-        track.append(node);
-      }
-      document.body.append(overlay);
-    }, { feed: data[phase], label: phaseLabel, exactTarget: exactTopicTarget, tour: practiceFeedTour });
-    await pause(1_000);
-    await page.evaluate(() => document.querySelector("#curate-practice-tour")?.classList.add("scrolling"));
-    await pause(8_300);
-  };
-
-  await showPhase("before", "starting sample");
-  await showPhase("after", "curated sample");
+async function showPracticeFeedTransformation(data) {
+  await center(page.getByTestId("feed-before"), 3_600);
+  await page.evaluate(() => {
+    const firstCard = document.querySelector('[data-testid="feed-before"] .curate-feed-card');
+    firstCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+  await pause(2_200);
+  await showBeat("agent", 1_000);
+  await center(page.getByTestId("feed-after"), 4_500);
+  await page.evaluate(() => {
+    const lastCard = document.querySelector('[data-testid="feed-after"] .curate-feed-card:last-of-type');
+    lastCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+  await pause(2_500);
   await saveKeyframe("04-practice-feed-after-scroll");
-  await page.evaluate(({ changes, exactTarget }) => {
-    const overlay = document.querySelector("#curate-practice-tour");
-    overlay.classList.remove("scrolling");
-    overlay.innerHTML = `<style>
-      #curate-practice-tour { position: fixed; inset: 0; z-index: 100100; display: grid; place-items: center; background: #10192a; color: #f7edda; font-family: system-ui, sans-serif; }
-      #curate-practice-tour .result { width: min(1060px, calc(100vw - 100px)); }
-      #curate-practice-tour small { color: #ef9a9f; font: 850 13px/1 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
-      #curate-practice-tour h2 { margin: 10px 0 30px; font: 700 48px/1 Georgia, serif; }
-      #curate-practice-tour .changes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-      #curate-practice-tour .changes article { padding: 24px; border: 1px solid rgba(247,237,218,.28); border-radius: 18px; background: #17243a; }
-      #curate-practice-tour .changes b { display: block; color: #8ee0b8; font: 900 42px/1 ui-monospace, monospace; }
-      #curate-practice-tour .changes span { display: block; margin-top: 9px; color: #d8cdb8; font-size: 15px; }
-      #curate-practice-tour .target { display: flex; margin-top: 24px; overflow: hidden; border-radius: 16px; }
-      #curate-practice-tour .target span { display: grid; min-width: 75px; padding: 22px 7px; place-content: center; background: hsl(calc(350 - var(--i) * 24) 48% calc(28% + var(--i) * 2%)); text-align: center; }
-      #curate-practice-tour .target b { color: #fff4d6; font-size: 22px; }
-      #curate-practice-tour .target em { margin-top: 5px; font-size: 11px; font-style: normal; text-transform: uppercase; }
-    </style><section class="result"><small>Measured in Curate's practice feed</small><h2>The change is visible and counted</h2><div class="changes"></div><div class="target"></div></section>`;
-    const changeGrid = overlay.querySelector(".changes");
-    for (const change of changes) {
-      const node = document.createElement("article");
-      const value = document.createElement("b");
-      value.textContent = change.value;
-      const label = document.createElement("span");
-      label.textContent = change.label;
-      node.append(value, label);
-      changeGrid.append(node);
-    }
-    const target = overlay.querySelector(".target");
-    exactTarget.forEach(([topic, percent], index) => {
-      const node = document.createElement("span");
-      node.style.setProperty("--i", index);
-      node.style.flex = String(percent);
-      const value = document.createElement("b");
-      value.textContent = `${percent}%`;
-      const label = document.createElement("em");
-      label.textContent = topic.replaceAll("_", " ");
-      node.append(value, label);
-      target.append(node);
-    });
-  }, { changes: data.changes, exactTarget: exactTopicTarget });
-  await pause(Math.max(4_000, milliseconds - 18_600));
-  await page.evaluate(() => document.querySelector("#curate-practice-tour")?.remove());
+  const difference = page.locator(".difference-ticket");
+  if (await difference.count()) await center(difference, 4_000);
   visibleEvidence.practice_feed_transformation_shown = true;
   visibleEvidence.practice_feed_cards_toured = data.before.cards.length + data.after.cards.length;
   visibleEvidence.practice_feed_scroll_pixels = practiceFeedTour.minimumScrollPixels;
@@ -847,125 +775,92 @@ async function showPracticeFeedTransformation(data, milliseconds = 22_000) {
 }
 
 async function showManagedAwsProof(milliseconds = 10_500) {
-  await page.evaluate(({ presentation, attestation }) => {
-    const overlay = document.createElement("section");
-    overlay.id = "curate-aws-proof";
-    overlay.innerHTML = `<style>
-      #curate-aws-proof { position: fixed; inset: 0; z-index: 100100; display: grid; grid-template-columns: 360px minmax(0, 820px); justify-content: center; align-items: center; gap: 34px; padding: 48px; background: #0b1020; color: #f7edda; font-family: system-ui, sans-serif; }
-      #curate-aws-proof .path h2 { margin: 12px 0 34px; font: 700 43px/1.04 Georgia, serif; }
-      #curate-aws-proof .stamp { color: #ef9a9f; font: 850 12px/1 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
-      #curate-aws-proof .services { display: grid; gap: 12px; border-left: 2px solid #c43d45; padding-left: 22px; }
-      #curate-aws-proof .services div { padding: 15px 17px; border: 1px solid rgba(247,237,218,.25); border-radius: 13px; background: #17243a; }
-      #curate-aws-proof .services b { display: block; }
-      #curate-aws-proof .services span { display: block; margin-top: 4px; color: #d8cdb8; font-size: 12px; }
-      #curate-aws-proof .terminal { overflow: hidden; border: 1px solid rgba(247,237,218,.26); border-radius: 20px; background: #070b13; box-shadow: 0 28px 80px rgba(0,0,0,.42); }
-      #curate-aws-proof .terminal header { display: flex; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(247,237,218,.18); color: #9badc8; font: 750 12px/1 ui-monospace, monospace; }
-      #curate-aws-proof .events { display: grid; gap: 4px; padding: 18px; }
-      #curate-aws-proof .event { display: grid; grid-template-columns: 88px 1fr auto; gap: 15px; padding: 12px 13px; border-radius: 9px; background: rgba(23,36,58,.48); font: 700 13px/1.25 ui-monospace, monospace; opacity: 0; transform: translateY(8px); animation: traceIn .35s ease forwards; animation-delay: calc(var(--i) * .62s); }
-      #curate-aws-proof .event i { color: #8ac7ff; font-style: normal; text-transform: uppercase; }
-      #curate-aws-proof .event b { font-weight: 700; }
-      #curate-aws-proof .event span { color: #8ee0b8; }
-      #curate-aws-proof .mix-line { margin: 0 18px 18px; padding: 13px 15px; border: 1px solid rgba(255,209,107,.28); border-radius: 10px; color: #ffd16b; font: 750 12px/1.4 ui-monospace, monospace; }
-      #curate-aws-proof .cloudwatch { margin: 0 18px 12px; padding: 12px 15px; border: 1px solid rgba(138,199,255,.28); border-radius: 10px; background: rgba(23,36,58,.44); font: 700 11px/1.45 ui-monospace, monospace; }
-      #curate-aws-proof .cloudwatch header { padding: 0 0 7px; border: 0; color: #8ac7ff; text-transform: uppercase; letter-spacing: .08em; }
-      #curate-aws-proof .cloudwatch p { display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; margin: 4px 0 0; color: #d8cdb8; }
-      #curate-aws-proof .cloudwatch b { color: #8ee0b8; }
-      @keyframes traceIn { to { opacity: 1; transform: translateY(0); } }
-    </style><section class="path"><small class="stamp"></small><h2></h2><div class="services"><div><b>CloudFormation</b><span class="stack-state"></span></div><div><b>AgentCore Runtime</b><span class="runtime-state"></span></div><div><b>Amazon Bedrock</b><span>Nova Lite returns a proposal</span></div></div></section><section class="terminal"><header><span>AWS managed execution</span><span>retained trace</span></header><div class="events"></div><div class="cloudwatch"><header>CloudWatch · retained runtime log</header></div><p class="mix-line"></p></section>`;
-    overlay.querySelector("h2").textContent = presentation.title;
-    overlay.querySelector(".stamp").textContent = presentation.stamp;
-    overlay.querySelector(".stack-state").textContent = `${presentation.infrastructure.stack} · termination protected`;
-    overlay.querySelector(".runtime-state").textContent = `${presentation.infrastructure.runtime} · ${presentation.infrastructure.logRetentionDays}-day logs`;
-    const list = overlay.querySelector(".events");
-    presentation.events.forEach((event, index) => {
-      const row = document.createElement("div");
-      row.className = "event";
-      row.style.setProperty("--i", index);
-      const kind = document.createElement("i");
-      kind.textContent = event.kind;
-      const label = document.createElement("b");
-      label.textContent = event.label;
-      const detail = document.createElement("span");
-      detail.textContent = event.detail;
-      row.append(kind, label, detail);
-      list.append(row);
-    });
-    const cloudWatch = overlay.querySelector(".cloudwatch");
-    for (const event of presentation.cloudWatchEvents) {
-      const row = document.createElement("p");
-      const operation = document.createElement("b");
-      operation.textContent = event.operation;
-      const message = document.createElement("span");
-      message.textContent = event.message;
-      const duration = document.createElement("time");
-      duration.textContent = event.duration;
-      row.append(operation, message, duration);
-      cloudWatch.append(row);
-    }
-    overlay.querySelector(".mix-line").textContent = attestation.target_topics.map(({ topic, percent }) => `${percent} ${topic.replaceAll("_", " ")}`).join(" · ");
-    document.body.append(overlay);
-  }, { presentation: managedAwsProof, attestation: managedProof });
+  if (awsScreenshot) {
+    await page.evaluate(async ({ captureDataUrl }) => {
+      const overlay = document.createElement("section");
+      overlay.id = "curate-aws-capture";
+      overlay.innerHTML = `<style>
+        #curate-aws-capture { position: fixed; inset: 0; z-index: 100100; overflow: hidden; background: #fff; }
+        #curate-aws-capture img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
+        #curate-aws-capture aside { position: absolute; left: 20px; bottom: 18px; padding: 9px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.52); background: rgba(11,16,32,.92); color: #f7edda; font: 800 13px/1.2 ui-monospace, monospace; }
+      </style><img alt="Reviewed AWS CloudWatch console capture"><aside>AWS CLOUDWATCH · RETAINED AGENTCORE RUN</aside>`;
+      const image = overlay.querySelector("img");
+      image.src = captureDataUrl;
+      document.body.append(overlay);
+      await image.decode();
+    }, { captureDataUrl: awsScreenshot.dataUrl });
+    visibleEvidence.aws_console_capture_shown = true;
+  } else {
+    await page.evaluate(({ presentation }) => {
+      const note = document.createElement("aside");
+      note.id = "curate-aws-cli-proof";
+      note.innerHTML = `<style>
+        #curate-aws-cli-proof { position: fixed; right: 20px; bottom: 18px; z-index: 100100; width: min(610px, calc(100vw - 40px)); padding: 14px 16px; border: 1px solid rgba(138,199,255,.5); border-radius: 10px; background: rgba(7,11,19,.96); color: #f7edda; box-shadow: 0 14px 38px rgba(0,0,0,.38); font: 700 12px/1.35 ui-monospace, monospace; }
+        #curate-aws-cli-proof header { display: flex; justify-content: space-between; color: #8ac7ff; margin-bottom: 8px; }
+        #curate-aws-cli-proof p { display: grid; grid-template-columns: 58px 1fr auto; gap: 10px; margin: 5px 0; }
+        #curate-aws-cli-proof b { color: #8ee0b8; }
+        #curate-aws-cli-proof small { display: block; margin-top: 8px; color: #9badc8; }
+      </style><header><span>AWS CLI LOG EVIDENCE</span><span>RETAINED RUN</span></header><div></div><small>CloudWatch screenshot not supplied · showing the retained redacted CLI receipt</small>`;
+      const list = note.querySelector("div");
+      for (const event of presentation.cloudWatchEvents) {
+        const row = document.createElement("p");
+        row.innerHTML = `<b></b><span></span><time></time>`;
+        row.querySelector("b").textContent = event.operation;
+        row.querySelector("span").textContent = event.message;
+        row.querySelector("time").textContent = event.duration;
+        list.append(row);
+      }
+      document.body.append(note);
+    }, { presentation: managedAwsProof });
+    visibleEvidence.aws_cli_fallback_shown = true;
+  }
   visibleEvidence.managed_aws_receipt_shown = true;
   visibleEvidence.managed_aws_trace_events = managedAwsProof.events.length;
-  await pause(6_200);
+  await pause(5_200);
   await saveKeyframe("03-aws-managed-proof");
-  await pause(milliseconds - 6_200);
-  await page.evaluate(() => document.querySelector("#curate-aws-proof")?.remove());
+  await pause(Math.max(500, milliseconds - 5_200));
+  await page.evaluate(() => {
+    document.querySelector("#curate-aws-capture")?.remove();
+    document.querySelector("#curate-aws-cli-proof")?.remove();
+  });
 }
 
 async function showAgentWorking() {
   await page.evaluate(() => {
-    const overlay = document.createElement("section");
+    const overlay = document.createElement("aside");
     overlay.id = "curate-agent-working";
     overlay.innerHTML = `<style>
-      #curate-agent-working { position: fixed; inset: 0; z-index: 100100; display: grid; place-items: center; background: rgba(16,25,42,.97); color: #f7edda; font-family: system-ui, sans-serif; }
-      #curate-agent-working article { width: 720px; }
-      #curate-agent-working h2 { margin: 0 0 26px; font: 700 46px/1 Georgia, serif; }
-      #curate-agent-working ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-      #curate-agent-working li { padding: 16px 18px; border-radius: 13px; background: #17243a; color: #d8cdb8; opacity: .48; animation: curateStep 3.6s infinite; }
+      #curate-agent-working { position: fixed; right: 20px; bottom: 18px; z-index: 100100; width: 430px; padding: 14px 16px; border: 1px solid rgba(247,237,218,.45); border-left: 6px solid #c43d45; border-radius: 10px; background: rgba(11,16,32,.95); color: #f7edda; box-shadow: 0 14px 38px rgba(0,0,0,.35); font-family: system-ui, sans-serif; }
+      #curate-agent-working h2 { margin: 0 0 10px; font: 750 19px/1.1 Georgia, serif; }
+      #curate-agent-working ol { list-style: none; padding: 0; margin: 0; display: flex; gap: 6px; }
+      #curate-agent-working li { padding: 7px 8px; border-radius: 6px; background: #17243a; color: #d8cdb8; font-size: 11px; opacity: .48; animation: curateStep 3.6s infinite; }
       #curate-agent-working li:nth-child(2) { animation-delay: 1.2s; } #curate-agent-working li:nth-child(3) { animation-delay: 2.4s; }
       #curate-agent-working b { color: #f7edda; }
       @keyframes curateStep { 0%, 24% { opacity: .45; transform: translateX(0); } 30%, 62% { opacity: 1; transform: translateX(8px); box-shadow: inset 6px 0 #c43d45; } 70%, 100% { opacity: .45; transform: translateX(0); } }
     </style><article><h2>Curate is working</h2><ol><li><b>Understanding</b> your request</li><li><b>Mapping</b> it to each platform</li><li><b>Checking</b> the expected shift</li></ol></article>`;
     document.body.append(overlay);
   });
-  await pause(4_200);
+  await pause(3_200);
   await saveKeyframe("02-agent-working");
 }
 
-async function showAutonomousRunProof(run, milliseconds = 8_400) {
+async function showRunStatus(run, milliseconds = 5_400) {
   await page.evaluate(({ story, runEvidence }) => {
-    const overlay = document.createElement("section");
-    overlay.id = "curate-autonomous-run";
+    const overlay = document.createElement("aside");
+    overlay.id = "curate-run-status";
     overlay.innerHTML = `<style>
-      #curate-autonomous-run { position: fixed; inset: 0; z-index: 100110; display: grid; grid-template-columns: .92fr 1.08fr; gap: 34px; align-items: center; padding: 54px 70px; background: radial-gradient(circle at 12% 8%, #3c2030 0, #151f35 38%, #0b1020 100%); color: #f7edda; font-family: system-ui, sans-serif; }
-      #curate-autonomous-run .copy small { color: #ff9b8e; font: 800 13px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
-      #curate-autonomous-run h2 { margin: 18px 0 14px; max-width: 520px; font: 700 53px/.98 Georgia, serif; }
-      #curate-autonomous-run .copy > p { max-width: 510px; color: #d8cdb8; font-size: 18px; line-height: 1.5; }
-      #curate-autonomous-run .route { display: grid; gap: 11px; }
-      #curate-autonomous-run .step { display: grid; grid-template-columns: 38px 90px 1fr; align-items: center; gap: 12px; padding: 15px 17px; border: 1px solid rgba(255,255,255,.14); border-radius: 14px; background: rgba(23,36,58,.86); opacity: 0; transform: translateY(14px); animation: autonomousStep .45s forwards; animation-delay: calc(var(--i) * .7s); }
-      #curate-autonomous-run .step span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: #b62936; font-weight: 900; }
-      #curate-autonomous-run .step b { color: #ffd16b; text-transform: uppercase; letter-spacing: .06em; }
-      #curate-autonomous-run .step p { margin: 0; color: #d8cdb8; }
-      #curate-autonomous-run .result { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 18px; padding: 15px 18px; border: 1px solid rgba(142,224,184,.48); border-radius: 14px; background: rgba(40,111,83,.22); color: #8ee0b8; font: 800 15px/1.3 ui-monospace, monospace; }
-      @keyframes autonomousStep { to { opacity: 1; transform: translateY(0); } }
-    </style><div class="copy"><small>Autonomous control run</small><h2></h2><p>The person sets the outcome once. Curate chooses the route, carries out the available controls, measures the result, and stops by itself.</p></div><div class="route"></div><div class="result"><span class="actions"></span><span class="passes"></span><span class="stop"></span></div>`;
-    overlay.querySelector("h2").textContent = story.title;
+      #curate-run-status { position: fixed; left: 20px; right: 20px; bottom: 18px; z-index: 100110; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 15px; border: 1px solid rgba(142,224,184,.52); border-radius: 10px; background: rgba(7,11,19,.95); color: #f7edda; box-shadow: 0 14px 38px rgba(0,0,0,.35); font: 750 12px/1.2 ui-monospace, monospace; }
+      #curate-run-status .route { display: flex; gap: 7px; }
+      #curate-run-status .route b { padding: 6px 8px; border-radius: 6px; background: #17243a; color: #ffd16b; }
+      #curate-run-status .result { display: flex; gap: 12px; color: #8ee0b8; }
+    </style><div class="route"></div><div class="result"><span class="actions"></span><span class="passes"></span><span class="stop"></span></div>`;
     const route = overlay.querySelector(".route");
-    story.steps.forEach((step, index) => {
-      const row = document.createElement("article");
-      row.className = "step";
-      row.style.setProperty("--i", index);
-      const number = document.createElement("span");
-      number.textContent = String(index + 1);
+    story.steps.forEach((step) => {
       const label = document.createElement("b");
       label.textContent = step.label;
-      const detail = document.createElement("p");
-      detail.textContent = step.detail;
-      row.append(number, label, detail);
-      route.append(row);
+      route.append(label);
     });
-    overlay.querySelector(".actions").textContent = `${runEvidence.actions} controls applied`;
+    overlay.querySelector(".actions").textContent = `${runEvidence.actions} controls`;
     overlay.querySelector(".passes").textContent = `${runEvidence.passes} measured pass${runEvidence.passes === 1 ? "" : "es"}`;
     overlay.querySelector(".stop").textContent = runEvidence.stop;
     document.body.append(overlay);
@@ -974,7 +869,7 @@ async function showAutonomousRunProof(run, milliseconds = 8_400) {
   visibleEvidence.autonomous_agent_actions_shown = run.actions;
   visibleEvidence.autonomous_agent_passes_shown = run.passes;
   await pause(milliseconds);
-  await page.evaluate(() => document.querySelector("#curate-autonomous-run")?.remove());
+  await page.evaluate(() => document.querySelector("#curate-run-status")?.remove());
 }
 
 async function waitWithoutRecording(label, action, completion) {
@@ -992,16 +887,16 @@ try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.locator(".desk-tabs").waitFor({ state: "visible", timeout: 30_000 });
   await pause(2_000);
-  await showChapter("starting-feeds");
+  await showBeat("starting-feeds");
   await showCapturedFeeds("before");
-  await showChapter("describe");
+  await showBeat("describe");
   await openDesk("evidence");
 
   const textboxes = page.getByRole("textbox");
   await textboxes.nth(0).fill(vagueGoal);
   await textboxes.nth(1).fill(beforeLinks);
   visibleEvidence.vague_goal_shown = (await textboxes.nth(0).inputValue()) === vagueGoal;
-  await showGuide("Write it naturally", "A few links are enough. Descriptions are optional.", 3_200);
+  await showPersona("tune-vague", 3_200);
   await page.getByTestId("evidence-capture").click();
   await page.getByTestId("feed-before").waitFor({ timeout: 15_000 });
   await center(page.getByTestId("feed-before"), 4_500);
@@ -1015,6 +910,7 @@ try {
   const previousProposalId = await page.locator(".curate-result").getAttribute("data-proposal-id");
   await textboxes.nth(0).fill(exactGoal);
   visibleEvidence.exact_goal_shown = (await textboxes.nth(0).inputValue()) === exactGoal;
+  await showPersona("precise-mix", 3_800);
   await page.getByTestId("evidence-capture").click();
   await page.waitForFunction(
     (priorId) => document.querySelector(".curate-result")?.dataset.proposalId !== priorId,
@@ -1033,7 +929,7 @@ try {
   await page.locator('.curate-result[data-proposal-status="applied_to_passport"]').waitFor({ timeout: 15_000 });
   await pause(2_500);
 
-  await showChapter("agent");
+  await showBeat("agent");
   await openDesk("agent");
   const missionGoal = page.getByRole("textbox", { name: /outcome for the agent|what should curate change/i });
   await missionGoal.fill(exactGoal);
@@ -1069,7 +965,7 @@ try {
   });
   if (autonomousRun.actions < 1 || autonomousRun.passes < 1) throw new Error("The autonomous run produced no visible actions or measured passes.");
   await center(page.locator(".mission-comparison"), 5_500);
-  await showAutonomousRunProof(autonomousRun);
+  await showRunStatus(autonomousRun);
   await page.getByTestId("mission-rollback").click();
   await page.locator('.mission-ledger[data-mission-status="rolled_back"]').waitFor({
     timeout: 30_000,
@@ -1077,7 +973,7 @@ try {
   await page.getByText(/STATE VERIFIED|STARTING STATE RESTORED|START RESTORED/i).waitFor();
   missionProof.rollback_state_verified = true;
   await pause(3_500);
-  await showChapter("results");
+  await showBeat("results");
   await openDesk("evidence");
 
   const updatedTextboxes = page.getByRole("textbox");
@@ -1092,12 +988,12 @@ try {
   const practiceTransformation = await collectPracticeFeedTransformation();
   await showPracticeFeedTransformation(practiceTransformation);
   await showCapturedFeeds("after");
-  await showPlatformComparison("youtube");
-  await showPlatformComparison("bluesky");
+  await showPlatformWipe("youtube");
+  await showPlatformWipe("bluesky");
 
-  await showChapter("copy");
+  await showBeat("copy");
   await openDesk("migration");
-  await showGuide("Choose the route", "Copy from YouTube to Bluesky, then preview what carries over.", 2_800);
+  await showPersona("copy", 3_200);
   const migrationSelects = page.locator(".route-ticket select");
   await migrationSelects.nth(0).selectOption("youtube");
   await migrationSelects.nth(1).selectOption("bluesky");
@@ -1106,12 +1002,14 @@ try {
   visibleEvidence.copy_feed_previewed = true;
   await center(page.locator(".translation-loss"), 4_500);
   visibleEvidence.copy_feed_result_shown = true;
-  await showGuide("Translation ready", "Curate shows what transfers and what needs a different route before you continue.", 3_500);
+  await pause(2_800);
   visibleEvidence.tutorial_features_shown.push("tune", "copy");
 
-  await showChapter("incognito");
+  await showBeat("incognito");
   await openDesk("temporary");
-  await showGuide("Pick a purpose and duration", "This temporary feed can expire on its own.", 2_800);
+  await page.getByLabel("Visa name").fill("Architecture field day");
+  await page.getByLabel("Purpose").fill(personaById.incognito.prompt);
+  await showPersona("incognito", 3_200);
   await page.getByTestId("temporary-issue").click();
   await page.locator(".temporary-visa.active").waitFor({ timeout: 15_000 });
   visibleEvidence.incognito_issued = true;
@@ -1119,27 +1017,29 @@ try {
   await page.getByTestId("temporary-revoke").click();
   await page.locator(".temporary-visa.revoked").waitFor({ timeout: 15_000 });
   visibleEvidence.incognito_revoked = true;
-  await showGuide("Closed", "Your usual Passport is unchanged.", 3_000);
+  await pause(2_500);
   visibleEvidence.tutorial_features_shown.push("incognito");
 
-  await showChapter("blend");
+  await showBeat("blend");
   await openDesk("companion");
   await page.getByText("Shape the shared view").waitFor();
   visibleEvidence.blend_page_shown = true;
-  await showGuide("Choose what to share", "Both people keep separate accounts and Passports.", 2_800);
+  await showPersona("blend", 3_200);
+  const blendWeight = page.locator('input[type="range"]').last();
+  if (await blendWeight.count()) await blendWeight.fill("40");
   await page.locator('input[placeholder="HARBOR-1936"]').fill("CURATE-DEMO");
   await page.getByRole("button", { name: "ISSUE COMPANION INVITATION" }).click();
   await page.locator(".second-principal-consent").waitFor({ timeout: 15_000 });
   visibleEvidence.blend_invitation_created = true;
-  await showGuide("Second person chooses", "Only the selected tastes enter this shared view.", 2_800);
+  await pause(2_500);
   await page.getByRole("button", { name: "ACTIVATE SHARED VIEW" }).click();
   await page.locator(".companion-active").waitFor({ timeout: 15_000 });
   visibleEvidence.blend_activated = true;
-  await showGuide("Shared view active", "The mix stays temporary and can be stopped at any time.", 3_800);
+  await pause(3_200);
   await page.getByRole("button", { name: "STOP COMPANION SYNC" }).click();
   await page.locator(".companion-active").waitFor({ state: "detached", timeout: 15_000 });
   visibleEvidence.blend_stopped = true;
-  await showGuide("Shared view closed", "Both original Passports remain separate.", 2_800);
+  await pause(2_500);
   visibleEvidence.tutorial_features_shown.push("blend");
   await page.getByRole("button", { name: "Open Curate passport" }).click();
   await pause(5_000);
@@ -1176,6 +1076,22 @@ const report = {
     { kind: "vague", text: vagueGoal },
     { kind: "exact_100_percent_mix", text: exactGoal },
   ],
+  prompt_personalities: demoPersonas.map(({ id, feature, label, prompt }) => ({
+    id,
+    feature,
+    label,
+    prompt,
+  })),
+  aws_visual_evidence: awsScreenshot
+    ? {
+        kind: "reviewed_console_capture",
+        file: awsScreenshot.file,
+        sha256: awsScreenshot.sha256,
+      }
+    : {
+        kind: "retained_redacted_cli_receipt",
+        screenshot_supplied: false,
+      },
   evidence_classes: {
     recorded_platform_change: {
       input: vagueGoal,
@@ -1245,7 +1161,10 @@ const report = {
     && visibleEvidence.platform_frames_shown === expectedPlatformFrames
     && visibleEvidence.reviewed_unique_items_shown === expectedReviewedUniqueItems
     && visibleEvidence.platform_comparisons === 2
-    && visibleEvidence.feed_labels_shown >= 8
+    && visibleEvidence.feed_labels_shown >= 24
+    && visibleEvidence.minimum_labeled_frame_hold_ms >= 2_500
+    && new Set(visibleEvidence.prompt_personalities_shown).size === demoPersonas.length
+    && visibleEvidence.full_screen_explanation_slides === 0
     && visibleEvidence.computed_target_topic_count === exactTopicTarget.length
     && visibleEvidence.computed_target_total_percent === 100
     && exactTopicTarget.every(([topic, percent]) => visibleEvidence.computed_target_topics.some((row) => row.topic === topic && row.percent === percent))
@@ -1258,6 +1177,7 @@ const report = {
     && new Set(visibleEvidence.tutorial_features_shown).size === tutorialFeatures.length
     && visibleEvidence.managed_aws_receipt_shown
     && visibleEvidence.managed_aws_trace_events === managedAwsProof.events.length
+    && visibleEvidence.aws_console_capture_shown !== visibleEvidence.aws_cli_fallback_shown
     && visibleEvidence.autonomous_agent_run_shown
     && visibleEvidence.autonomous_agent_actions_shown >= 1
     && visibleEvidence.autonomous_agent_passes_shown >= 1
@@ -1268,8 +1188,8 @@ const report = {
     && missionProof.rollback_state_verified
     && edit.outputDurationMs >= DEMO_RUNTIME_BOUNDS_MS.minimum
     && edit.outputDurationMs <= DEMO_RUNTIME_BOUNDS_MS.maximum
-    && edit.outputWidth === 1440
-    && edit.outputHeight === 900
+    && edit.outputWidth === demoVideo.width
+    && edit.outputHeight === demoVideo.height
     && externalRequests.length === 0
     && consoleErrors.length === 0
     && pageErrors.length === 0,

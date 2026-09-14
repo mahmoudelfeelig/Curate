@@ -1,31 +1,74 @@
 export const DEMO_RUNTIME_BOUNDS_MS = Object.freeze({ minimum: 120_000, maximum: 240_000 });
 
+export const demoVideo = Object.freeze({
+  width: 1280,
+  height: 720,
+  bitrate: 11_000_000,
+  minimumLabeledFrameHoldMs: 2_500,
+  defaultFrameHoldMs: 650,
+});
+
+export const demoPersonas = Object.freeze([
+  Object.freeze({ id: "tune-vague", feature: "tune", label: "Tired doomscroller", prompt: "I doomscroll after work. Make this calmer: less outrage and creator drama, more thoughtful space, drawing, and practical science." }),
+  Object.freeze({ id: "precise-mix", feature: "tune", label: "Focused study-and-fandom mix", prompt: "I'm making a focused study-and-fandom feed: keep it at 50% astronomy, 15% coding, 12% drawing, 10% Naruto, 5% One Piece, 5% perfumes, and 3% anime. I want calm explainers, not shouting." }),
+  Object.freeze({ id: "copy", feature: "copy", label: "Switching apps", prompt: "I'm leaving YouTube for Bluesky. Carry over my astronomy, drawing, and coding taste, but leave celebrity drama behind." }),
+  Object.freeze({ id: "incognito", feature: "incognito", label: "Conference mode", prompt: "For the next six hours, turn this into a focused architecture-conference feed. When time is up, put everything back." }),
+  Object.freeze({ id: "blend", feature: "blend", label: "Weekend with a partner", prompt: "For this weekend, blend my quiet science-and-art feed with my partner's hiking and wildlife interests. Keep politics out and weight us 60/40." }),
+]);
+
+function storyLabel(text, tone, x, y, frameIndex) {
+  return Object.freeze({ text, tone, x, y, frameIndex });
+}
+
+function readableFrameHolds(...frameIndexes) {
+  return Object.freeze(Object.fromEntries(frameIndexes.map((frameIndex) => [frameIndex, 2_650])));
+}
+
 export const demoChapters = Object.freeze([
-  { id: "starting-feeds", eyebrow: "Tune your feed", title: "See what your feeds are teaching themselves", detail: "Scroll the starting recommendations and mark what should change." },
-  { id: "describe", eyebrow: "Tell Curate", title: "Describe the feed you want", detail: "Use everyday language, an exact mix, or both." },
-  { id: "agent", eyebrow: "Curate agent", title: "Turn intent into a safe plan", detail: "The agent reads the sample, maps your request, and checks the proposed shift." },
-  { id: "results", eyebrow: "Review the result", title: "See the feed change", detail: "Compare the same dummy accounts before and after." },
-  { id: "copy", eyebrow: "Copy Feed", title: "Carry your taste to another app", detail: "Choose where it comes from, where it goes, and preview the translation." },
-  { id: "incognito", eyebrow: "Incognito", title: "Borrow a different feed for a while", detail: "Pick a purpose and duration, then close it without changing your usual feed." },
-  { id: "blend", eyebrow: "Blend", title: "Build a shared feed", detail: "Choose which tastes to share while both accounts stay separate." },
+  { id: "starting-feeds", eyebrow: "Starting feeds", title: "What the feeds show now", detail: "Scroll first. Label only what is visible." },
+  { id: "describe", eyebrow: "Tune", title: "Describe the change", detail: "Everyday language and exact mixes both work." },
+  { id: "agent", eyebrow: "Agent running", title: "Curate chooses the route", detail: "Plan, apply, measure, then stop." },
+  { id: "results", eyebrow: "After", title: "Read the new feed", detail: "The content is the result." },
+  { id: "copy", eyebrow: "Copy Feed", title: "Carry taste across apps", detail: "Preview what transfers." },
+  { id: "incognito", eyebrow: "Incognito", title: "Borrow a feed for a while", detail: "It closes without changing the usual feed." },
+  { id: "blend", eyebrow: "Blend", title: "Build a shared view", detail: "Both original feeds stay separate." },
 ]);
 
 export const platformFeedStory = Object.freeze({
   youtube: Object.freeze({
-    comparison: Object.freeze({ before: Object.freeze({ frameIndex: 0 }), after: Object.freeze({ frameIndex: 0 }) }),
+    comparison: Object.freeze({ before: Object.freeze({ frameIndex: 4 }), after: Object.freeze({ frameIndex: 0 }) }),
     before: Object.freeze({
+      frameHolds: readableFrameHolds(0, 4, 8),
       labels: Object.freeze([
-        { text: "reaction-heavy start", tone: "down", x: 23, y: 34, frameIndex: 0 },
-        { text: "science appears occasionally", tone: "neutral", x: 72, y: 67, frameIndex: 4 },
-        { text: "more drama and hot takes", tone: "down", x: 50, y: 43, frameIndex: 8 },
+        storyLabel("movie hot take", "down", 22, 31, 0),
+        storyLabel("fiction commentary", "neutral", 51, 31, 0),
+        storyLabel("business explainer", "up", 80, 31, 0),
+        storyLabel("celebrity commentary", "down", 22, 24, 4),
+        storyLabel("art reaction", "neutral", 22, 62, 4),
+        storyLabel("fandom explainer", "neutral", 51, 62, 4),
+        storyLabel("fragrance chemistry", "up", 80, 62, 4),
+        storyLabel("AI hot take", "down", 22, 23, 8),
+        storyLabel("reaction compilation", "down", 51, 23, 8),
+        storyLabel("science philosophy", "up", 22, 62, 8),
+        storyLabel("philosophy explainer", "up", 51, 62, 8),
       ]),
       summary: "The starting sample leans toward reactions, drama, and broad entertainment.",
     }),
     after: Object.freeze({
+      frameHolds: readableFrameHolds(0, 4, 8),
       labels: Object.freeze([
-        { text: "anime, drawing and code lead", tone: "up", x: 50, y: 34, frameIndex: 0 },
-        { text: "research and calculus repeat", tone: "up", x: 72, y: 67, frameIndex: 4 },
-        { text: "drawing, animation and science", tone: "change", x: 50, y: 43, frameIndex: 8 },
+        storyLabel("creative motivation", "up", 22, 31, 0),
+        storyLabel("making and animation", "up", 51, 31, 0),
+        storyLabel("infinity explained", "up", 80, 31, 0),
+        storyLabel("drawing short", "up", 17, 73, 0),
+        storyLabel("drawing challenge", "up", 22, 23, 4),
+        storyLabel("education analysis", "up", 51, 23, 4),
+        storyLabel("exoplanets", "up", 80, 23, 4),
+        storyLabel("fandom analysis", "change", 51, 62, 4),
+        storyLabel("technology review", "up", 22, 23, 8),
+        storyLabel("world-building", "up", 51, 23, 8),
+        storyLabel("anime analysis", "change", 22, 62, 8),
+        storyLabel("wildlife documentary", "up", 51, 62, 8),
       ]),
       summary: "The refreshed sample visibly brings learning, drawing, anime, and science forward.",
     }),
@@ -33,18 +76,26 @@ export const platformFeedStory = Object.freeze({
   bluesky: Object.freeze({
     comparison: Object.freeze({ before: Object.freeze({ frameIndex: 0 }), after: Object.freeze({ frameIndex: 8 }) }),
     before: Object.freeze({
+      frameHolds: readableFrameHolds(1, 5, 10),
       labels: Object.freeze([
-        { text: "breaking-news loop", tone: "down", x: 50, y: 24, frameIndex: 1 },
-        { text: "political commentary", tone: "down", x: 50, y: 52, frameIndex: 5 },
-        { text: "useful posts are scattered", tone: "neutral", x: 50, y: 43, frameIndex: 10 },
+        storyLabel("political outrage", "down", 44, 18, 1),
+        storyLabel("useful nature post", "up", 43, 49, 1),
+        storyLabel("breaking-news loop", "down", 44, 24, 5),
+        storyLabel("current-events commentary", "down", 44, 57, 5),
+        storyLabel("political commentary", "down", 44, 26, 10),
+        storyLabel("useful posts stay scattered", "neutral", 44, 62, 10),
       ]),
       summary: "The starting sample mixes useful posts with a strong current-events loop.",
     }),
     after: Object.freeze({
+      frameHolds: readableFrameHolds(0, 3, 8),
       labels: Object.freeze([
-        { text: "science enters the scroll", tone: "up", x: 50, y: 24, frameIndex: 3 },
-        { text: "climate science repeats deeper", tone: "up", x: 50, y: 52, frameIndex: 8 },
-        { text: "art breaks up the news loop", tone: "change", x: 50, y: 43, frameIndex: 10 },
+        storyLabel("art and nature", "up", 43, 22, 0),
+        storyLabel("quiet personal post", "neutral", 43, 88, 0),
+        storyLabel("painting", "up", 43, 16, 3),
+        storyLabel("environment satire", "change", 43, 66, 3),
+        storyLabel("calming bird video", "up", 43, 18, 8),
+        storyLabel("still mixed: current events", "neutral", 48, 49, 8),
       ]),
       summary: "The refreshed sample is still mixed, but science and art recur through the scroll.",
     }),
@@ -76,7 +127,7 @@ export const tutorialFeatures = Object.freeze([
 ]);
 
 export const managedAwsProof = Object.freeze({
-  title: "How the managed agent built the plan",
+  title: "Retained AWS execution log",
   stamp: "Recorded managed run",
   infrastructure: Object.freeze({ stack: "UPDATE_COMPLETE", runtime: "READY", logRetentionDays: 7 }),
   cloudWatchEvents: Object.freeze([
@@ -97,28 +148,50 @@ export const managedAwsProof = Object.freeze({
 });
 
 export const autonomousRunStory = Object.freeze({
-  title: "The agent carries out the route",
+  title: "The agent ran the route",
   steps: Object.freeze([
-    Object.freeze({ label: "Choose", detail: "Pick the best available feed controls" }),
-    Object.freeze({ label: "Apply", detail: "Run the reversible changes in one bounded pass" }),
-    Object.freeze({ label: "Measure", detail: "Check whether the feed moved toward the request" }),
-    Object.freeze({ label: "Stop", detail: "Finish at the target or when no useful change remains" }),
+    Object.freeze({ label: "Choose", detail: "Best available controls selected" }),
+    Object.freeze({ label: "Apply", detail: "Reversible changes applied" }),
+    Object.freeze({ label: "Measure", detail: "New sample checked" }),
+    Object.freeze({ label: "Stop", detail: "Target or useful limit reached" }),
   ]),
 });
 
 export function validateDemoStoryboard() {
   const chapterIds = new Set(demoChapters.map(({ id }) => id));
   if (chapterIds.size !== demoChapters.length) throw new Error("Demo chapter ids must be unique.");
+  if (
+    demoVideo.width !== 1280
+    || demoVideo.height !== 720
+    || demoVideo.bitrate < 10_000_000
+    || demoVideo.bitrate > 12_000_000
+  ) throw new Error("The demo must retain native-quality 720p output at 10-12 Mbps.");
+  if (demoPersonas.length !== 5 || new Set(demoPersonas.map(({ id }) => id)).size !== 5) throw new Error("The demo needs five distinct prompt personalities.");
+  if (new Set(demoPersonas.map(({ prompt }) => prompt)).size !== demoPersonas.length) throw new Error("Demo prompts must be unique.");
+  for (const persona of demoPersonas) {
+    if (!persona.feature || !persona.label || persona.prompt.length < 40) throw new Error(`Demo persona ${persona.id} is incomplete.`);
+  }
   for (const feature of tutorialFeatures) {
     if (!feature.choice || !feature.result) throw new Error(`Tutorial feature ${feature.id} is incomplete.`);
   }
+  let totalLabels = 0;
   for (const platform of ["youtube", "bluesky"]) {
     for (const phase of ["before", "after"]) {
       const scene = platformFeedStory[platform]?.[phase];
-      if (!scene || scene.labels.length < 2) throw new Error(`${platform}:${phase} needs at least two visible labels.`);
+      if (!scene || scene.labels.length < 6) throw new Error(`${platform}:${phase} needs at least six direct card labels.`);
       if (scene.labels.some(({ frameIndex }) => !Number.isSafeInteger(frameIndex) || frameIndex < 0)) throw new Error(`${platform}:${phase} labels must target recorded sequence frames.`);
+      const labeledFrameCounts = new Map();
+      for (const label of scene.labels) {
+        labeledFrameCounts.set(label.frameIndex, (labeledFrameCounts.get(label.frameIndex) ?? 0) + 1);
+      }
+      if ([...labeledFrameCounts.values()].some((count) => count < 2)) throw new Error(`${platform}:${phase} labeled frames need multiple card labels.`);
+      for (const frameIndex of labeledFrameCounts.keys()) {
+        if ((scene.frameHolds?.[frameIndex] || 0) < demoVideo.minimumLabeledFrameHoldMs) throw new Error(`${platform}:${phase} labeled frames must remain readable.`);
+      }
+      totalLabels += scene.labels.length;
     }
   }
+  if (totalLabels < 24) throw new Error("The demo needs at least 24 direct card labels.");
   if (new Set(exactTopicTarget.map(([topic]) => topic)).size !== 7) throw new Error("The exact target must show seven unique topics.");
   if (exactTopicTarget.reduce((sum, [, percent]) => sum + percent, 0) !== 100) throw new Error("The exact target must total 100%.");
   if (practiceFeedTour.minimumScrollPixels < 900 || practiceFeedTour.minimumCardsPerPhase < 6) throw new Error("The practice feed tour is too slight.");

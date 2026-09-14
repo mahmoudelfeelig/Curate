@@ -1,15 +1,17 @@
 # Curate silent demo and transcript
 
-Verified runtime: **1:02.891**, silent, 1440 by 900. The timing below matches the final cut; inactive local-model wait time is removed by the recorder and disclosed in its report.
+Reference runtime: **about 1:34**, silent, 1440 by 900. The source-bound capture report records the exact final duration; inactive local-model wait time is removed by the recorder and disclosed there.
 
 | Time | Silent screen action | Voiceover |
 | --- | --- | --- |
-| 0:00–0:08 | Open on the Curate passport and its portable exact mix. | “Recommendation feeds learn us over years, then make us start over on every new account. Curate turns that history into something portable.” |
-| 0:08–0:22 | Show “I want less ragebait and more science-based pages,” the selected sample links, and the interpreted mix. | “I can speak naturally. I give Curate a few posts from my feed. It reads only what I chose, separates evidence from inference, and builds a mix I can inspect.” |
-| 0:22–0:32 | Save the conversational result and move into the practice run. | “That works for a broad request, without forcing me to invent percentages.” |
-| 0:32–0:46 | Enter the exact seven-topic, 100% request and show the local agent planning within the selected app's controls. | “It also understands precision. The request stays a sentence; the agent turns it into a bounded plan for the selected app.” |
-| 0:46–0:58 | Run the practice feed, then hold on the six starting cards beside the six curated cards. | “The result is visible: outrage and unsupported claims move out, while astronomy, programming, research, drawing, anime analysis, and fragrance chemistry move in.” |
-| 0:58–1:03 | Show the restored passport state and finish on the Curate cover. | “Finally, Curate restores the starting state and verifies the match. Natural language in, a measurable feed out, and a return route if I change my mind.” |
+| 0:00–0:14 | Open on the Curate passport. | Introduce the problem, the people switching accounts or platforms, and the portable Passport. |
+| 0:14–0:28 | Show the broad request and exact seven-topic mix. | Explain that Curate accepts natural language at either level of precision. |
+| 0:28–0:45 | Show three YouTube and three Bluesky cards before and after. | Explain that descriptions are optional and the selected sample becomes visibly calmer and more varied. |
+| 0:45–0:58 | Show the local Strands plan, practice run, measurement, and restored state. | Explain the bounded agent loop and rollback. |
+| 0:58–1:11 | Preview Copy feed from YouTube to Bluesky. | Explain what carries over and what requires another route. |
+| 1:11–1:22 | Issue, show, and revoke Incognito. | Explain temporary context, expiry, and immediate closure. |
+| 1:22–1:28 | Show Blend. | Explain selected shared tastes without merging accounts. |
+| 1:28–1:34 | Finish on the Curate cover. | Close with the product promise and return route. |
 
 The final video must not show narration text burned into the product UI. Record the voiceover as WAV or high-bitrate MP3. Captions may be added during final editing as long as they do not cover the content cards or alter the meaning of the proof.
 

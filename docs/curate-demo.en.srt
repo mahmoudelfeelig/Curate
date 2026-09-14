@@ -4,67 +4,67 @@ Recommendation feeds learn us for years,
 then new accounts make us start over.
 
 2
-00:00:06,000 --> 00:00:11,500
-Curate turns that taste into
-a portable Passport.
+00:00:06,000 --> 00:00:14,500
+For people switching accounts or platforms,
+Curate turns that taste into a portable Passport.
 
 3
-00:00:11,500 --> 00:00:18,500
+00:00:14,500 --> 00:00:21,500
 I describe what I want naturally: less ragebait
 and more science,
 
 4
-00:00:18,500 --> 00:00:25,000
+00:00:21,500 --> 00:00:28,000
 or an exact mix across astronomy, coding,
 drawing, anime, and fragrance.
 
 5
-00:00:25,000 --> 00:00:30,000
+00:00:28,000 --> 00:00:33,000
 I paste a few YouTube and Bluesky links.
 Notes are optional.
 
 6
-00:00:30,000 --> 00:00:37,500
+00:00:33,000 --> 00:00:40,500
 Curate shows both platforms before and after,
 with calmer content and more variety,
 
 7
-00:00:37,500 --> 00:00:42,000
+00:00:40,500 --> 00:00:45,000
 and a measurable drop in ragebait.
 
 8
-00:00:42,000 --> 00:00:49,500
-The local agent builds the plan, runs it in a safe
+00:00:45,000 --> 00:00:52,500
+The local Strands agent builds the plan, runs it in a safe
 practice feed, and measures the result,
 
 9
-00:00:49,500 --> 00:00:54,500
+00:00:52,500 --> 00:00:57,500
 then restores the starting state.
 
 10
-00:00:54,500 --> 00:01:02,500
+00:00:57,500 --> 00:01:05,500
 The same Passport can be copied from one app to another;
 Curate shows what carries over
 
 11
-00:01:02,500 --> 00:01:07,500
+00:01:05,500 --> 00:01:10,500
 and what needs a different route.
 
 12
-00:01:07,500 --> 00:01:14,500
+00:01:10,500 --> 00:01:17,500
 Incognito creates a temporary feed for a conference
 or deep-work session,
 
 13
-00:01:14,500 --> 00:01:18,500
+00:01:17,500 --> 00:01:21,500
 then expires automatically or closes immediately.
 
 14
-00:01:18,500 --> 00:01:24,000
+00:01:21,500 --> 00:01:27,000
 A shared view can blend selected tastes with another
 person without merging accounts.
 
 15
-00:01:24,000 --> 00:01:27,500
+00:01:27,000 --> 00:01:30,500
 Natural language in, a feed that feels like yours out,
 and a way back.

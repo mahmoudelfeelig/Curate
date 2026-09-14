@@ -1,6 +1,6 @@
 # Curate demo script
 
-Verified runtime: **1:02.891**. The recording is an edited product walkthrough: it removes inactive local-model wait time but does not synthesize a result or hide any user decision.
+Reference runtime: **about 1:34**. The source-bound capture report is authoritative. The recording is an edited product walkthrough: it removes inactive local-model wait time but does not synthesize a result or hide any user decision.
 
 ## The story
 
@@ -20,7 +20,7 @@ Show the entire sentence, the interpreted mix, and the compact local-planning st
 
 Run the proposal on the **Practice feed**. Center the starting-versus-curated content cards and their headline metrics. The audience should be able to name what changed without reading an implementation receipt. Restore the starting state and pause on the successful restoration mark.
 
-Return to **Tune my feed**, replace the input sample with the six after-links, and compare. End with both content columns visible: the starting feed contains outrage and rumor-heavy examples; the curated feed contains astronomy, coding, source-backed science, drawing, anime analysis, and perfume chemistry. Then return to the passport cover.
+Return to **Tune my feed**, replace the input sample with the six after-links, and compare. Keep the three YouTube and three Bluesky cards visible in both columns. Continue through **Copy feed**, **Incognito**, and **Blend**, then return to the passport cover.
 
 ## Preflight
 
@@ -35,12 +35,14 @@ Return to **Tune my feed**, replace the input sample with the six after-links, a
 
 | Time | Screen and operator action | Narration |
 | --- | --- | --- |
-| 0:00–0:08 | Open on Curate and its portable exact mix. | State the problem and the portable-passport idea. |
-| 0:08–0:22 | Enter the vague request, show the six-link sample, and reveal the interpreted mix. | Explain that someone can begin conversationally. |
-| 0:22–0:32 | Save the result and move into the practice run. | Explain that Curate turns the request into usable preferences. |
-| 0:32–0:46 | Enter the exact seven-topic request. Show the compact wait briefly, then cut to the returned local proposal. | Explain that precise percentages work too. |
-| 0:46–0:58 | Run the **Practice feed** and hold on the six starting cards beside the six curated cards. | Describe the visible content shift. |
-| 0:58–1:03 | Show the restored state and end on the Curate passport. | Emphasize reversibility and close with the product promise. |
+| 0:00–0:14 | Open on Curate and its portable exact mix. | State the problem, audience, and portable-passport idea. |
+| 0:14–0:28 | Enter the vague request, then the exact seven-topic request. | Explain that conversational and percentage-based intent both work. |
+| 0:28–0:45 | Show the six-link YouTube and Bluesky sample, then both feed columns. | Describe the selected sample and visible content shift. |
+| 0:45–0:58 | Show the local Strands plan, bounded practice run, measurement, and rollback. | Explain the agent loop and return route. |
+| 0:58–1:11 | Preview **Copy feed** from YouTube to Bluesky and show translation loss. | Explain what carries over and what needs another route. |
+| 1:11–1:22 | Issue and revoke **Incognito**. | Explain temporary context and expiry. |
+| 1:22–1:28 | Show **Blend**. | Explain selected shared tastes without merging accounts. |
+| 1:28–1:34 | End on the Curate passport. | Close with the product promise. |
 
 ## Recording boundary
 

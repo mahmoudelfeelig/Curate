@@ -30,9 +30,7 @@ function pngChunk(type, data) {
   return chunk;
 }
 
-function screenshotPng(seed) {
-  const width = 800;
-  const height = 450;
+function screenshotPng(seed, width = 800, height = 450) {
   const header = Buffer.alloc(13);
   header.writeUInt32BE(width, 0);
   header.writeUInt32BE(height, 4);
@@ -74,10 +72,69 @@ async function fixture(overrides = {}) {
   return { directory, document, manifestPath };
 }
 
+async function v2Fixture() {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "curate-platform-captures-v2-"));
+  const captures = [];
+  let seed = 10;
+  for (const [platform, origin, accountPairId] of [
+    ["youtube", "https://www.youtube.com", "youtube-demo-pair"],
+    ["bluesky", "https://bsky.app", "bluesky-demo-pair"],
+  ]) {
+    for (const [phase, minute] of [["before", 0], ["after", 10]]) {
+      const frames = [];
+      for (let frameIndex = 0; frameIndex < 6; frameIndex += 1) {
+        const file = `${platform}-${phase}-${frameIndex}.png`;
+        const bytes = screenshotPng(seed);
+        seed += 1;
+        const sha256 = createHash("sha256").update(bytes).digest("hex");
+        await fs.writeFile(path.join(directory, file), bytes);
+        frames.push({
+          captured_at: `2026-09-14T10:${String(minute).padStart(2, "0")}:${String(frameIndex + 1).padStart(2, "0")}.000Z`,
+          file,
+          sha256,
+          scroll_y: frameIndex * 600,
+        });
+      }
+      captures.push({
+        platform,
+        phase,
+        started_at: `2026-09-14T10:${String(minute).padStart(2, "0")}:00.000Z`,
+        ended_at: `2026-09-14T10:${String(minute).padStart(2, "0")}:07.000Z`,
+        account_pair_id: accountPairId,
+        capture_method: "owner_recorded_live_scroll",
+        reviewed_unique_feed_items: 24,
+        page_kind: "home_feed",
+        source_origin: origin,
+        frames,
+      });
+    }
+  }
+  const document = {
+    schema: "curate/platform-feed-capture-manifest/v2",
+    account_class: "dummy",
+    public_demo_reviewed: true,
+    captures,
+    interventions: [
+      { platform: "youtube", applied_at: "2026-09-14T10:05:00.000Z", evidence_class: "receipt_bound", claim_scope: "visible_sample_only", kind: "subscription and feedback curation" },
+      { platform: "bluesky", applied_at: "2026-09-14T10:05:30.000Z", evidence_class: "owner_attested", claim_scope: "visible_sample_only", kind: "follow and mute curation" },
+    ],
+  };
+  const manifestPath = path.join(directory, "manifest.json");
+  await fs.writeFile(manifestPath, JSON.stringify(document), "utf8");
+  return { directory, document, manifestPath };
+}
+
+async function persist(input) {
+  await fs.writeFile(input.manifestPath, JSON.stringify(input.document), "utf8");
+}
+
 test("loads complete, reviewed YouTube and Bluesky feed pairs in presentation order", async (t) => {
   const input = await fixture();
   t.after(() => fs.rm(input.directory, { recursive: true, force: true }));
   const evidence = await loadPlatformFeedCaptureManifest(input.manifestPath);
+  assert.equal(evidence.sequence_depth_sufficient, false);
+  assert.equal(evidence.captures[0].frames.length, 1);
+  assert.equal(evidence.captures[0].frames[0].scroll_y, null);
   assert.deepEqual(evidence.captures.map(({ platform, phase }) => `${platform}:${phase}`), [
     "youtube:before",
     "bluesky:before",
@@ -90,7 +147,9 @@ test("loads complete, reviewed YouTube and Bluesky feed pairs in presentation or
   assert.equal("captured_at_ms" in publicEvidence.captures[0], false);
   assert.equal(publicEvidence.captures[0].width, 800);
   assert.equal(publicEvidence.captures[0].height, 450);
-  assert.ok(publicEvidence.captures[0].bytes > 100);
+  assert.equal("bytes" in publicEvidence.captures[0], false);
+  assert.equal("bytes" in publicEvidence.captures[0].frames[0], false);
+  assert.ok(publicEvidence.captures[0].frames[0].byte_length > 100);
 });
 
 test("rejects personal, incomplete, stale, and tampered capture evidence", async (t) => {
@@ -146,4 +205,104 @@ test("rejects tiny and identical before/after captures", async (t) => {
   t.after(() => Promise.all([tiny, identical].map(({ directory }) => fs.rm(directory, { recursive: true, force: true }))));
   await assert.rejects(loadPlatformFeedCaptureManifest(tiny.manifestPath), /at least 800 by 450/);
   await assert.rejects(loadPlatformFeedCaptureManifest(identical.manifestPath), /visibly distinct files/);
+});
+
+test("loads release-sufficient v2 live-scroll sequences and omits private bytes from attestation", async (t) => {
+  const input = await v2Fixture();
+  t.after(() => fs.rm(input.directory, { recursive: true, force: true }));
+
+  const evidence = await loadPlatformFeedCaptureManifest(input.manifestPath);
+  assert.equal(evidence.sequence_depth_sufficient, true);
+  assert.deepEqual(evidence.captures.map(({ platform, phase }) => `${platform}:${phase}`), [
+    "youtube:before",
+    "bluesky:before",
+    "youtube:after",
+    "bluesky:after",
+  ]);
+  assert.equal(evidence.captures[0].frames.length, 6);
+  assert.ok(Buffer.isBuffer(evidence.captures[0].frames[0].bytes));
+
+  const publicEvidence = publicCaptureAttestation(evidence);
+  assert.equal(publicEvidence.sequence_depth_sufficient, true);
+  assert.equal(publicEvidence.interventions.length, 2);
+  assert.equal("applied_at_ms" in publicEvidence.interventions[0], false);
+  assert.equal("started_at_ms" in publicEvidence.captures[0], false);
+  assert.equal("captured_at_ms" in publicEvidence.captures[0].frames[0], false);
+  assert.equal("bytes" in publicEvidence.captures[0].frames[0], false);
+  assert.ok(publicEvidence.captures[0].frames[0].byte_length > 100);
+});
+
+test("rejects v2 sequences with shallow review, too few frames, or insufficient scroll span", async (t) => {
+  const shallowReview = await v2Fixture();
+  shallowReview.document.captures[0].reviewed_unique_feed_items = 19;
+  await persist(shallowReview);
+  const tooFewFrames = await v2Fixture();
+  tooFewFrames.document.captures[0].frames.pop();
+  await persist(tooFewFrames);
+  const shortScroll = await v2Fixture();
+  shortScroll.document.captures[0].frames.forEach((frame, index) => { frame.scroll_y = index * 400; });
+  await persist(shortScroll);
+  t.after(() => Promise.all([shallowReview, tooFewFrames, shortScroll].map(({ directory }) => fs.rm(directory, { recursive: true, force: true }))));
+
+  await assert.rejects(loadPlatformFeedCaptureManifest(shallowReview.manifestPath), /at least 20/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(tooFewFrames.manifestPath), /at least 6 frames/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(shortScroll.manifestPath), /at least 2500 pixels/);
+});
+
+test("rejects unordered, duplicate, dimension-mismatched, and unsafe v2 frames", async (t) => {
+  const unorderedTime = await v2Fixture();
+  unorderedTime.document.captures[0].frames[2].captured_at = unorderedTime.document.captures[0].frames[1].captured_at;
+  await persist(unorderedTime);
+  const unorderedScroll = await v2Fixture();
+  unorderedScroll.document.captures[0].frames[2].scroll_y = unorderedScroll.document.captures[0].frames[1].scroll_y;
+  await persist(unorderedScroll);
+  const duplicateFile = await v2Fixture();
+  duplicateFile.document.captures[0].frames[1].file = duplicateFile.document.captures[0].frames[0].file;
+  duplicateFile.document.captures[0].frames[1].sha256 = duplicateFile.document.captures[0].frames[0].sha256;
+  await persist(duplicateFile);
+  const duplicateHash = await v2Fixture();
+  duplicateHash.document.captures[0].frames[1].sha256 = duplicateHash.document.captures[0].frames[0].sha256;
+  await persist(duplicateHash);
+  const dimensionMismatch = await v2Fixture();
+  const changedFrame = dimensionMismatch.document.captures[0].frames[1];
+  const changedBytes = screenshotPng(99, 801, 450);
+  await fs.writeFile(path.join(dimensionMismatch.directory, changedFrame.file), changedBytes);
+  changedFrame.sha256 = createHash("sha256").update(changedBytes).digest("hex");
+  await persist(dimensionMismatch);
+  const unsafePath = await v2Fixture();
+  unsafePath.document.captures[0].frames[0].file = "../outside.png";
+  await persist(unsafePath);
+  t.after(() => Promise.all([unorderedTime, unorderedScroll, duplicateFile, duplicateHash, dimensionMismatch, unsafePath].map(({ directory }) => fs.rm(directory, { recursive: true, force: true }))));
+
+  await assert.rejects(loadPlatformFeedCaptureManifest(unorderedTime.manifestPath), /strictly increasing captured_at/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(unorderedScroll.manifestPath), /strictly increasing scroll_y/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(duplicateFile.manifestPath), /unique file/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(duplicateHash.manifestPath), /unique sha256/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(dimensionMismatch.manifestPath), /same dimensions/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(unsafePath.manifestPath), /stay inside the capture directory/);
+});
+
+test("rejects mismatched account pairs and invalid intervention evidence", async (t) => {
+  const mismatchedPair = await v2Fixture();
+  mismatchedPair.document.captures.find(({ platform, phase }) => platform === "youtube" && phase === "after").account_pair_id = "different-account";
+  await persist(mismatchedPair);
+  const lateIntervention = await v2Fixture();
+  lateIntervention.document.interventions[0].applied_at = "2026-09-14T10:10:01.000Z";
+  await persist(lateIntervention);
+  const badClass = await v2Fixture();
+  badClass.document.interventions[0].evidence_class = "unreviewed";
+  await persist(badClass);
+  const badScope = await v2Fixture();
+  badScope.document.interventions[0].claim_scope = "whole_feed";
+  await persist(badScope);
+  const emptyKind = await v2Fixture();
+  emptyKind.document.interventions[0].kind = "  ";
+  await persist(emptyKind);
+  t.after(() => Promise.all([mismatchedPair, lateIntervention, badClass, badScope, emptyKind].map(({ directory }) => fs.rm(directory, { recursive: true, force: true }))));
+
+  await assert.rejects(loadPlatformFeedCaptureManifest(mismatchedPair.manifestPath), /same account_pair_id/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(lateIntervention.manifestPath), /between the before capture end and after capture start/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(badClass.manifestPath), /owner_attested or receipt_bound/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(badScope.manifestPath), /visible_sample_only/);
+  await assert.rejects(loadPlatformFeedCaptureManifest(emptyKind.manifestPath), /nonempty kind/);
 });

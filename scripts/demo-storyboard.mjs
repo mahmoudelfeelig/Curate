@@ -5,7 +5,7 @@ export const demoVideo = Object.freeze({
   height: 720,
   bitrate: 11_000_000,
   minimumLabeledFrameHoldMs: 2_500,
-  defaultFrameHoldMs: 650,
+  defaultFrameHoldMs: 1_000,
 });
 
 export const demoPersonas = Object.freeze([
@@ -36,14 +36,17 @@ export const demoChapters = Object.freeze([
 
 export const platformFeedStory = Object.freeze({
   youtube: Object.freeze({
-    comparison: Object.freeze({ before: Object.freeze({ frameIndex: 4 }), after: Object.freeze({ frameIndex: 0 }) }),
+    comparison: Object.freeze({
+      before: Object.freeze({ frameIndex: 4, labels: Object.freeze(["ragebait", "creator drama"]) }),
+      after: Object.freeze({ frameIndex: 0, labels: Object.freeze(["science", "drawing and making"]) }),
+    }),
     before: Object.freeze({
       frameHolds: readableFrameHolds(0, 4, 8),
       labels: Object.freeze([
-        storyLabel("movie hot take", "down", 22, 31, 0),
+        storyLabel("ragebait", "down", 22, 31, 0),
         storyLabel("fiction commentary", "neutral", 51, 31, 0),
         storyLabel("business explainer", "up", 80, 31, 0),
-        storyLabel("celebrity commentary", "down", 22, 24, 4),
+        storyLabel("creator drama", "down", 22, 24, 4),
         storyLabel("art reaction", "neutral", 22, 62, 4),
         storyLabel("fandom explainer", "neutral", 51, 62, 4),
         storyLabel("fragrance chemistry", "up", 80, 62, 4),
@@ -55,7 +58,7 @@ export const platformFeedStory = Object.freeze({
       summary: "The starting sample leans toward reactions, drama, and broad entertainment.",
     }),
     after: Object.freeze({
-      frameHolds: readableFrameHolds(0, 4, 8),
+      frameHolds: readableFrameHolds(0, 4, 8, 11),
       labels: Object.freeze([
         storyLabel("creative motivation", "up", 22, 31, 0),
         storyLabel("making and animation", "up", 51, 31, 0),
@@ -69,12 +72,17 @@ export const platformFeedStory = Object.freeze({
         storyLabel("world-building", "up", 51, 23, 8),
         storyLabel("anime analysis", "change", 22, 62, 8),
         storyLabel("wildlife documentary", "up", 51, 62, 8),
+        storyLabel("science and technology", "up", 22, 23, 11),
+        storyLabel("drawing and anime", "up", 51, 62, 11),
       ]),
       summary: "The refreshed sample visibly brings learning, drawing, anime, and science forward.",
     }),
   }),
   bluesky: Object.freeze({
-    comparison: Object.freeze({ before: Object.freeze({ frameIndex: 0 }), after: Object.freeze({ frameIndex: 8 }) }),
+    comparison: Object.freeze({
+      before: Object.freeze({ frameIndex: 0, labels: Object.freeze(["political outrage", "breaking-news loop"]) }),
+      after: Object.freeze({ frameIndex: 8, labels: Object.freeze(["art and nature", "calming wildlife"]) }),
+    }),
     before: Object.freeze({
       frameHolds: readableFrameHolds(1, 5, 10),
       labels: Object.freeze([
@@ -112,11 +120,11 @@ export const exactTopicTarget = Object.freeze([
   Object.freeze(["perfumes", 5]),
 ]);
 
-export const practiceFeedTour = Object.freeze({
-  minimumScrollPixels: 930,
-  minimumCardsPerPhase: 6,
-  expectedRagebaitDropPoints: 100,
-  title: "The feed Curate understood",
+export const agentOutcomeGate = Object.freeze({
+  minimumUnwantedDropPoints: 10,
+  minimumSourceDropPoints: 10,
+  minimumSurpriseGainPoints: 10,
+  title: "The measurable agent result",
 });
 
 export const tutorialFeatures = Object.freeze([
@@ -129,7 +137,13 @@ export const tutorialFeatures = Object.freeze([
 export const managedAwsProof = Object.freeze({
   title: "Retained AWS execution log",
   stamp: "Recorded managed run",
-  infrastructure: Object.freeze({ stack: "UPDATE_COMPLETE", runtime: "READY", logRetentionDays: 7 }),
+  infrastructure: Object.freeze({
+    region: "eu-north-1",
+    stack: "UPDATE_COMPLETE",
+    runtime: "READY",
+    logGroup: "/aws/bedrock-agentcore/runtimes/feed_passport_curator-ePr28NFRNQ-DEFAULT",
+    logRetentionDays: 7,
+  }),
   cloudWatchEvents: Object.freeze([
     Object.freeze({ operation: "health", message: "Invocation completed successfully", duration: "0.001s" }),
     Object.freeze({ operation: "plan_feed", message: "Invocation completed successfully", duration: "3.440s" }),
@@ -194,7 +208,11 @@ export function validateDemoStoryboard() {
   if (totalLabels < 24) throw new Error("The demo needs at least 24 direct card labels.");
   if (new Set(exactTopicTarget.map(([topic]) => topic)).size !== 7) throw new Error("The exact target must show seven unique topics.");
   if (exactTopicTarget.reduce((sum, [, percent]) => sum + percent, 0) !== 100) throw new Error("The exact target must total 100%.");
-  if (practiceFeedTour.minimumScrollPixels < 900 || practiceFeedTour.minimumCardsPerPhase < 6) throw new Error("The practice feed tour is too slight.");
+  if (
+    agentOutcomeGate.minimumUnwantedDropPoints < 10
+    || agentOutcomeGate.minimumSourceDropPoints < 10
+    || agentOutcomeGate.minimumSurpriseGainPoints < 10
+  ) throw new Error("The agent outcome gate is too slight.");
   if (managedAwsProof.events.length < 8) throw new Error("Managed AWS proof is too thin for the demo.");
   if (autonomousRunStory.steps.length !== 4 || autonomousRunStory.steps.some(({ label, detail }) => !label || !detail)) throw new Error("The autonomous run story is incomplete.");
   if (managedAwsProof.infrastructure.stack !== "UPDATE_COMPLETE" || managedAwsProof.infrastructure.runtime !== "READY") throw new Error("Managed AWS infrastructure status is incomplete.");

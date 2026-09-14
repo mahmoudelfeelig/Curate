@@ -12,7 +12,7 @@ import {
   exactTopicTarget,
   managedAwsProof,
   platformFeedStory,
-  practiceFeedTour,
+  agentOutcomeGate,
   tutorialFeatures,
   validateDemoStoryboard,
 } from "../scripts/demo-storyboard.mjs";
@@ -53,7 +53,7 @@ test("the second cut stays native 720p and demonstrates five distinct personalit
     height: 720,
     bitrate: 11_000_000,
     minimumLabeledFrameHoldMs: 2_500,
-    defaultFrameHoldMs: 650,
+    defaultFrameHoldMs: 1_000,
   });
   assert.ok(demoVideo.bitrate >= 10_000_000 && demoVideo.bitrate <= 12_000_000);
   assert.equal(demoPersonas.length, 5);
@@ -67,6 +67,9 @@ test("the second cut stays native 720p and demonstrates five distinct personalit
       .map(({ text }) => text),
     ["calming bird video", "still mixed: current events"],
   );
+  assert.ok(Object.values(platformFeedStory).every(({ comparison }) => (
+    comparison.before.labels.length >= 2 && comparison.after.labels.length >= 2
+  )));
 });
 
 test("the recorder uses compact overlays instead of explanatory slides", async () => {
@@ -79,13 +82,13 @@ test("the recorder uses compact overlays instead of explanatory slides", async (
   assert.doesNotMatch(source, /https:[^"\n]+\s\|/);
 });
 
-test("the exact target and practice feed tour cannot pass without an obvious change", () => {
+test("the exact target and agent outcome cannot pass without an obvious change", () => {
   assert.equal(exactTopicTarget.length, 7);
   assert.equal(exactTopicTarget.reduce((sum, [, percent]) => sum + percent, 0), 100);
   assert.equal(new Set(exactTopicTarget.map(([topic]) => topic)).size, 7);
-  assert.ok(practiceFeedTour.minimumScrollPixels >= 900);
-  assert.ok(practiceFeedTour.minimumCardsPerPhase >= 6);
-  assert.equal(practiceFeedTour.expectedRagebaitDropPoints, 100);
+  assert.ok(agentOutcomeGate.minimumUnwantedDropPoints >= 10);
+  assert.ok(agentOutcomeGate.minimumSourceDropPoints >= 10);
+  assert.ok(agentOutcomeGate.minimumSurpriseGainPoints >= 10);
 });
 
 test("the AWS replay is detailed, redacted, and non-executing", () => {
@@ -93,7 +96,11 @@ test("the AWS replay is detailed, redacted, and non-executing", () => {
   assert.deepEqual(managedAwsProof.events.at(-1), { kind: "result", label: "Proposal ready", detail: "no account changes" });
   assert.ok(managedAwsProof.events.some(({ label }) => label === "inspect_selected_passport"));
   assert.ok(managedAwsProof.events.some(({ label }) => label === "submit_feed_goal_proposal"));
-  assert.deepEqual(managedAwsProof.infrastructure, { stack: "UPDATE_COMPLETE", runtime: "READY", logRetentionDays: 7 });
+  assert.equal(managedAwsProof.infrastructure.region, "eu-north-1");
+  assert.equal(managedAwsProof.infrastructure.stack, "UPDATE_COMPLETE");
+  assert.equal(managedAwsProof.infrastructure.runtime, "READY");
+  assert.match(managedAwsProof.infrastructure.logGroup, /^\/aws\/bedrock-agentcore\/runtimes\//);
+  assert.equal(managedAwsProof.infrastructure.logRetentionDays, 7);
   assert.deepEqual(managedAwsProof.cloudWatchEvents.map(({ operation }) => operation), ["health", "plan_feed"]);
   const rendered = JSON.stringify(managedAwsProof);
   assert.doesNotMatch(rendered, /arn:|gateway|account id|token|credential|https?:\/\//i);

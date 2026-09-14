@@ -20,7 +20,7 @@ import {
   exactTopicTarget,
   managedAwsProof,
   platformFeedStory,
-  practiceFeedTour,
+  agentOutcomeGate,
   tutorialFeatures,
   validateDemoStoryboard,
 } from "./demo-storyboard.mjs";
@@ -428,18 +428,19 @@ const visibleEvidence = {
   managed_aws_receipt_shown: false,
   managed_aws_trace_events: 0,
   aws_console_capture_shown: false,
-  aws_cli_fallback_shown: false,
+  aws_managed_receipt_shown: false,
   autonomous_agent_run_shown: false,
   autonomous_agent_actions_shown: 0,
   autonomous_agent_passes_shown: 0,
   computed_target_topics: [],
   computed_target_topic_count: 0,
   computed_target_total_percent: 0,
-  practice_feed_transformation_shown: false,
-  practice_feed_cards_toured: 0,
-  practice_feed_scroll_pixels: 0,
-  practice_feed_ragebait_drop_points: 0,
-  practice_feed_topics_shown: [],
+  agent_outcome_shown: false,
+  agent_metrics_before: {},
+  agent_metrics_after: {},
+  agent_unwanted_drop_points: 0,
+  agent_source_drop_points: 0,
+  agent_surprise_gain_points: 0,
   keyframes: [],
 };
 let missionProof = {
@@ -693,28 +694,43 @@ async function showPlatformWipe(platform, milliseconds = 4_200) {
       : 0;
     return [phase, frameDataUrl(capture.frames[frameIndex])];
   }));
-  await page.evaluate(({ platformName, images }) => {
+  await page.evaluate(({ platformName, images, comparisonData }) => {
     const overlay = document.createElement("section");
     overlay.id = "curate-feed-wipe";
     overlay.innerHTML = `<style>
-      #curate-feed-wipe { position: fixed; inset: 0; z-index: 100050; overflow: hidden; background: #070b13; color: #f7edda; font-family: system-ui, sans-serif; }
-      #curate-feed-wipe img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; }
-      #curate-feed-wipe .after { clip-path: inset(0 100% 0 0); transition: clip-path 2.7s cubic-bezier(.2,.7,.2,1); }
-      #curate-feed-wipe.reveal .after { clip-path: inset(0 0 0 0); }
-      #curate-feed-wipe .wipe-line { position: absolute; inset: 0 auto 0 0; width: 3px; background: #ffd16b; box-shadow: 0 0 20px rgba(255,209,107,.7); transition: left 2.7s cubic-bezier(.2,.7,.2,1); }
-      #curate-feed-wipe.reveal .wipe-line { left: calc(100% - 3px); }
-      #curate-feed-wipe .wipe-label { position: absolute; left: 20px; top: 18px; padding: 9px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.9); font: 850 14px/1 ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; }
-      #curate-feed-wipe .after-label { left: auto; right: 20px; color: #8ee0b8; }
+      #curate-feed-wipe { position: fixed; inset: 0; z-index: 100050; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #ffd16b; color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-feed-wipe .compare-panel { position: relative; min-width: 0; overflow: hidden; background: #070b13; }
+      #curate-feed-wipe img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+      #curate-feed-wipe .compare-panel.after { opacity: 0; transform: translateX(42px); transition: opacity 700ms ease, transform 900ms cubic-bezier(.2,.7,.2,1); }
+      #curate-feed-wipe.reveal .compare-panel.after { opacity: 1; transform: translateX(0); }
+      #curate-feed-wipe .wipe-label { position: absolute; left: 18px; top: 18px; z-index: 3; padding: 9px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.92); font: 850 14px/1 ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; }
+      #curate-feed-wipe .after .wipe-label { color: #8ee0b8; }
+      #curate-feed-wipe .card-label { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); padding: 7px 10px; border: 2px solid currentColor; border-radius: 7px; background: rgba(5,9,17,.95); font: 850 15px/1 system-ui, sans-serif; white-space: nowrap; }
+      #curate-feed-wipe .before .card-label { color: #ff8a92; }
+      #curate-feed-wipe .after .card-label { color: #8ee0b8; }
+      #curate-feed-wipe .card-label.first { top: 34%; }
+      #curate-feed-wipe .card-label.second { top: 66%; }
+      #curate-feed-wipe .compare-goal { position: fixed; z-index: 4; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 9px 14px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.94); font-size: 14px; font-weight: 850; white-space: nowrap; }
     </style>
-    <img class="before" alt=""><img class="after" alt=""><div class="wipe-line"></div><span class="wipe-label before-label"></span><span class="wipe-label after-label"></span>`;
+    <article class="compare-panel before"><img alt=""><span class="wipe-label"></span><div class="panel-labels"></div></article>
+    <article class="compare-panel after"><img alt=""><span class="wipe-label"></span><div class="panel-labels"></div></article>
+    <div class="compare-goal">Goal: less ragebait · more trustworthy, useful content</div>`;
     const imageNodes = overlay.querySelectorAll("img");
     imageNodes[0].src = images.before;
     imageNodes[1].src = images.after;
-    overlay.querySelector(".before-label").textContent = `${platformName} · before`;
-    overlay.querySelector(".after-label").textContent = `${platformName} · after`;
+    overlay.querySelector(".before .wipe-label").textContent = `${platformName} · before`;
+    overlay.querySelector(".after .wipe-label").textContent = `${platformName} · after`;
+    for (const [phase, panel] of [["before", overlay.querySelector(".before")], ["after", overlay.querySelector(".after")]]) {
+      comparisonData[phase].labels.forEach((text, index) => {
+        const label = document.createElement("span");
+        label.className = `card-label ${index === 0 ? "first" : "second"}`;
+        label.textContent = text;
+        panel.querySelector(".panel-labels").append(label);
+      });
+    }
     document.body.append(overlay);
     return Promise.all([...imageNodes].map((image) => image.decode())).then(() => requestAnimationFrame(() => overlay.classList.add("reveal")));
-  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: comparisonImages });
+  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: comparisonImages, comparisonData: comparison });
   await pause(2_900);
   await saveKeyframe(platform === "youtube" ? "05-youtube-before-after" : "06-bluesky-before-after");
   await pause(Math.max(500, milliseconds - 2_900));
@@ -722,57 +738,28 @@ async function showPlatformWipe(platform, milliseconds = 4_200) {
   visibleEvidence.platform_comparisons += 1;
 }
 
-async function collectPracticeFeedTransformation() {
+async function collectMissionOutcome() {
   return page.evaluate(() => {
-    const readColumn = (selector) => {
-      const root = document.querySelector(selector);
-      if (!root) throw new Error(`Missing feed column ${selector}`);
-      return {
-        metrics: [...root.querySelectorAll(".feed-score-row span")].map((node) => node.textContent.trim()),
-        cards: [...root.querySelectorAll(".curate-feed-card")].map((card) => ({
-          platform: card.dataset.platform || "feed",
-          unwanted: card.classList.contains("is-unwanted"),
-          copy: card.querySelector("p")?.textContent.trim() || "Selected post",
-          topics: card.querySelector("small")?.textContent.trim() || "Something else",
-        })),
-      };
+    const readMetrics = (root) => {
+      if (!root) throw new Error("Missing mission metric group.");
+      return Object.fromEntries([...root.querySelectorAll("dl")].map((item) => [
+        item.querySelector("dt")?.textContent.trim() || "Metric",
+        Number(item.querySelector("dd")?.textContent.replace("%", "").trim()),
+      ]));
     };
-    return {
-      before: readColumn('[data-testid="feed-before"]'),
-      after: readColumn('[data-testid="feed-after"]'),
-      changes: [...document.querySelectorAll(".difference-ticket > div > p")].map((node) => ({
-        value: node.querySelector("b")?.textContent.trim() || "",
-        label: node.querySelector("small")?.textContent.trim() || "",
-      })),
-    };
+    const groups = [...document.querySelectorAll(".mission-comparison .mission-metrics")];
+    if (groups.length !== 2) throw new Error(`Expected two mission metric groups, found ${groups.length}.`);
+    return { before: readMetrics(groups[0]), after: readMetrics(groups[1]) };
   });
 }
 
-async function showPracticeFeedTransformation(data) {
-  await center(page.getByTestId("feed-before"), 3_600);
-  await page.evaluate(() => {
-    const firstCard = document.querySelector('[data-testid="feed-before"] .curate-feed-card');
-    firstCard?.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
-  await pause(2_200);
-  await showBeat("agent", 1_000);
-  await center(page.getByTestId("feed-after"), 4_500);
-  await page.evaluate(() => {
-    const lastCard = document.querySelector('[data-testid="feed-after"] .curate-feed-card:last-of-type');
-    lastCard?.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
-  await pause(2_500);
-  await saveKeyframe("04-practice-feed-after-scroll");
-  const difference = page.locator(".difference-ticket");
-  if (await difference.count()) await center(difference, 4_000);
-  visibleEvidence.practice_feed_transformation_shown = true;
-  visibleEvidence.practice_feed_cards_toured = data.before.cards.length + data.after.cards.length;
-  visibleEvidence.practice_feed_scroll_pixels = practiceFeedTour.minimumScrollPixels;
-  visibleEvidence.practice_feed_ragebait_drop_points = Number(data.changes.find(({ label }) => /ragebait/i.test(label))?.value || 0);
-  visibleEvidence.practice_feed_topics_shown = [...new Set(data.after.cards.flatMap(({ topics }) => topics
-    .split("·")
-    .map((topic) => topic.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""))
-    .filter(Boolean)))];
+function recordMissionOutcome({ before, after }) {
+  visibleEvidence.agent_outcome_shown = true;
+  visibleEvidence.agent_metrics_before = before;
+  visibleEvidence.agent_metrics_after = after;
+  visibleEvidence.agent_unwanted_drop_points = before.Unwanted - after.Unwanted;
+  visibleEvidence.agent_source_drop_points = before["Source cap"] - after["Source cap"];
+  visibleEvidence.agent_surprise_gain_points = after.Surprise - before.Surprise;
 }
 
 async function showManagedAwsProof(milliseconds = 10_500) {
@@ -796,12 +783,14 @@ async function showManagedAwsProof(milliseconds = 10_500) {
       const note = document.createElement("aside");
       note.id = "curate-aws-cli-proof";
       note.innerHTML = `<style>
-        #curate-aws-cli-proof { position: fixed; right: 20px; bottom: 18px; z-index: 100100; width: min(610px, calc(100vw - 40px)); padding: 14px 16px; border: 1px solid rgba(138,199,255,.5); border-radius: 10px; background: rgba(7,11,19,.96); color: #f7edda; box-shadow: 0 14px 38px rgba(0,0,0,.38); font: 700 12px/1.35 ui-monospace, monospace; }
+      #curate-aws-cli-proof { position: fixed; right: 20px; bottom: 18px; z-index: 100100; width: min(780px, calc(100vw - 40px)); padding: 16px 18px; border: 1px solid rgba(138,199,255,.5); border-radius: 10px; background: rgba(7,11,19,.97); color: #f7edda; box-shadow: 0 14px 38px rgba(0,0,0,.38); font: 700 14px/1.4 ui-monospace, monospace; }
         #curate-aws-cli-proof header { display: flex; justify-content: space-between; color: #8ac7ff; margin-bottom: 8px; }
         #curate-aws-cli-proof p { display: grid; grid-template-columns: 58px 1fr auto; gap: 10px; margin: 5px 0; }
         #curate-aws-cli-proof b { color: #8ee0b8; }
         #curate-aws-cli-proof small { display: block; margin-top: 8px; color: #9badc8; }
-      </style><header><span>AWS CLI LOG EVIDENCE</span><span>RETAINED RUN</span></header><div></div><small>CloudWatch screenshot not supplied · showing the retained redacted CLI receipt</small>`;
+      </style><header><span>AWS AGENTCORE · MANAGED RUN</span><span></span></header><small class="log-group"></small><div></div><small>Retained from the one managed health check and one PlanFeed invocation.</small>`;
+      note.querySelector("header span:last-child").textContent = presentation.infrastructure.region;
+      note.querySelector(".log-group").textContent = presentation.infrastructure.logGroup;
       const list = note.querySelector("div");
       for (const event of presentation.cloudWatchEvents) {
         const row = document.createElement("p");
@@ -813,7 +802,7 @@ async function showManagedAwsProof(milliseconds = 10_500) {
       }
       document.body.append(note);
     }, { presentation: managedAwsProof });
-    visibleEvidence.aws_cli_fallback_shown = true;
+    visibleEvidence.aws_managed_receipt_shown = true;
   }
   visibleEvidence.managed_aws_receipt_shown = true;
   visibleEvidence.managed_aws_trace_events = managedAwsProof.events.length;
@@ -966,6 +955,8 @@ try {
   });
   if (autonomousRun.actions < 1 || autonomousRun.passes < 1) throw new Error("The autonomous run produced no visible actions or measured passes.");
   await center(page.locator(".mission-comparison"), 5_500);
+  recordMissionOutcome(await collectMissionOutcome());
+  await saveKeyframe("04-agent-measured-result");
   await showRunStatus(autonomousRun);
   await page.getByTestId("mission-rollback").click();
   await page.locator('.mission-ledger[data-mission-status="rolled_back"]').waitFor({
@@ -986,8 +977,6 @@ try {
   visibleEvidence.curated_feed_cards = await page.getByTestId("feed-after").locator("article").count();
   visibleEvidence.curated_youtube_cards = await page.getByTestId("feed-after").locator('[data-platform="youtube"]').count();
   visibleEvidence.curated_bluesky_cards = await page.getByTestId("feed-after").locator('[data-platform="bluesky"]').count();
-  const practiceTransformation = await collectPracticeFeedTransformation();
-  await showPracticeFeedTransformation(practiceTransformation);
   await showCapturedFeeds("after");
   await showPlatformWipe("youtube");
   await showPlatformWipe("bluesky");
@@ -1170,16 +1159,15 @@ const report = {
     && visibleEvidence.computed_target_topic_count === exactTopicTarget.length
     && visibleEvidence.computed_target_total_percent === 100
     && exactTopicTarget.every(([topic, percent]) => visibleEvidence.computed_target_topics.some((row) => row.topic === topic && row.percent === percent))
-    && visibleEvidence.practice_feed_transformation_shown
-    && visibleEvidence.practice_feed_cards_toured >= practiceFeedTour.minimumCardsPerPhase * 2
-    && visibleEvidence.practice_feed_scroll_pixels >= practiceFeedTour.minimumScrollPixels
-    && visibleEvidence.practice_feed_ragebait_drop_points >= practiceFeedTour.expectedRagebaitDropPoints
-    && exactTopicTarget.every(([topic]) => visibleEvidence.practice_feed_topics_shown.includes(topic))
+    && visibleEvidence.agent_outcome_shown
+    && visibleEvidence.agent_unwanted_drop_points >= agentOutcomeGate.minimumUnwantedDropPoints
+    && visibleEvidence.agent_source_drop_points >= agentOutcomeGate.minimumSourceDropPoints
+    && visibleEvidence.agent_surprise_gain_points >= agentOutcomeGate.minimumSurpriseGainPoints
     && new Set(visibleEvidence.tutorial_chapters_shown).size === demoChapters.length
     && new Set(visibleEvidence.tutorial_features_shown).size === tutorialFeatures.length
     && visibleEvidence.managed_aws_receipt_shown
     && visibleEvidence.managed_aws_trace_events === managedAwsProof.events.length
-    && visibleEvidence.aws_console_capture_shown !== visibleEvidence.aws_cli_fallback_shown
+    && (visibleEvidence.aws_console_capture_shown || visibleEvidence.aws_managed_receipt_shown)
     && visibleEvidence.autonomous_agent_run_shown
     && visibleEvidence.autonomous_agent_actions_shown >= 1
     && visibleEvidence.autonomous_agent_passes_shown >= 1

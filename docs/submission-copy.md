@@ -59,7 +59,7 @@ OAuth recovery and reversible writes also required durable journals, reconciliat
 - Historical live dummy-account conformance for one YouTube subscription and one Bluesky follow, including verification, rollback, and revocation
 - A retained proposal-only AgentCore deployment with private judge access
 - A responsive Curate interface that passes the current five-viewport browser matrix
-- An approximately 94-second audited demonstration with no external browser request or hidden result synthesis
+- An approximately 108-second audited demonstration with reviewed real-platform before/after captures, no external browser request during recording, and no hidden result synthesis
 
 ## What we learned
 
@@ -71,7 +71,7 @@ The next step is broader owner-authorized platform certification and longer-runn
 
 ## Suggested video description
 
-Curate turns natural-language feed intent into a portable Passport. This 94-second demonstration shows a broad request, an exact seven-topic mix, a local Strands plan, a bounded practice run, six visible starting and curated posts, Copy feed, Incognito, Blend, and verified rollback.
+Curate turns natural-language feed intent into a portable Passport. This 108-second demonstration shows real YouTube and Bluesky dummy-account feeds before and after, a broad request, an exact seven-topic mix, a local Strands plan, a bounded practice run, Copy feed, Incognito, Blend, and verified rollback.
 
 Try the judge build: https://curate.elfeel.me/
 

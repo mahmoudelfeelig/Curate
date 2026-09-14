@@ -1,70 +1,80 @@
 1
-00:00:00,000 --> 00:00:06,000
+00:00:00,000 --> 00:00:04,000
+This is the starting point on our dummy YouTube account.
+
+2
+00:00:04,000 --> 00:00:08,000
+And this is the dummy Bluesky feed before curation.
+
+3
+00:00:08,000 --> 00:00:15,000
 Recommendation feeds learn us for years,
 then new accounts make us start over.
 
-2
-00:00:06,000 --> 00:00:14,500
-For people switching accounts or platforms,
-Curate turns that taste into a portable Passport.
-
-3
-00:00:14,500 --> 00:00:21,500
-I describe what I want naturally: less ragebait
-and more science,
-
 4
-00:00:21,500 --> 00:00:28,000
-or an exact mix across astronomy, coding,
-drawing, anime, and fragrance.
+00:00:15,000 --> 00:00:22,000
+Curate turns what you want into a portable Passport
+that works across platforms.
 
 5
-00:00:28,000 --> 00:00:33,000
-I paste a few YouTube and Bluesky links.
-Notes are optional.
+00:00:22,000 --> 00:00:29,000
+You can ask naturally: less ragebait,
+more science-based pages.
 
 6
-00:00:33,000 --> 00:00:40,500
-Curate shows both platforms before and after,
-with calmer content and more variety,
+00:00:29,000 --> 00:00:36,000
+Or give an exact mix across astronomy, coding,
+drawing, anime, and fragrance.
 
 7
-00:00:40,500 --> 00:00:45,000
-and a measurable drop in ragebait.
+00:00:36,000 --> 00:00:43,000
+Paste a few YouTube and Bluesky links.
+Descriptions are optional.
 
 8
-00:00:45,000 --> 00:00:52,500
-The local Strands agent builds the plan, runs it in a safe
-practice feed, and measures the result,
+00:00:43,000 --> 00:00:52,000
+The agent reads the sample, turns the request into a plan,
+and tests it in a bounded practice feed.
 
 9
-00:00:52,500 --> 00:00:57,500
-then restores the starting state.
+00:00:52,000 --> 00:00:59,000
+Curate measures the shift instead of stopping
+at a list of suggested actions.
 
 10
-00:00:57,500 --> 00:01:05,500
-The same Passport can be copied from one app to another;
-Curate shows what carries over
+00:00:59,000 --> 00:01:04,000
+Here is the YouTube feed after the change.
 
 11
-00:01:05,500 --> 00:01:10,500
-and what needs a different route.
+00:01:04,000 --> 00:01:08,000
+And here is Bluesky after the same intent was translated.
 
 12
-00:01:10,500 --> 00:01:17,500
-Incognito creates a temporary feed for a conference
-or deep-work session,
+00:01:08,000 --> 00:01:15,000
+Copy Feed carries the useful parts of your taste
+from one app to another.
 
 13
-00:01:17,500 --> 00:01:21,500
-then expires automatically or closes immediately.
+00:01:15,000 --> 00:01:22,000
+Curate shows what transfers cleanly,
+what needs another route, and how to roll back.
 
 14
-00:01:21,500 --> 00:01:27,000
-A shared view can blend selected tastes with another
-person without merging accounts.
+00:01:22,000 --> 00:01:29,000
+Incognito creates a temporary feed for a conference,
+trip, or deep-work session.
 
 15
-00:01:27,000 --> 00:01:30,500
+00:01:29,000 --> 00:01:36,000
+It expires automatically, or you can close it immediately
+without changing your normal feed.
+
+16
+00:01:36,000 --> 00:01:42,000
+Blend creates a shared view from selected tastes
+without merging accounts.
+
+17
+00:01:42,000 --> 00:01:48,000
 Natural language in, a feed that feels like yours out,
 and a way back.

@@ -1,19 +1,21 @@
 # Curate short voiceover
 
-Target read: about eighty seconds. Read conversationally and leave a short breath wherever the screen changes.
+Target read: about ninety seconds. Read conversationally and leave a short breath wherever the screen changes.
 
-Recommendation feeds learn us for years, then new accounts make us start over. For people switching accounts or platforms, Curate turns that taste into a portable Passport.
+This is the starting point on our dummy YouTube account. And this is the dummy Bluesky feed before curation.
 
-I describe what I want naturally: less ragebait and more science, or an exact mix across astronomy, coding, drawing, anime, and fragrance.
+Recommendation feeds learn us for years, then new accounts make us start over. Curate turns what you want into a portable Passport that works across platforms.
 
-I paste a few YouTube and Bluesky links. Notes are optional. Curate shows both platforms before and after, with calmer content and more variety, and a measurable drop in ragebait.
+You can ask naturally: less ragebait, more science-based pages. Or give an exact mix across astronomy, coding, drawing, anime, and fragrance.
 
-The local Strands agent builds the plan, runs it in a safe practice feed, and measures the result, then restores the starting state.
+Paste a few YouTube and Bluesky links. Descriptions are optional. The agent reads the sample, turns the request into a plan, and tests it in a bounded practice feed.
 
-The same Passport can be copied from one app to another; Curate shows what carries over and what needs a different route.
+Curate measures the shift instead of stopping at a list of suggested actions. Here is the YouTube feed after the change. And here is Bluesky after the same intent was translated.
 
-Incognito creates a temporary feed for a conference or deep-work session, then expires automatically or closes immediately.
+Copy Feed carries the useful parts of your taste from one app to another. Curate shows what transfers cleanly, what needs another route, and how to roll back.
 
-A shared view can blend selected tastes with another person without merging accounts.
+Incognito creates a temporary feed for a conference, trip, or deep-work session. It expires automatically, or you can close it immediately without changing your normal feed.
+
+Blend creates a shared view from selected tastes without merging accounts.
 
 Natural language in, a feed that feels like yours out, and a way back.

@@ -33,20 +33,20 @@ const reportPath = path.join(outputDirectory, "report.json");
 const vagueGoal = "I want less ragebait and more science-based pages.";
 const exactGoal = "Make it 50% astronomy, 15% coding, 12% drawing, 3% anime, 10% Naruto, 5% One Piece, and 5% perfumes.";
 const beforeLinks = [
-  "https://www.youtube.com/watch?v=b4RageBt001 | Breaking outrage clip with no sources or useful context.",
-  "https://www.youtube.com/watch?v=b4DramaBt02 | Creator drama framed to keep people angry.",
-  "https://www.youtube.com/watch?v=b4SpaceSc03 | A short astronomy explainer about Europa.",
-  "https://bsky.app/profile/curate.demo/post/3before01 | A rumor thread presented as settled fact.",
-  "https://bsky.app/profile/curate.demo/post/3before02 | Shocking claims and an urgent ragebait caption.",
-  "https://bsky.app/profile/curate.demo/post/3before03 | A quiet sketchbook study.",
+  "https://www.youtube.com/watch?v=b4RageBt001",
+  "https://www.youtube.com/watch?v=b4DramaBt02",
+  "https://www.youtube.com/watch?v=b4SpaceSc03",
+  "https://bsky.app/profile/curate.demo/post/3before01",
+  "https://bsky.app/profile/curate.demo/post/3before02",
+  "https://bsky.app/profile/curate.demo/post/3before03",
 ].join("\n");
 const afterLinks = [
-  "https://www.youtube.com/watch?v=afSpaceSc01 | An astrophysicist explains new evidence about Europa.",
-  "https://www.youtube.com/watch?v=afCodeSci02 | A calm programming lesson about graph traversal.",
-  "https://www.youtube.com/watch?v=afAnimeAn03 | A thoughtful Naruto and One Piece animation analysis.",
-  "https://bsky.app/profile/curate.demo/post/3after001 | A research paper explained with links to its methods.",
-  "https://bsky.app/profile/curate.demo/post/3after002 | A step-by-step character drawing study.",
-  "https://bsky.app/profile/curate.demo/post/3after003 | A fragrance chemistry guide with ingredient context.",
+  "https://www.youtube.com/watch?v=afSpaceSc01",
+  "https://www.youtube.com/watch?v=afCodeSci02",
+  "https://www.youtube.com/watch?v=afAnimeAn03",
+  "https://bsky.app/profile/curate.demo/post/3after001",
+  "https://bsky.app/profile/curate.demo/post/3after002",
+  "https://bsky.app/profile/curate.demo/post/3after003",
 ].join("\n");
 
 function assertLoopbackOrigin(value, label) {

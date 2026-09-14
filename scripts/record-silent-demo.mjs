@@ -312,6 +312,10 @@ const expectedPlatformFrames = platformCaptureEvidence.captures.reduce(
   (total, capture) => total + capture.frames.length,
   0,
 );
+const expectedPresentedPlatformFrames = platformCaptureEvidence.captures.reduce((total, capture) => {
+  const scene = platformFeedStory[capture.platform]?.[capture.phase];
+  return total + (scene?.frameIndexes?.length || 0);
+}, 0);
 const expectedReviewedUniqueItems = platformCaptureEvidence.captures.reduce(
   (total, capture) => total + (capture.reviewed_unique_feed_items || 0),
   0,
@@ -417,7 +421,7 @@ const visibleEvidence = {
   actual_platform_pages_after: 0,
   platform_sequences_completed: 0,
   platform_frames_shown: 0,
-  reviewed_unique_items_shown: 0,
+  reviewed_unique_items_available: 0,
   platform_comparisons: 0,
   feed_labels_shown: 0,
   minimum_labeled_frame_hold_ms: demoVideo.minimumLabeledFrameHoldMs,
@@ -564,9 +568,14 @@ async function showPlatformFeedCapture(capture) {
   if (!Array.isArray(capture.frames) || capture.frames.length === 0) {
     throw new Error(`Missing captured frames for ${capture.platform}:${capture.phase}.`);
   }
+  const selectedFrames = scene.frameIndexes.map((frameIndex) => {
+    const frame = capture.frames[frameIndex];
+    if (!frame) throw new Error(`${capture.platform}:${capture.phase} storyboard frame ${frameIndex} is missing from the reviewed capture.`);
+    return { frame, frameIndex };
+  });
   const displayName = capture.platform === "youtube" ? "YouTube" : "Bluesky";
-  const firstFrame = capture.frames[0];
-  const firstLabels = labelsForFrame(scene, 0, capture.frames.length);
+  const firstFrame = selectedFrames[0];
+  const firstLabels = labelsForFrame(scene, firstFrame.frameIndex, capture.frames.length);
   await page.evaluate(({ captureDataUrl, platform, phase, frameCount, framePosition, frameLabels }) => {
     document.querySelector("#platform-feed-capture")?.remove();
     const overlay = document.createElement("section");
@@ -583,7 +592,7 @@ async function showPlatformFeedCapture(capture) {
       #platform-feed-capture .frame-progress { position: fixed; z-index: 4; left: 24px; top: 22px; padding: 10px 13px; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; background: rgba(11,16,32,.82); backdrop-filter: blur(12px); font: 750 13px/1 ui-monospace, monospace; }
       #platform-feed-capture .goal { position: fixed; z-index: 4; left: 22px; bottom: 18px; max-width: min(720px, calc(100vw - 44px)); padding: 9px 13px; border: 1px solid rgba(255,255,255,.42); border-radius: 9px; background: rgba(11,16,32,.9); box-shadow: 0 10px 28px rgba(0,0,0,.35); font-size: 14px; font-weight: 800; }
       #platform-feed-capture .labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-      #platform-feed-capture .label { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); padding: 7px 10px; border: 2px solid currentColor; border-radius: 7px; background: rgba(5,9,17,.94); box-shadow: 0 7px 20px rgba(0,0,0,.42); font: 850 16px/1 system-ui, sans-serif; white-space: nowrap; }
+      #platform-feed-capture .label { position: absolute; left: clamp(70px, var(--x), calc(100% - 70px)); top: clamp(66px, var(--y), calc(100% - 76px)); transform: translate(-50%, -50%); width: max-content; max-width: min(210px, calc(100vw - 32px)); padding: 6px 9px; border: 2px solid currentColor; border-radius: 7px; background: rgba(5,9,17,.94); box-shadow: 0 7px 20px rgba(0,0,0,.42); font: 850 14px/1.15 system-ui, sans-serif; text-align: center; white-space: normal; }
       #platform-feed-capture .label[data-tone="down"] { color: #ff8a92; }
       #platform-feed-capture .label[data-tone="up"] { color: #8ee0b8; }
       #platform-feed-capture .label[data-tone="change"] { color: #ffd16b; }
@@ -612,31 +621,33 @@ async function showPlatformFeedCapture(capture) {
     }
     const pill = document.createElement("div");
     pill.className = "platform-pill";
-    pill.textContent = `${platform} · ${phase} feed`;
+    pill.textContent = `${platform} · ${phase === "STARTING" ? "starting" : "curated"} feed`;
     const progress = document.createElement("div");
     progress.className = "frame-progress";
-    progress.textContent = `Recorded scroll · ${framePosition}/${frameCount}`;
+    progress.textContent = `${phase === "STARTING" ? "Quick baseline" : "Result tour"} · ${framePosition}/${frameCount}`;
     const goal = document.createElement("div");
     goal.className = "goal";
-    goal.textContent = `Goal: less ragebait · more trustworthy, useful content`;
+    goal.textContent = phase === "STARTING"
+      ? "Starting mix: reactions and current events"
+      : "Requested: less outrage · more space, drawing, and practical science";
     overlay.append(style, stage, labels, pill, progress, goal);
     document.body.append(overlay);
     return image.decode();
   }, {
-    captureDataUrl: frameDataUrl(firstFrame),
+    captureDataUrl: frameDataUrl(firstFrame.frame),
     platform: displayName,
-    phase: capture.phase.toUpperCase(),
-    frameCount: capture.frames.length,
+    phase: capture.phase === "before" ? "STARTING" : "CURATED",
+    frameCount: selectedFrames.length,
     framePosition: 1,
     frameLabels: firstLabels,
   });
   visibleEvidence.platform_frames_shown += 1;
   visibleEvidence.feed_labels_shown += firstLabels.length;
-  await waitForFrame(scene, 0, firstLabels.length > 0);
+  await waitForFrame(scene, firstFrame.frameIndex, firstLabels.length > 0);
   if (capture.platform === "youtube" && capture.phase === "before") await saveKeyframe("01-youtube-before-scroll");
 
-  for (const [frameIndex, frame] of capture.frames.entries()) {
-    if (frameIndex === 0) continue;
+  for (const [selectedIndex, { frameIndex, frame }] of selectedFrames.entries()) {
+    if (selectedIndex === 0) continue;
     const frameLabels = labelsForFrame(scene, frameIndex, capture.frames.length);
     await page.evaluate(async ({ captureDataUrl, framePosition, frameCount, labelsToShow }) => {
       const overlay = document.querySelector("#platform-feed-capture");
@@ -658,11 +669,12 @@ async function showPlatformFeedCapture(capture) {
       }
       incoming.classList.add("is-active");
       current.classList.remove("is-active");
-      overlay.querySelector(".frame-progress").textContent = `Recorded scroll · ${framePosition}/${frameCount}`;
+      const phase = overlay.querySelector(".platform-pill").textContent.includes("starting") ? "Quick baseline" : "Result tour";
+      overlay.querySelector(".frame-progress").textContent = `${phase} · ${framePosition}/${frameCount}`;
     }, {
       captureDataUrl: frameDataUrl(frame),
-      framePosition: frameIndex + 1,
-      frameCount: capture.frames.length,
+      framePosition: selectedIndex + 1,
+      frameCount: selectedFrames.length,
       labelsToShow: frameLabels,
     });
     visibleEvidence.platform_frames_shown += 1;
@@ -672,7 +684,7 @@ async function showPlatformFeedCapture(capture) {
   if (capture.platform === "youtube" && capture.phase === "after") await saveKeyframe("04-youtube-after-scroll");
   await page.evaluate(() => document.querySelector("#platform-feed-capture")?.remove());
   visibleEvidence.platform_sequences_completed += 1;
-  visibleEvidence.reviewed_unique_items_shown += capture.reviewed_unique_feed_items || 0;
+  visibleEvidence.reviewed_unique_items_available += capture.reviewed_unique_feed_items || 0;
 }
 
 async function showCapturedFeeds(phase) {
@@ -698,33 +710,36 @@ async function showPlatformWipe(platform, milliseconds = 4_200) {
     const overlay = document.createElement("section");
     overlay.id = "curate-feed-wipe";
     overlay.innerHTML = `<style>
-      #curate-feed-wipe { position: fixed; inset: 0; z-index: 100050; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #ffd16b; color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-feed-wipe { position: fixed; inset: 0; z-index: 100050; overflow: hidden; display: grid; grid-template-rows: 1fr 1fr; gap: 3px; background: #ffd16b; color: #f7edda; font-family: system-ui, sans-serif; }
       #curate-feed-wipe .compare-panel { position: relative; min-width: 0; overflow: hidden; background: #070b13; }
-      #curate-feed-wipe img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
-      #curate-feed-wipe .compare-panel.after { opacity: 0; transform: translateX(42px); transition: opacity 700ms ease, transform 900ms cubic-bezier(.2,.7,.2,1); }
-      #curate-feed-wipe.reveal .compare-panel.after { opacity: 1; transform: translateX(0); }
+      #curate-feed-wipe .capture { position: relative; width: min(100%, calc((100vh - 3px) * 8 / 9)); height: 100%; margin: 0 auto; }
+      #curate-feed-wipe img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
+      #curate-feed-wipe .compare-panel.after { opacity: .12; transform: translateY(24px); transition: opacity 700ms ease, transform 900ms cubic-bezier(.2,.7,.2,1); }
+      #curate-feed-wipe.reveal .compare-panel.after { opacity: 1; transform: translateY(0); }
       #curate-feed-wipe .wipe-label { position: absolute; left: 18px; top: 18px; z-index: 3; padding: 9px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.92); font: 850 14px/1 ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; }
       #curate-feed-wipe .after .wipe-label { color: #8ee0b8; }
-      #curate-feed-wipe .card-label { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); padding: 7px 10px; border: 2px solid currentColor; border-radius: 7px; background: rgba(5,9,17,.95); font: 850 15px/1 system-ui, sans-serif; white-space: nowrap; }
-      #curate-feed-wipe .before .card-label { color: #ff8a92; }
-      #curate-feed-wipe .after .card-label { color: #8ee0b8; }
-      #curate-feed-wipe .card-label.first { top: 34%; }
-      #curate-feed-wipe .card-label.second { top: 66%; }
-      #curate-feed-wipe .compare-goal { position: fixed; z-index: 4; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 9px 14px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.94); font-size: 14px; font-weight: 850; white-space: nowrap; }
+      #curate-feed-wipe .card-label { position: absolute; z-index: 3; left: clamp(70px, var(--x), calc(100% - 70px)); top: clamp(58px, var(--y), calc(100% - 58px)); transform: translate(-50%, -50%); width: max-content; max-width: 190px; padding: 6px 9px; border: 2px solid currentColor; border-radius: 7px; background: rgba(5,9,17,.95); font: 850 14px/1.15 system-ui, sans-serif; text-align: center; white-space: normal; }
+      #curate-feed-wipe .card-label[data-tone="down"] { color: #ff8a92; }
+      #curate-feed-wipe .card-label[data-tone="up"] { color: #8ee0b8; }
+      #curate-feed-wipe .card-label[data-tone="neutral"] { color: #8ac7ff; }
+      #curate-feed-wipe .compare-goal { position: fixed; z-index: 4; right: 18px; bottom: 14px; max-width: 700px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: rgba(11,16,32,.94); font-size: 13px; font-weight: 850; }
     </style>
-    <article class="compare-panel before"><img alt=""><span class="wipe-label"></span><div class="panel-labels"></div></article>
-    <article class="compare-panel after"><img alt=""><span class="wipe-label"></span><div class="panel-labels"></div></article>
-    <div class="compare-goal">Goal: less ragebait · more trustworthy, useful content</div>`;
+    <article class="compare-panel before"><span class="wipe-label"></span><div class="capture"><img alt=""><div class="panel-labels"></div></div></article>
+    <article class="compare-panel after"><span class="wipe-label"></span><div class="capture"><img alt=""><div class="panel-labels"></div></div></article>
+    <div class="compare-goal">Less outrage · more space, drawing, and practical science</div>`;
     const imageNodes = overlay.querySelectorAll("img");
     imageNodes[0].src = images.before;
     imageNodes[1].src = images.after;
     overlay.querySelector(".before .wipe-label").textContent = `${platformName} · before`;
     overlay.querySelector(".after .wipe-label").textContent = `${platformName} · after`;
     for (const [phase, panel] of [["before", overlay.querySelector(".before")], ["after", overlay.querySelector(".after")]]) {
-      comparisonData[phase].labels.forEach((text, index) => {
+      comparisonData[phase].labels.forEach((item) => {
         const label = document.createElement("span");
-        label.className = `card-label ${index === 0 ? "first" : "second"}`;
-        label.textContent = text;
+        label.className = "card-label";
+        label.dataset.tone = item.tone;
+        label.textContent = item.text;
+        label.style.setProperty("--x", `${item.x}%`);
+        label.style.setProperty("--y", `${item.y}%`);
         panel.querySelector(".panel-labels").append(label);
       });
     }
@@ -1005,7 +1020,7 @@ try {
   visibleEvidence.incognito_issued = true;
   await center(page.locator(".temporary-visa.active"), 6_000);
   await page.getByTestId("temporary-revoke").click();
-  await page.locator(".temporary-visa.revoked").waitFor({ timeout: 15_000 });
+  await page.locator(".temporary-visa.revoked").last().waitFor({ timeout: 15_000 });
   visibleEvidence.incognito_revoked = true;
   await pause(2_500);
   visibleEvidence.tutorial_features_shown.push("incognito");
@@ -1044,7 +1059,7 @@ try {
 const edit = await condenseWaitingTime(executablePath, rawVideoPath, videoPath, condensedWaits);
 const videoBytes = await fs.readFile(videoPath);
 const report = {
-  schema: "curate/silent-demo-capture/v7",
+  schema: "curate/silent-demo-capture/v8",
   generated_at: new Date().toISOString(),
   source,
   video: videoPath,
@@ -1100,6 +1115,7 @@ const report = {
     sequence_depth_sufficient: platformCaptureEvidence.sequence_depth_sufficient,
     expected_sequences: expectedPlatformSequenceCount,
     expected_frames: expectedPlatformFrames,
+    presented_frames: expectedPresentedPlatformFrames,
     reviewed_unique_feed_items: expectedReviewedUniqueItems,
   },
   visible_evidence: visibleEvidence,
@@ -1149,8 +1165,8 @@ const report = {
     && visibleEvidence.actual_platform_pages_after === 2
     && platformCaptureEvidence.sequence_depth_sufficient === true
     && visibleEvidence.platform_sequences_completed === expectedPlatformSequenceCount
-    && visibleEvidence.platform_frames_shown === expectedPlatformFrames
-    && visibleEvidence.reviewed_unique_items_shown === expectedReviewedUniqueItems
+    && visibleEvidence.platform_frames_shown === expectedPresentedPlatformFrames
+    && visibleEvidence.reviewed_unique_items_available === expectedReviewedUniqueItems
     && visibleEvidence.platform_comparisons === 2
     && visibleEvidence.feed_labels_shown >= 24
     && visibleEvidence.minimum_labeled_frame_hold_ms >= 2_500

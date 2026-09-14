@@ -33,13 +33,15 @@ test("every platform state annotates multiple recorded sequence frames", () => {
   for (const platform of ["youtube", "bluesky"]) {
     for (const phase of ["before", "after"]) {
       const scene = platformFeedStory[platform][phase];
-      assert.ok(scene.labels.length >= 6);
-      assert.ok(new Set(scene.labels.map(({ frameIndex }) => frameIndex)).size >= 2);
+      const minimumFrames = phase === "before" ? 2 : 4;
+      assert.ok(scene.frameIndexes.length >= minimumFrames);
+      assert.equal(new Set(scene.frameIndexes).size, scene.frameIndexes.length);
+      assert.ok(scene.labels.length >= scene.frameIndexes.length);
       assert.ok(scene.labels.every(({ text, tone, x, y, frameIndex }) => text && tone && x >= 0 && x <= 100 && y >= 0 && y <= 100 && Number.isSafeInteger(frameIndex) && frameIndex >= 0));
       const counts = new Map();
       for (const label of scene.labels) counts.set(label.frameIndex, (counts.get(label.frameIndex) || 0) + 1);
-      assert.ok([...counts.values()].every((count) => count >= 2));
-      assert.ok([...counts.keys()].every((frameIndex) => scene.frameHolds[frameIndex] >= demoVideo.minimumLabeledFrameHoldMs));
+      assert.ok(scene.frameIndexes.every((frameIndex) => counts.has(frameIndex)));
+      assert.ok(scene.frameIndexes.every((frameIndex) => scene.frameHolds[frameIndex] >= demoVideo.minimumLabeledFrameHoldMs));
       assert.ok(scene.summary.length > 20);
       totalLabels += scene.labels.length;
     }
@@ -61,14 +63,13 @@ test("the final cut stays native 1080p and demonstrates five distinct personalit
   assert.equal(new Set(demoPersonas.map(({ prompt }) => prompt)).size, 5);
   assert.deepEqual(demoPersonas.map(({ feature }) => feature), ["tune", "tune", "copy", "incognito", "blend"]);
   assert.ok(demoPersonas.every(({ prompt }) => prompt.length >= 40));
-  assert.deepEqual(
-    platformFeedStory.bluesky.after.labels
-      .filter(({ frameIndex }) => frameIndex === 8)
-      .map(({ text }) => text),
-    ["calming bird video", "still mixed: current events"],
-  );
+  assert.deepEqual(platformFeedStory.youtube.before.frameIndexes, [0, 8]);
+  assert.deepEqual(platformFeedStory.bluesky.before.frameIndexes, [1, 7]);
+  assert.ok(platformFeedStory.youtube.after.frameIndexes.length > platformFeedStory.youtube.before.frameIndexes.length);
+  assert.ok(platformFeedStory.bluesky.after.frameIndexes.length > platformFeedStory.bluesky.before.frameIndexes.length);
+  assert.ok(platformFeedStory.bluesky.after.labels.every(({ tone }) => tone === "up"));
   assert.ok(Object.values(platformFeedStory).every(({ comparison }) => (
-    comparison.before.labels.length >= 2 && comparison.after.labels.length >= 2
+    comparison.before.labels.length >= 1 && comparison.after.labels.length >= 2
   )));
 });
 
@@ -78,6 +79,9 @@ test("the recorder uses compact overlays instead of explanatory slides", async (
   assert.match(source, /function showBeat/);
   assert.match(source, /function showPlatformWipe/);
   assert.match(source, /FEED_PASSPORT_AWS_SCREENSHOT/);
+  assert.match(source, /class="capture"><img/);
+  assert.match(source, /object-fit: contain/);
+  assert.match(source, /\.temporary-visa\.revoked"\)\.last\(\)\.waitFor/);
   assert.match(source, /more research, independent creators, thoughtful design, and local culture/);
   assert.doesNotMatch(source, /https:[^"\n]+\s\|/);
 });

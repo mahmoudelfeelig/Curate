@@ -24,6 +24,10 @@ function readableFrameHolds(...frameIndexes) {
   return Object.freeze(Object.fromEntries(frameIndexes.map((frameIndex) => [frameIndex, 2_650])));
 }
 
+function storyFrames(...frameIndexes) {
+  return Object.freeze(frameIndexes);
+}
+
 export const demoChapters = Object.freeze([
   { id: "starting-feeds", eyebrow: "Starting feeds", title: "What the feeds show now", detail: "Scroll first. Label only what is visible." },
   { id: "describe", eyebrow: "Tune", title: "Describe the change", detail: "Everyday language and exact mixes both work." },
@@ -37,75 +41,81 @@ export const demoChapters = Object.freeze([
 export const platformFeedStory = Object.freeze({
   youtube: Object.freeze({
     comparison: Object.freeze({
-      before: Object.freeze({ frameIndex: 0, labels: Object.freeze(["ragebait", "reaction-heavy"]) }),
-      after: Object.freeze({ frameIndex: 0, labels: Object.freeze(["science", "drawing and making"]) }),
+      before: Object.freeze({ frameIndex: 8, labels: Object.freeze([
+        storyLabel("reaction loop", "down", 51, 26, 8),
+        storyLabel("creator drama", "down", 80, 26, 8),
+      ]) }),
+      after: Object.freeze({ frameIndex: 8, labels: Object.freeze([
+        storyLabel("study skills", "up", 51, 26, 8),
+        storyLabel("astronomy", "up", 80, 26, 8),
+        storyLabel("drawing", "up", 22, 66, 8),
+      ]) }),
     }),
     before: Object.freeze({
-      frameHolds: readableFrameHolds(0, 4, 8),
+      frameIndexes: storyFrames(0, 8),
+      frameHolds: readableFrameHolds(0, 8),
       labels: Object.freeze([
-        storyLabel("ragebait", "down", 22, 31, 0),
-        storyLabel("fiction commentary", "neutral", 51, 31, 0),
-        storyLabel("business explainer", "up", 80, 31, 0),
-        storyLabel("creator drama", "down", 22, 24, 4),
-        storyLabel("art reaction", "neutral", 22, 62, 4),
-        storyLabel("fandom explainer", "neutral", 51, 62, 4),
-        storyLabel("fragrance chemistry", "up", 80, 62, 4),
-        storyLabel("AI hot take", "down", 22, 23, 8),
-        storyLabel("reaction compilation", "down", 51, 23, 8),
-        storyLabel("science philosophy", "up", 22, 62, 8),
-        storyLabel("philosophy explainer", "up", 51, 62, 8),
+        storyLabel("reaction video", "down", 22, 31, 0),
+        storyLabel("gaming commentary", "neutral", 51, 31, 0),
+        storyLabel("movie ranking", "neutral", 80, 31, 0),
+        storyLabel("music mix", "neutral", 22, 25, 8),
+        storyLabel("reaction loop", "down", 51, 25, 8),
+        storyLabel("creator drama", "down", 80, 25, 8),
       ]),
-      summary: "The starting sample leans toward reactions, drama, and broad entertainment.",
+      summary: "A short baseline establishes a recommendation pattern led by reactions and creator drama.",
     }),
     after: Object.freeze({
-      frameHolds: readableFrameHolds(0, 4, 8, 11),
+      frameIndexes: storyFrames(0, 4, 6, 8),
+      frameHolds: readableFrameHolds(0, 4, 6, 8),
       labels: Object.freeze([
-        storyLabel("creative motivation", "up", 22, 31, 0),
-        storyLabel("making and animation", "up", 51, 31, 0),
-        storyLabel("infinity explained", "up", 80, 31, 0),
-        storyLabel("drawing short", "up", 17, 73, 0),
-        storyLabel("drawing challenge", "up", 22, 23, 4),
-        storyLabel("education analysis", "up", 51, 23, 4),
-        storyLabel("exoplanets", "up", 80, 23, 4),
-        storyLabel("fandom analysis", "change", 51, 62, 4),
-        storyLabel("technology review", "up", 22, 23, 8),
-        storyLabel("world-building", "up", 51, 23, 8),
-        storyLabel("anime analysis", "change", 22, 62, 8),
-        storyLabel("wildlife documentary", "up", 51, 62, 8),
-        storyLabel("science and technology", "up", 22, 23, 11),
-        storyLabel("drawing and anime", "up", 51, 62, 11),
+        storyLabel("anime analysis", "up", 22, 31, 0),
+        storyLabel("drawing tutorial", "up", 51, 31, 0),
+        storyLabel("study music", "up", 80, 31, 0),
+        storyLabel("math practice", "up", 22, 25, 4),
+        storyLabel("psychology", "up", 80, 25, 4),
+        storyLabel("research methods", "up", 22, 64, 4),
+        storyLabel("study skills", "up", 51, 25, 8),
+        storyLabel("astronomy", "up", 80, 25, 8),
+        storyLabel("drawing", "up", 22, 64, 8),
+        storyLabel("anime analysis", "up", 22, 25, 6),
+        storyLabel("ancient history", "up", 80, 25, 6),
+        storyLabel("aesthetics", "up", 80, 64, 6),
       ]),
-      summary: "The refreshed sample visibly brings learning, drawing, anime, and science forward.",
+      summary: "The longer result tour is dominated by learning, drawing, anime, astronomy, and science.",
     }),
   }),
   bluesky: Object.freeze({
     comparison: Object.freeze({
-      before: Object.freeze({ frameIndex: 1, labels: Object.freeze(["political outrage", "useful nature post"]) }),
-      after: Object.freeze({ frameIndex: 8, labels: Object.freeze(["calming bird video", "still mixed: current events"]) }),
+      before: Object.freeze({ frameIndex: 7, labels: Object.freeze([
+        storyLabel("breaking-news loop", "down", 43, 62, 7),
+      ]) }),
+      after: Object.freeze({ frameIndex: 10, labels: Object.freeze([
+        storyLabel("costume design", "up", 43, 30, 10),
+        storyLabel("painting", "up", 43, 72, 10),
+      ]) }),
     }),
     before: Object.freeze({
-      frameHolds: readableFrameHolds(1, 5, 10),
+      frameIndexes: storyFrames(1, 7),
+      frameHolds: readableFrameHolds(1, 7),
       labels: Object.freeze([
-        storyLabel("political outrage", "down", 44, 18, 1),
-        storyLabel("useful nature post", "up", 43, 49, 1),
-        storyLabel("breaking-news loop", "down", 44, 24, 5),
-        storyLabel("current-events commentary", "down", 44, 57, 5),
-        storyLabel("political commentary", "down", 44, 26, 10),
-        storyLabel("useful posts stay scattered", "neutral", 44, 62, 10),
+        storyLabel("political outrage", "down", 43, 18, 1),
+        storyLabel("bird rescue", "neutral", 43, 48, 1),
+        storyLabel("sports reaction", "neutral", 43, 24, 7),
+        storyLabel("breaking-news loop", "down", 43, 61, 7),
       ]),
-      summary: "The starting sample mixes useful posts with a strong current-events loop.",
+      summary: "The baseline quickly shows useful posts being interrupted by political and breaking-news content.",
     }),
     after: Object.freeze({
-      frameHolds: readableFrameHolds(0, 3, 8),
+      frameIndexes: storyFrames(3, 8, 9, 10),
+      frameHolds: readableFrameHolds(3, 8, 9, 10),
       labels: Object.freeze([
-        storyLabel("art and nature", "up", 43, 22, 0),
-        storyLabel("quiet personal post", "neutral", 43, 88, 0),
-        storyLabel("painting", "up", 43, 16, 3),
-        storyLabel("environment satire", "change", 43, 66, 3),
-        storyLabel("calming bird video", "up", 43, 18, 8),
-        storyLabel("still mixed: current events", "neutral", 48, 49, 8),
+        storyLabel("environmental science", "up", 43, 34, 3),
+        storyLabel("climate data", "up", 43, 44, 8),
+        storyLabel("climate science", "up", 43, 32, 9),
+        storyLabel("costume design", "up", 43, 30, 10),
+        storyLabel("painting", "up", 43, 72, 10),
       ]),
-      summary: "The refreshed sample is still mixed, but science and art recur through the scroll.",
+      summary: "The result tour now concentrates on environmental science, climate reporting, design, and painting.",
     }),
   }),
 });
@@ -192,14 +202,18 @@ export function validateDemoStoryboard() {
   for (const platform of ["youtube", "bluesky"]) {
     for (const phase of ["before", "after"]) {
       const scene = platformFeedStory[platform]?.[phase];
-      if (!scene || scene.labels.length < 6) throw new Error(`${platform}:${phase} needs at least six direct card labels.`);
+      const minimumFrames = phase === "before" ? 2 : 4;
+      if (!scene || scene.frameIndexes.length < minimumFrames) throw new Error(`${platform}:${phase} needs at least ${minimumFrames} selected frames.`);
+      if (new Set(scene.frameIndexes).size !== scene.frameIndexes.length) throw new Error(`${platform}:${phase} selected frames must be unique.`);
+      if (scene.labels.length < scene.frameIndexes.length) throw new Error(`${platform}:${phase} needs at least one direct card label per selected frame.`);
       if (scene.labels.some(({ frameIndex }) => !Number.isSafeInteger(frameIndex) || frameIndex < 0)) throw new Error(`${platform}:${phase} labels must target recorded sequence frames.`);
+      if (scene.labels.some(({ frameIndex }) => !scene.frameIndexes.includes(frameIndex))) throw new Error(`${platform}:${phase} labels must target selected frames.`);
       const labeledFrameCounts = new Map();
       for (const label of scene.labels) {
         labeledFrameCounts.set(label.frameIndex, (labeledFrameCounts.get(label.frameIndex) ?? 0) + 1);
       }
-      if ([...labeledFrameCounts.values()].some((count) => count < 2)) throw new Error(`${platform}:${phase} labeled frames need multiple card labels.`);
-      for (const frameIndex of labeledFrameCounts.keys()) {
+      if (scene.frameIndexes.some((frameIndex) => !labeledFrameCounts.has(frameIndex))) throw new Error(`${platform}:${phase} selected frames must be labeled.`);
+      for (const frameIndex of scene.frameIndexes) {
         if ((scene.frameHolds?.[frameIndex] || 0) < demoVideo.minimumLabeledFrameHoldMs) throw new Error(`${platform}:${phase} labeled frames must remain readable.`);
       }
       totalLabels += scene.labels.length;

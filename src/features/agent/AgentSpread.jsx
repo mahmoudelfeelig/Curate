@@ -163,7 +163,7 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
             <p>Curate will show what the feed looked like, what it changed, and whether the result moved closer to your request.</p>
           </div>
         ) : (
-          <div className="mission-ledger" data-mission-id={mission.id} data-mission-status={mission.status} data-planner={plannerEvidence ? "local-model" : "deterministic"}>
+          <div className="mission-ledger" data-mission-id={mission.id} data-mission-status={mission.status} data-planner={plannerEvidence ? "model-proposal" : "deterministic"}>
             <header className="mission-docket">
               <div><span>{mission.id}</span><h3>{mission.goal}</h3><p>{String(mission.platform || "practice").replace("twin:", "").toUpperCase()} · PRACTICE FEED</p></div>
               <StatusStamp tone={statusTone}>{missionStatusLabel}</StatusStamp>
@@ -172,9 +172,9 @@ export function AgentSpread({ form, setForm, mission, onPreview, onModelPreview,
             {plannerEvidence ? <details className="model-planner-evidence" aria-label="Curate agent details">
               <summary>How Curate made this plan</summary>
               <header><div><span>CURATE AGENT</span><b>{plannerEvidence.model_id || "Configured model"}</b></div><StatusStamp tone={plannerEvidence.deterministic_validation === "passed" ? "green" : "orange"} compact>{plannerEvidence.deterministic_validation === "passed" ? "CHECKED" : "INSPECT"}</StatusStamp></header>
-              <div className="model-proposal-copy"><span>INTERPRETATION</span><p>{mission.goal_interpretation}</p><span>EXPLICIT RATIONALE</span><p>{plannerProposal?.rationale || "The local proposal was admitted without persisting hidden reasoning."}</p></div>
+              <div className="model-proposal-copy"><span>INTERPRETATION</span><p>{mission.goal_interpretation}</p><span>EXPLICIT RATIONALE</span><p>{plannerProposal?.rationale || "The proposal was admitted without persisting hidden reasoning."}</p></div>
               <div className="model-proof-strip"><dl><dt>Provider</dt><dd>{plannerEvidence.provider}</dd></dl><dl><dt>Tool calls</dt><dd>{plannerEvidence.tools?.length || 0}</dd></dl><dl><dt>Tokens</dt><dd>{plannerEvidence.usage?.total_tokens || 0}</dd></dl><dl><dt>Latency</dt><dd>{plannerEvidence.duration_ms || 0} ms</dd></dl></div>
-              <div className="model-tool-trace" role="list" aria-label="Sanitized local model tool trace">{(plannerEvidence.tools || []).map((item, index) => <span role="listitem" data-tool-name={item.name} data-tool-status={item.status} key={`${item.name}-${index}`}>{index + 1}. {String(item.name).replaceAll("_", " ")} · {item.status}</span>)}</div>
+              <div className="model-tool-trace" role="list" aria-label="Sanitized model tool trace">{(plannerEvidence.tools || []).map((item, index) => <span role="listitem" data-tool-name={item.name} data-tool-status={item.status} key={`${item.name}-${index}`}>{index + 1}. {String(item.name).replaceAll("_", " ")} · {item.status}</span>)}</div>
               <p className="model-authority-note">Curate proposed the route; the app checked its limits before offering the run.</p>
             </details> : null}
             <div className="mission-comparison">

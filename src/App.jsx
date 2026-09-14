@@ -1272,7 +1272,7 @@ export function App() {
         "Plan ready",
         "Curate",
       );
-    }, "Local model mission planning failed");
+    }, "Curate mission planning failed");
   };
   const handleMissionRun = () => {
     if (!agentMission?.id || rejectWhileBusy()) return;

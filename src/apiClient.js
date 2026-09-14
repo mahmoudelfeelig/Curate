@@ -256,6 +256,77 @@ function agentMissionRequestBody(spec) {
   };
 }
 
+function agentCoreReadinessData({ signedIn }) {
+  return {
+    configured: true,
+    online: signedIn,
+    readiness: signedIn ? "ready" : "sign_in_required",
+    provider: "aws_bedrock_agentcore",
+    model_id: "deployment_configured",
+    endpoint_scope: "aws_managed",
+    mode: "proposal_only",
+    external_model_calls: true,
+    paid_model_calls: true,
+    reason: signedIn ? null : "Sign in with the judge account to use the cloud planner.",
+  };
+}
+
+async function agentCoreReadiness() {
+  if (!agentCoreGatewayClient.status().configured) return null;
+  const signedIn = Boolean(String((await accessTokenProvider()) || "").trim());
+  return agentCoreReadinessData({ signedIn });
+}
+
+function agentCorePracticeEvidence(spec) {
+  const selected = String(spec.platform || "").replace(/^twin:/, "");
+  const platform = ["youtube", "bluesky", "instagram"].includes(selected)
+    ? selected
+    : "youtube";
+  const inferredTopics = Object.keys(agentCorePassportSnapshot().topic_targets || {})
+    .map((topic) => String(topic).trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_"))
+    .filter((topic) => /^[a-z0-9][a-z0-9_]{0,63}$/.test(topic))
+    .slice(0, 12);
+  return [{
+    platform,
+    metadata_source: "unavailable_without_owner_oauth",
+    metadata_verified: false,
+    title: "",
+    description: "",
+    inferred_topics: inferredTopics.length ? inferredTopics : ["unclassified"],
+    ragebait_signal: false,
+    confidence: 0,
+  }];
+}
+
+function attachAgentCoreMissionEvidence(mission, cloud) {
+  const merged = {
+    ...mission,
+    goal_interpretation: cloud.proposal.rationale,
+    planner_evidence: {
+      ...cloud.evidence,
+      provider: cloud.evidence?.provider || "aws_bedrock_agentcore",
+      authority: "proposal_only",
+      proposal: cloud.proposal,
+      deterministic_validation: "passed",
+    },
+  };
+  runtime.agentMissions.set(merged.id, merged);
+  return merged;
+}
+
+function retainAgentMissionEvidence(mission) {
+  const retained = runtime.agentMissions.get(mission.id);
+  const merged = retained?.planner_evidence
+    ? {
+        ...mission,
+        goal_interpretation: retained.goal_interpretation,
+        planner_evidence: retained.planner_evidence,
+      }
+    : mission;
+  runtime.agentMissions.set(merged.id, merged);
+  return merged;
+}
+
 function isConnectivityFailure(error) {
   return !(error instanceof CuratorApiError);
 }
@@ -2400,30 +2471,8 @@ export const feedPassportApi = {
 
   async getAgentModelStatus() {
     if (!serviceAvailable) {
-      const agentCoreStatus = agentCoreGatewayClient.status();
-      const oidcConfigured = Boolean(
-        (env.VITE_CURATE_OIDC_CLIENT_ID || env.VITE_FEED_PASSPORT_OIDC_CLIENT_ID)
-        && (env.VITE_CURATE_OIDC_HOSTED_UI_URL || env.VITE_FEED_PASSPORT_OIDC_HOSTED_UI_URL)
-        && (env.VITE_CURATE_OIDC_ISSUER || env.VITE_FEED_PASSPORT_OIDC_ISSUER),
-      );
-      if (agentCoreStatus.configured && oidcConfigured) {
-        const signedIn = Boolean(String((await accessTokenProvider()) || "").trim());
-        return {
-          source: "agentcore",
-          data: {
-            configured: true,
-            online: signedIn,
-            readiness: signedIn ? "ready" : "sign_in_required",
-            provider: "aws_bedrock_agentcore",
-            model_id: "deployment_configured",
-            endpoint_scope: "aws_managed",
-            mode: "proposal_only",
-            external_model_calls: true,
-            paid_model_calls: true,
-            reason: signedIn ? null : "Sign in with the judge account to use the cloud planner.",
-          },
-        };
-      }
+      const agentCore = await agentCoreReadiness();
+      if (agentCore) return { source: "agentcore", data: agentCore };
       return {
         source: "fixture",
         data: {
@@ -2441,9 +2490,15 @@ export const feedPassportApi = {
       };
     }
     await ensureServiceContext();
+    const local = await requestJson("/api/agent/model/status", { method: "GET", timeoutMs: 5000 });
+    if (local?.online === true && local?.readiness === "ready") {
+      return { source: "service", data: local };
+    }
+    const agentCore = await agentCoreReadiness();
+    if (agentCore) return { source: "agentcore", data: agentCore };
     return {
       source: "service",
-      data: await requestJson("/api/agent/model/status", { method: "GET", timeoutMs: 5000 }),
+      data: local,
     };
   },
 
@@ -2587,13 +2642,36 @@ export const feedPassportApi = {
       );
     }
     await ensureServiceContext();
-    const mission = await requestJson("/api/agent/missions/plan", {
+    const local = await requestJson("/api/agent/model/status", { method: "GET", timeoutMs: 5000 });
+    if (local?.online === true && local?.readiness === "ready") {
+      const mission = await requestJson("/api/agent/missions/plan", {
+        method: "POST",
+        body: JSON.stringify(agentMissionRequestBody(spec)),
+        timeoutMs: LOCAL_MODEL_REQUEST_TIMEOUT_MS,
+      });
+      runtime.agentMissions.set(mission.id, mission);
+      return { source: "service", data: mission };
+    }
+    const agentCore = await agentCoreReadiness();
+    if (!agentCore?.online) {
+      throw new CuratorApiError(
+        503,
+        "The local planner is unavailable and the Curate cloud planner is not ready. A quick practice preview is still available.",
+        { fallback_permitted: false },
+      );
+    }
+    const cloud = await agentCoreGatewayClient.planFeed({
+      passport: agentCorePassportSnapshot(),
+      request: spec.goal,
+      evidence: agentCorePracticeEvidence(spec),
+      timeoutMs: LOCAL_MODEL_REQUEST_TIMEOUT_MS,
+    });
+    const mission = await requestJson("/api/agent/missions/preview", {
       method: "POST",
       body: JSON.stringify(agentMissionRequestBody(spec)),
       timeoutMs: LOCAL_MODEL_REQUEST_TIMEOUT_MS,
     });
-    runtime.agentMissions.set(mission.id, mission);
-    return { source: "service", data: mission };
+    return { source: "service", data: attachAgentCoreMissionEvidence(mission, cloud) };
   },
 
   async listLiveCommissions() {
@@ -2699,7 +2777,7 @@ export const feedPassportApi = {
 
   getAgentMission(missionId) {
     return withFixtureFallback(
-      () => requestJson(`/api/agent/missions/${encodeURIComponent(missionId)}?actor_id=${encodeURIComponent(runtime.actorId)}`, { method: "GET" }),
+      async () => retainAgentMissionEvidence(await requestJson(`/api/agent/missions/${encodeURIComponent(missionId)}?actor_id=${encodeURIComponent(runtime.actorId)}`, { method: "GET" })),
       () => {
         const mission = runtime.agentMissions.get(missionId);
         if (!mission) throw new CuratorApiError(404, "Local mission was not found", null);
@@ -2715,13 +2793,14 @@ export const feedPassportApi = {
           method: "POST",
           body: JSON.stringify({ actor_id: runtime.actorId, ttl_seconds: 600 }),
         });
-        return requestJson(`/api/agent/missions/${encodeURIComponent(missionId)}/execute`, {
+        const mission = await requestJson(`/api/agent/missions/${encodeURIComponent(missionId)}/execute`, {
           method: "POST",
           body: JSON.stringify({
             actor_id: runtime.actorId,
             approval_token: approval.approval_token || approval.token,
           }),
         });
+        return retainAgentMissionEvidence(mission);
       },
       () => fixtureMissionExecution(missionId),
     );
@@ -2729,10 +2808,10 @@ export const feedPassportApi = {
 
   cancelAgentMission(missionId) {
     return withMutationFallback(
-      () => requestJson(`/api/agent/missions/${encodeURIComponent(missionId)}/cancel`, {
+      async () => retainAgentMissionEvidence(await requestJson(`/api/agent/missions/${encodeURIComponent(missionId)}/cancel`, {
         method: "POST",
         body: JSON.stringify({ actor_id: runtime.actorId }),
-      }),
+      })),
       () => {
         const mission = runtime.agentMissions.get(missionId);
         if (!mission) throw new CuratorApiError(404, "Local mission was not found", null);
@@ -2750,13 +2829,14 @@ export const feedPassportApi = {
           method: "POST",
           body: JSON.stringify({ actor_id: runtime.actorId, ttl_seconds: 600 }),
         });
-        return requestJson(`/api/agent/missions/${encodeURIComponent(missionId)}/rollback`, {
+        const mission = await requestJson(`/api/agent/missions/${encodeURIComponent(missionId)}/rollback`, {
           method: "POST",
           body: JSON.stringify({
             actor_id: runtime.actorId,
             approval_token: approval.approval_token || approval.token,
           }),
         });
+        return retainAgentMissionEvidence(mission);
       },
       () => {
         const mission = runtime.agentMissions.get(missionId);

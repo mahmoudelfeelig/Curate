@@ -1393,6 +1393,105 @@ test("model-backed mission preview uses the dedicated service route without fixt
   }
 });
 
+test("hosted service falls back to the authenticated AgentCore proposal and keeps a runnable mission", async () => {
+  const previousBase = globalThis.__CURATOR_API_URL__;
+  const previousGateway = globalThis.__CURATE_AGENTCORE_GATEWAY_URL__;
+  const previousToken = globalThis.__FEED_PASSPORT_ACCESS_TOKEN__;
+  const previousFetch = globalThis.fetch;
+  const requests = [];
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const accessToken = `${encode({ alg: "RS256" })}.${encode({
+    token_use: "access",
+    scope: "feed-passport/invoke",
+    sub: "demo-owner",
+    exp: 4_102_444_800,
+  })}.${Buffer.from("signature").toString("base64url")}`;
+  globalThis.__CURATOR_API_URL__ = "http://curator.test/api";
+  globalThis.__CURATE_AGENTCORE_GATEWAY_URL__ = "https://demo-123.gateway.bedrock-agentcore.eu-north-1.amazonaws.com";
+  globalThis.__FEED_PASSPORT_ACCESS_TOKEN__ = accessToken;
+  globalThis.fetch = async (input, options = {}) => {
+    const url = new URL(String(input));
+    const body = options.body ? JSON.parse(options.body) : null;
+    requests.push({ host: url.hostname, method: options.method || "GET", path: url.pathname, body });
+    if (url.hostname.endsWith("gateway.bedrock-agentcore.eu-north-1.amazonaws.com")) {
+      return jsonResponse({
+        kind: "feed_goal_proposal",
+        proposal: {
+          target_topic_weights: { research: 0.7, design: 0.3 },
+          hard_exclusions: ["ragebait"],
+          rationale: "Prioritize calm research while keeping some design variety.",
+        },
+        evidence: {
+          provider: "amazon_bedrock",
+          model_id: "amazon.nova-lite-v1:0",
+          authority: "proposal_only",
+          tools: [{ name: "submit_feed_goal_proposal", status: "accepted" }],
+        },
+        consent_created: false,
+        approved: false,
+        executed: false,
+      });
+    }
+    if (url.pathname === "/api/demo") {
+      return jsonResponse({ passports: [demoPassport], migrations: [], overlays: [], companions: [], receipts: [] });
+    }
+    if (url.pathname === "/health") return jsonResponse({ status: "healthy", scheduler: "active" });
+    if (url.pathname === "/api/agent/model/status") {
+      return jsonResponse({ configured: false, online: false, readiness: "disabled", provider: "disabled" });
+    }
+    if (url.pathname === "/api/agent/missions/preview") {
+      return jsonResponse({
+        id: "mission-agentcore-1",
+        owner_id: body.actor_id,
+        passport_id: body.passport_id,
+        platform: body.platform,
+        account_id: body.account_id,
+        goal: body.goal,
+        status: "awaiting_approval",
+        trace: [],
+      }, 201);
+    }
+    return jsonResponse({ detail: `Unexpected request: ${options.method || "GET"} ${url.pathname}` }, 500);
+  };
+
+  try {
+    const { feedPassportApi } = await import(`./apiClient.js?agentcore-hosted=${Date.now()}`);
+    await feedPassportApi.loadPassport();
+    const status = await feedPassportApi.getAgentModelStatus();
+    assert.equal(status.source, "agentcore");
+    assert.equal(status.data.readiness, "ready");
+
+    const preview = await feedPassportApi.previewAgentMissionWithModel({
+      goal: "Give me more calm research and less ragebait.",
+      platform: "threads",
+      accountId: "destination-new",
+      maxIterations: 2,
+      maxTotalActions: 4,
+      maxActionsPerIteration: 2,
+    });
+    assert.equal(preview.source, "service");
+    assert.equal(preview.data.status, "awaiting_approval");
+    assert.equal(preview.data.planner_evidence.authority, "proposal_only");
+    assert.equal(preview.data.planner_evidence.proposal.target_topic_weights.research, 0.7);
+    assert.equal(preview.data.goal_interpretation, "Prioritize calm research while keeping some design variety.");
+    assert.equal(requests.some((item) => item.path === "/api/agent/missions/plan"), false);
+    const cloudRequest = requests.find((item) => item.host.endsWith("gateway.bedrock-agentcore.eu-north-1.amazonaws.com"));
+    assert.equal(cloudRequest.body.kind, "plan_feed");
+    assert.equal(cloudRequest.body.evidence[0].metadata_source, "unavailable_without_owner_oauth");
+    const missionRequest = requests.find((item) => item.path === "/api/agent/missions/preview");
+    assert.equal(missionRequest.body.platform, "twin:threads");
+    assert.equal("approval_token" in missionRequest.body, false);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBase === undefined) delete globalThis.__CURATOR_API_URL__;
+    else globalThis.__CURATOR_API_URL__ = previousBase;
+    if (previousGateway === undefined) delete globalThis.__CURATE_AGENTCORE_GATEWAY_URL__;
+    else globalThis.__CURATE_AGENTCORE_GATEWAY_URL__ = previousGateway;
+    if (previousToken === undefined) delete globalThis.__FEED_PASSPORT_ACCESS_TOKEN__;
+    else globalThis.__FEED_PASSPORT_ACCESS_TOKEN__ = previousToken;
+  }
+});
+
 test("fixture mode refuses to impersonate a local language model", async () => {
   const previousBase = globalThis.__CURATOR_API_URL__;
   const previousLegacyBase = globalThis.__FEED_PASSPORT_API_BASE__;

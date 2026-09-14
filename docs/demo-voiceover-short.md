@@ -1,43 +1,43 @@
 # Curate demo voiceover
 
-Target read: about three minutes. Read conversationally and leave a short breath wherever the screen changes.
+Target read: about three minutes and thirty-five seconds. Read conversationally and leave a short breath wherever the screen changes.
 
-This is the starting point on our dummy YouTube account. The first recommendation is an argument video, while useful science and calm listening sit lower in the feed.
+This is the starting point on our dummy YouTube account. An argument video leads the page, while a science explainer and calmer listening sit further down.
 
-On Bluesky, a political post leads Discover. These labels simply mark what is already visible so the change is easy to follow.
+On the dummy Bluesky account, a political post leads Discover. The small labels only mark what is already visible as we scroll.
 
 Curate starts with one question: what do you want your feed to feel like?
 
-You can answer naturally: less ragebait and more science-based pages. Then paste a few links from the feed you have now. The links are enough; descriptions are optional.
+You can answer naturally: less ragebait and more science-based pages. Paste a few links from the feed you have now. A link can stand alone; a short note is optional when extra context helps.
 
-Curate turns that request into a Passport: a portable statement of your interests, boundaries, and priorities.
+You can also be precise. This request asks for fifty percent astronomy, fifteen coding, twelve drawing, ten Naruto, five One Piece, five perfumes, and three anime. Curate preserves the full hundred percent.
 
-If you know the exact balance you want, you can give that too. Here, astronomy gets half the feed, followed by coding, drawing, Naruto, One Piece, perfumes, and anime. The percentages stay exactly as written.
+That becomes a Feed Passport: a portable description of your interests and boundaries that can be translated for each app.
 
-Now the agent reads the request, maps it to the controls each platform supports, and checks the expected shift before anything reaches an account.
+The agent reads the request, inspects the selected Passport and sample, maps the result to supported controls, and checks the proposed shift before anything reaches an account.
 
-The same planning path is deployed on AWS. This retained check shows AgentCore ready and a Bedrock plan returned without making account changes.
+Here is the retained AWS run. AgentCore completed one health check, Bedrock used Nova Lite, and the agent called three bounded planning tools across three cycles. The proposal returned in three point three six seconds with no account changes.
 
-For the demo, the returned plan runs in a bounded practice feed. We can inspect its actions, start the run, and measure the content-level result.
+For this tutorial, the returned route runs in Curate's practice feed. We can inspect it, start it, measure the result, and keep an exact way back.
 
-The comparison makes the target visible: less unwanted conflict, more of the requested subjects, and the exact topic mix preserved.
+First, the starting sample scrolls past six conflict-heavy posts. Every card is marked as unwanted, so the problem is visible before we look at a score.
 
-The practice run can also restore its starting state, so the full route has a tested way back.
+Then the curated sample scrolls through astronomy, research, coding, drawing, anime, Naruto, One Piece, and perfumes. The requested subjects are visible in the content, not only in a chart.
 
-Now compare the real dummy feeds. On YouTube, the argument recommendation has been removed while the science explainer and calm listening remain.
+The selected sample moves from zero to one hundred percent calm, gains source variety, and records every topic that gained ground. The practice run then restores its starting state.
 
-On Bluesky, the selected top post is gone and a different recommendation moves up. The paired frames keep the before and after result next to each other.
+Back on the real dummy YouTube feed, the argument recommendation is removed while the science explainer and calm listening remain further down the page.
 
-Copy Feed teaches the same pattern. Choose the source account, choose the destination, and preview how the Passport translates to the controls available there.
+On Bluesky, the selected first post is absent and another recommendation moves into view. We show the recorded result exactly as it appeared.
 
-The result shows what carries over cleanly and what needs a different route. You can review that before applying anything.
+The paired frames make those native changes easy to verify. They prove the immediate feedback result; the seven-topic distribution remains Curate's explicit target and practice-feed demonstration.
 
-Incognito creates a temporary feed for a conference, trip, study session, or anything you do not want folded into your usual recommendations.
+Copy Feed follows the same pattern. Choose YouTube as the source, Bluesky as the destination, and preview what transfers cleanly before continuing.
 
-Choose its purpose and duration, start it, then close it immediately or let it expire. Your normal Passport stays unchanged.
+Incognito creates a temporary feed for a conference, trip, or study session. Choose its purpose and duration, start it, then close it immediately or let it expire without changing the usual Passport.
 
-Blend lets two people build a shared view while keeping both accounts separate. The first person chooses what to share, and the second person chooses what they bring.
+Blend lets two people make a shared view without merging their accounts. The first person chooses what to share, and the second person independently chooses what they bring.
 
-Only after both choices are visible does the shared view activate. Either person can stop it, and both original Passports remain intact.
+Only after both choices are visible does the shared view activate. Either person can stop it, leaving both original Passports intact.
 
-Curate makes feed changes understandable: show what you have, describe what you want, let the agent plan it, and see what changed.
+Curate makes the whole loop understandable: show what you have, describe what you want, let the agent plan it, and see what changed.

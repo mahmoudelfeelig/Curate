@@ -1,6 +1,6 @@
 # Curate demo script
 
-Reference runtime: **about 3:05**. The source-bound capture report is authoritative. The recording is an edited product tutorial: it removes inactive local-model wait time but does not synthesize a result or hide any user decision.
+Reference runtime: **about 3:37**. The source-bound capture report is authoritative. The recording is an edited product tutorial: it removes inactive local-model wait time but does not synthesize a result or hide any user decision.
 
 ## The story
 
@@ -10,7 +10,7 @@ Pan through the archived YouTube and Bluesky **before** captures edge to edge. K
 
 > I want less ragebait and more science-based pages.
 
-Paste the six owner-written sample links from the recording script and capture the starting feed. Keep the visible content cards centered long enough to read their titles. The mix and metrics are supporting evidence; the content itself is the main before-state.
+Paste the six sample links from the recording script and capture the starting feed. Links work on their own; this curated tutorial also includes short owner-authored notes so the offline classifier has explicit, reviewable semantics. Keep the visible content cards centered long enough to read their titles. The mix and metrics are supporting evidence; the content itself is the main before-state.
 
 Save the proposed change to the Passport, then open the agent mission. Replace the goal with the precise request:
 
@@ -18,7 +18,7 @@ Save the proposed change to the Passport, then open the agent mission. Replace t
 
 Show the entire sentence, the interpreted mix, and the compact local-planning state. Keep the animated working state, remove only the remaining inactive model wait, and resume on the returned proposal. Show the retained AWS deployment check as a separate interstitial: it proves one earlier AgentCore health result and one Bedrock feed plan, while the active proposal in this recording still comes from the verified loopback model.
 
-Run the proposal on the **Practice feed**. Center the starting-versus-curated content cards and their headline metrics. The audience should be able to name what changed without reading an implementation receipt. Restore the starting state and pause on the successful restoration mark.
+Run the proposal on the **Practice feed**. Scroll 930 pixels through six starting cards and six curated cards extracted from the rendered page. The curated cards must visibly cover astronomy, research, coding, drawing, anime, Naruto, One Piece, and perfumes. Center the headline metrics after the scroll so the audience can name what changed without reading an implementation receipt. Restore the starting state and pause on the successful restoration mark.
 
 Return to **Tune my feed**, replace the input sample with the six after-links, and compare. Keep the three YouTube and three Bluesky cards visible in both columns. Pan through the archived YouTube and Bluesky **after** captures from the same dummy accounts, then place each platform's before and after frames next to each other. Continue through a prepared Copy Feed result, an issued and revoked Incognito feed, and a complete invitation/activation/stop Blend flow before returning to the passport cover.
 
@@ -36,15 +36,15 @@ Return to **Tune my feed**, replace the input sample with the six after-links, a
 
 | Time | Screen and operator action | Narration |
 | --- | --- | --- |
-| 0:00–0:25 | Pan through the real YouTube and Bluesky dummy-account home feeds marked **BEFORE**. | Identify visible conflict-heavy content and the useful content to keep. |
-| 0:25–0:56 | Enter the vague request, bare links, and exact seven-topic request. | Teach natural and percentage-based input. |
-| 0:56–1:14 | Show the local agent state and separate retained AWS deployment check. | Explain planning and the managed AgentCore/Bedrock proof without conflating the two runs. |
-| 1:14–1:40 | Show the returned plan, bounded practice run, measurement, and rollback. | Explain the agent loop, measurable result, and return route. |
-| 1:40–2:02 | Pan through both **AFTER** feeds and show direct platform comparisons. | Point out exactly which visible recommendations changed. |
-| 2:02–2:21 | Prepare **Copy Feed** from YouTube to Bluesky. | Teach the route, preview, and result. |
-| 2:21–2:42 | Issue and revoke **Incognito**. | Teach purpose, duration, expiry, and immediate closure. |
-| 2:42–3:05 | Create, activate, and stop **Blend** with two local test principals. | Teach both selections and the separate-account result. |
-| 3:04–3:05 | End on the Curate passport. | Close with the product promise. |
+| 0:00–0:23 | Pan 930 pixels through the real YouTube and Bluesky dummy-account home feeds marked **BEFORE**. | Identify visible conflict-heavy content and the useful content to keep. |
+| 0:23–1:04 | Enter the vague request, optional link notes, and exact seven-topic request. | Teach natural and percentage-based input. |
+| 1:04–1:27 | Show the local agent state and the full nine-event retained AWS execution trace. | Explain planning and the managed AgentCore/Bedrock proof without conflating the two runs. |
+| 1:27–2:09 | Show the returned plan, scroll through the six-card starting and curated practice feeds, measure the change, and roll back. | Make every requested subject and the 100-point calm-content shift visible. |
+| 2:09–2:41 | Pan through both **AFTER** feeds and show direct platform comparisons. | Point out exactly which visible recommendations changed. |
+| 2:41–2:53 | Prepare **Copy Feed** from YouTube to Bluesky. | Teach the route, preview, and result. |
+| 2:53–3:07 | Issue and revoke **Incognito**. | Teach purpose, duration, expiry, and immediate closure. |
+| 3:07–3:31 | Create, activate, and stop **Blend** with two local test principals. | Teach both selections and the separate-account result. |
+| 3:31–3:37 | End on the Curate passport. | Close with the product promise. |
 
 ## Recording boundary
 
@@ -83,7 +83,7 @@ $env:FEED_PASSPORT_PLATFORM_CAPTURE_MANIFEST="D:\path\to\reviewed-dummy-feed-cap
 npm run demo:record
 ```
 
-The script records a raw WebM for auditability and a condensed WebM for the submission. Its report lists every removed wait interval and hashes the final video.
+The script records a raw WebM for auditability and a condensed WebM for the submission. Its report lists every removed wait interval, hashes the final video, verifies the 930-pixel feed tours, and requires the nine-event AWS replay and all seven requested topics.
 
 ## Final review
 

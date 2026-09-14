@@ -12,9 +12,11 @@ export const demoChapters = Object.freeze([
 
 export const platformFeedStory = Object.freeze({
   youtube: Object.freeze({
+    comparison: Object.freeze({ zoomPercent: 175, before: Object.freeze({ x: -80, y: -150 }), after: Object.freeze({ x: -80, y: 0 }) }),
     before: Object.freeze({
-      scrollFrom: -185,
-      scrollTo: -390,
+      zoomPercent: 145,
+      scrollFrom: -20,
+      scrollTo: -950,
       labels: Object.freeze([
         { text: "argument / drama", tone: "down", x: 20, y: 35 },
         { text: "science explainer", tone: "up", x: 18, y: 72 },
@@ -23,8 +25,9 @@ export const platformFeedStory = Object.freeze({
       summary: "The first recommendation pulls toward conflict.",
     }),
     after: Object.freeze({
-      scrollFrom: 0,
-      scrollTo: -360,
+      zoomPercent: 145,
+      scrollFrom: -20,
+      scrollTo: -950,
       labels: Object.freeze([
         { text: "removed from recommendations", tone: "change", x: 20, y: 18 },
         { text: "science stays", tone: "up", x: 18, y: 61 },
@@ -34,9 +37,11 @@ export const platformFeedStory = Object.freeze({
     }),
   }),
   bluesky: Object.freeze({
+    comparison: Object.freeze({ zoomPercent: 175, before: Object.freeze({ x: -260, y: 0 }), after: Object.freeze({ x: -260, y: 0 }) }),
     before: Object.freeze({
-      scrollFrom: 0,
-      scrollTo: -500,
+      zoomPercent: 145,
+      scrollFrom: -20,
+      scrollTo: -950,
       labels: Object.freeze([
         { text: "show less of this", tone: "down", x: 57, y: 21 },
         { text: "general news", tone: "neutral", x: 48, y: 58 },
@@ -44,8 +49,9 @@ export const platformFeedStory = Object.freeze({
       summary: "A political post leads the Discover feed.",
     }),
     after: Object.freeze({
-      scrollFrom: 0,
-      scrollTo: -300,
+      zoomPercent: 145,
+      scrollFrom: -20,
+      scrollTo: -950,
       labels: Object.freeze([
         { text: "previous top post is gone", tone: "change", x: 49, y: 16 },
         { text: "broader news moves up", tone: "up", x: 49, y: 43 },
@@ -53,6 +59,23 @@ export const platformFeedStory = Object.freeze({
       summary: "The selected post is gone and the next recommendation moves up.",
     }),
   }),
+});
+
+export const exactTopicTarget = Object.freeze([
+  Object.freeze(["astronomy", 50]),
+  Object.freeze(["coding", 15]),
+  Object.freeze(["drawing", 12]),
+  Object.freeze(["anime", 3]),
+  Object.freeze(["naruto", 10]),
+  Object.freeze(["one_piece", 5]),
+  Object.freeze(["perfumes", 5]),
+]);
+
+export const practiceFeedTour = Object.freeze({
+  minimumScrollPixels: 930,
+  minimumCardsPerPhase: 6,
+  expectedRagebaitDropPoints: 100,
+  title: "The feed Curate understood",
 });
 
 export const tutorialFeatures = Object.freeze([
@@ -63,13 +86,18 @@ export const tutorialFeatures = Object.freeze([
 ]);
 
 export const managedAwsProof = Object.freeze({
-  title: "AWS deployment check",
+  title: "How the managed agent built the plan",
   stamp: "Recorded managed run",
-  rows: Object.freeze([
-    ["AgentCore runtime", "Ready"],
-    ["Bedrock planner", "Plan returned"],
-    ["Exact percentages", "Preserved"],
-    ["Account changes", "None"],
+  events: Object.freeze([
+    Object.freeze({ kind: "run", label: "1/1 health", detail: "AgentCore runtime healthy" }),
+    Object.freeze({ kind: "model", label: "Amazon Bedrock", detail: "Nova Lite ready" }),
+    Object.freeze({ kind: "run", label: "1/1 plan_feed", detail: "Request accepted" }),
+    Object.freeze({ kind: "tool", label: "inspect_selected_passport", detail: "completed" }),
+    Object.freeze({ kind: "tool", label: "inspect_sanitized_evidence", detail: "completed" }),
+    Object.freeze({ kind: "tool", label: "submit_feed_goal_proposal", detail: "accepted" }),
+    Object.freeze({ kind: "check", label: "Exact percentages", detail: "preserved" }),
+    Object.freeze({ kind: "done", label: "3 planning cycles", detail: "3.36 seconds" }),
+    Object.freeze({ kind: "result", label: "Proposal ready", detail: "no account changes" }),
   ]),
 });
 
@@ -83,9 +111,13 @@ export function validateDemoStoryboard() {
     for (const phase of ["before", "after"]) {
       const scene = platformFeedStory[platform]?.[phase];
       if (!scene || scene.labels.length < 2) throw new Error(`${platform}:${phase} needs at least two visible labels.`);
-      if (scene.scrollFrom === scene.scrollTo) throw new Error(`${platform}:${phase} must visibly pan.`);
+      if (Math.abs(scene.scrollTo - scene.scrollFrom) < 900) throw new Error(`${platform}:${phase} must visibly pan at least 900px.`);
+      if (scene.zoomPercent < 140) throw new Error(`${platform}:${phase} needs enough captured pixels for that pan.`);
     }
   }
-  if (managedAwsProof.rows.length < 3) throw new Error("Managed AWS proof is too thin for the demo.");
+  if (new Set(exactTopicTarget.map(([topic]) => topic)).size !== 7) throw new Error("The exact target must show seven unique topics.");
+  if (exactTopicTarget.reduce((sum, [, percent]) => sum + percent, 0) !== 100) throw new Error("The exact target must total 100%.");
+  if (practiceFeedTour.minimumScrollPixels < 900 || practiceFeedTour.minimumCardsPerPhase < 6) throw new Error("The practice feed tour is too slight.");
+  if (managedAwsProof.events.length < 8) throw new Error("Managed AWS proof is too thin for the demo.");
   return true;
 }

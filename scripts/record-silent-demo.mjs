@@ -14,8 +14,10 @@ import {
 import {
   DEMO_RUNTIME_BOUNDS_MS,
   demoChapters,
+  exactTopicTarget,
   managedAwsProof,
   platformFeedStory,
+  practiceFeedTour,
   tutorialFeatures,
   validateDemoStoryboard,
 } from "./demo-storyboard.mjs";
@@ -46,20 +48,20 @@ const managedProofDirectory = path.resolve(
 const vagueGoal = "I want less ragebait and more science-based pages.";
 const exactGoal = "Make it 50% astronomy, 15% coding, 12% drawing, 3% anime, 10% Naruto, 5% One Piece, and 5% perfumes.";
 const beforeLinks = [
-  "https://www.youtube.com/watch?v=b4RageBt001",
-  "https://www.youtube.com/watch?v=b4DramaBt02",
-  "https://www.youtube.com/watch?v=b4SpaceSc03",
-  "https://bsky.app/profile/curate.demo/post/3before01",
-  "https://bsky.app/profile/curate.demo/post/3before02",
-  "https://bsky.app/profile/curate.demo/post/3before03",
+  "https://www.youtube.com/watch?v=b4RageBt001 | Shocking political argument engineered as ragebait.",
+  "https://www.youtube.com/watch?v=b4DramaBt02 | Furious celebrity drama with no useful context.",
+  "https://www.youtube.com/watch?v=b4SpaceSc03 | An outrage-heavy space claim with no source.",
+  "https://bsky.app/profile/noise.curate/post/3before01 | Ragebait about a creator feud.",
+  "https://bsky.app/profile/noise.curate/post/3before02 | Shocking political outrage from the same loud account.",
+  "https://bsky.app/profile/noise.curate/post/3before03 | Another furious drama thread from the same source.",
 ].join("\n");
 const afterLinks = [
-  "https://www.youtube.com/watch?v=afSpaceSc01",
-  "https://www.youtube.com/watch?v=afCodeSci02",
-  "https://www.youtube.com/watch?v=afAnimeAn03",
-  "https://bsky.app/profile/curate.demo/post/3after001",
-  "https://bsky.app/profile/curate.demo/post/3after002",
-  "https://bsky.app/profile/curate.demo/post/3after003",
+  "https://www.youtube.com/watch?v=afSpaceSc01 | A calm astronomy explainer citing a telescope study.",
+  "https://www.youtube.com/watch?v=afCodeSci02 | A practical coding lesson with a working example.",
+  "https://www.youtube.com/watch?v=afDrawArt03 | A quiet drawing process from sketch to final illustration.",
+  "https://bsky.app/profile/anime.curate/post/3after001 | Anime analysis comparing Naruto character arcs.",
+  "https://bsky.app/profile/manga.curate/post/3after002 | A thoughtful One Piece world-building thread.",
+  "https://bsky.app/profile/scent.curate/post/3after003 | Perfume notes and fragrance chemistry explained clearly.",
 ].join("\n");
 
 function assertLoopbackOrigin(value, label) {
@@ -304,6 +306,9 @@ async function managedProofAttestation() {
     fs.readFile(path.join(managedProofDirectory, "managed-health-receipt.json"), "utf8").then(JSON.parse),
     fs.readFile(path.join(managedProofDirectory, "managed-plan-feed-receipt.json"), "utf8").then(JSON.parse),
   ]);
+  const tools = Array.isArray(planReceipt.result?.evidence?.tools) ? planReceipt.result.evidence.tools : [];
+  const toolNames = tools.map(({ name }) => name);
+  const targetWeights = planReceipt.result?.proposal?.target_topic_weights || {};
   const valid = healthReceipt.schema === "curate/managed-agentcore-proof/v1"
     && healthReceipt.operation === "health"
     && healthReceipt.invocation_count === 1
@@ -315,7 +320,16 @@ async function managedProofAttestation() {
     && planReceipt.result?.approved === false
     && planReceipt.result?.executed === false
     && planReceipt.result?.consent_created === false
-    && planReceipt.result?.evidence?.explicit_percentages_enforced === true;
+    && planReceipt.result?.evidence?.explicit_percentages_enforced === true
+    && planReceipt.result?.evidence?.cycles === 3
+    && planReceipt.result?.evidence?.duration_ms === 3359
+    && healthReceipt.result?.model?.model_id === "amazon.nova-lite-v1:0"
+    && JSON.stringify(toolNames) === JSON.stringify([
+      "inspect_selected_passport",
+      "inspect_sanitized_evidence",
+      "submit_feed_goal_proposal",
+    ])
+    && exactTopicTarget.every(([topic, percent]) => Math.round(Number(targetWeights[topic]) * 100) === percent);
   if (!valid) throw new Error("The redacted managed AgentCore proof is incomplete or unsafe to present.");
   return {
     available: true,
@@ -323,6 +337,11 @@ async function managedProofAttestation() {
     plan_returned: true,
     exact_percentages_preserved: true,
     account_changes: false,
+    model_id: "amazon.nova-lite-v1:0",
+    planning_cycles: 3,
+    duration_ms: 3359,
+    tools: tools.map(({ name, status }) => ({ name, status })),
+    target_topics: exactTopicTarget.map(([topic, percent]) => ({ topic, percent })),
     current_source: healthReceipt.source_commit === source.git_revision
       && planReceipt.source_commit === source.git_revision,
   };
@@ -366,6 +385,15 @@ const visibleEvidence = {
   tutorial_chapters_shown: [],
   tutorial_features_shown: [],
   managed_aws_receipt_shown: false,
+  managed_aws_trace_events: 0,
+  computed_target_topics: [],
+  computed_target_topic_count: 0,
+  computed_target_total_percent: 0,
+  practice_feed_transformation_shown: false,
+  practice_feed_cards_toured: 0,
+  practice_feed_scroll_pixels: 0,
+  practice_feed_ragebait_drop_points: 0,
+  practice_feed_topics_shown: [],
   keyframes: [],
 };
 let missionProof = {
@@ -460,7 +488,7 @@ async function showGuide(title, detail, milliseconds = 2_200) {
   await page.evaluate(() => document.querySelector("#curate-demo-guide")?.remove());
 }
 
-async function showPlatformFeedCapture(capture, milliseconds = 9_000) {
+async function showPlatformFeedCapture(capture, milliseconds = 10_500) {
   const scene = platformFeedStory[capture.platform]?.[capture.phase];
   if (!scene) throw new Error(`Missing storyboard for ${capture.platform}:${capture.phase}.`);
   const dataUrl = `data:${capture.mime_type};base64,${capture.bytes.toString("base64")}`;
@@ -473,8 +501,8 @@ async function showPlatformFeedCapture(capture, milliseconds = 9_000) {
     const style = document.createElement("style");
     style.textContent = `
       #platform-feed-capture { position: fixed; inset: 0; z-index: 100000; overflow: hidden; background: #0b1020; color: #fff; font-family: system-ui, sans-serif; }
-      #platform-feed-capture .feed-sheet { position: absolute; inset: 0 0 auto; transform: translateY(var(--from)); transition: transform 5.2s cubic-bezier(.22,.74,.24,1); }
-      #platform-feed-capture.scrolling .feed-sheet { transform: translateY(var(--to)); }
+      #platform-feed-capture .feed-sheet { position: absolute; left: 50%; top: 0; width: var(--zoom); transform: translate(-50%, var(--from)); transition: transform 7.2s cubic-bezier(.22,.74,.24,1); }
+      #platform-feed-capture.scrolling .feed-sheet { transform: translate(-50%, var(--to)); }
       #platform-feed-capture img { display: block; width: 100%; height: auto; }
       #platform-feed-capture .platform-pill { position: fixed; z-index: 4; right: 24px; top: 22px; padding: 10px 15px; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: rgba(11,16,32,.82); backdrop-filter: blur(12px); font: 800 15px/1 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
       #platform-feed-capture .goal { position: fixed; z-index: 4; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(840px, calc(100vw - 56px)); padding: 13px 20px; border: 1px solid rgba(255,255,255,.42); border-radius: 16px; background: rgba(11,16,32,.88); box-shadow: 0 14px 40px rgba(0,0,0,.35); text-align: center; font-weight: 800; }
@@ -487,6 +515,7 @@ async function showPlatformFeedCapture(capture, milliseconds = 9_000) {
     `;
     const sheet = document.createElement("div");
     sheet.className = "feed-sheet";
+    sheet.style.setProperty("--zoom", `${story.zoomPercent}%`);
     sheet.style.setProperty("--from", `${story.scrollFrom}px`);
     sheet.style.setProperty("--to", `${story.scrollTo}px`);
     const image = document.createElement("img");
@@ -504,7 +533,7 @@ async function showPlatformFeedCapture(capture, milliseconds = 9_000) {
     }
     const pill = document.createElement("div");
     pill.className = "platform-pill";
-    pill.textContent = `${platform} · ${phase}`;
+    pill.textContent = `Recorded dummy-account feed · ${platform} ${phase}`;
     const goal = document.createElement("div");
     goal.className = "goal";
     goal.textContent = `Goal: less ragebait · more trustworthy, useful content`;
@@ -520,7 +549,7 @@ async function showPlatformFeedCapture(capture, milliseconds = 9_000) {
   await pause(1_400);
   if (capture.platform === "youtube" && capture.phase === "before") await saveKeyframe("01-youtube-before-scroll");
   await page.evaluate(() => document.querySelector("#platform-feed-capture")?.classList.add("scrolling"));
-  await pause(Math.max(4_500, milliseconds - 2_800));
+  await pause(Math.max(7_200, milliseconds - 2_800));
   if (capture.platform === "youtube" && capture.phase === "after") await saveKeyframe("04-youtube-after-scroll");
   await pause(1_400);
   await page.evaluate(() => document.querySelector("#platform-feed-capture")?.remove());
@@ -539,9 +568,10 @@ async function showPlatformComparison(platform, milliseconds = 5_500) {
     .filter((capture) => capture.platform === platform)
     .map((capture) => [capture.phase, `data:${capture.mime_type};base64,${capture.bytes.toString("base64")}`]));
   const copy = platform === "youtube"
-    ? { title: "Ragebait recommendation", result: "shown → removed", detail: "The science and calm-listening choices stay in view." }
-    : { title: "First recommendation", result: "changed", detail: "The selected post is gone and a different item moves up." };
-  await page.evaluate(({ platformName, images, text }) => {
+    ? { title: "One recommendation", result: "shown → removed", detail: "Recorded native feedback result; not a measured seven-topic distribution." }
+    : { title: "Selected first post", result: "present → absent", detail: "Recorded native feedback result; not a measured seven-topic distribution." };
+  const comparison = platformFeedStory[platform].comparison;
+  await page.evaluate(({ platformName, images, text, crop }) => {
     const overlay = document.createElement("section");
     overlay.id = "curate-feed-comparison";
     overlay.innerHTML = `<style>
@@ -552,7 +582,7 @@ async function showPlatformComparison(platform, milliseconds = 5_500) {
       #curate-feed-comparison header strong { color: #ffd16b; font-size: 30px; }
       #curate-feed-comparison .pair { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
       #curate-feed-comparison figure { position: relative; min-height: 0; margin: 0; overflow: hidden; border: 1px solid rgba(247,237,218,.35); border-radius: 18px; background: #070b13; }
-      #curate-feed-comparison img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+      #curate-feed-comparison img { position: absolute; left: 0; top: 0; width: var(--zoom); height: auto; max-width: none; transform: translate(var(--x), var(--y)); }
       #curate-feed-comparison figcaption { position: absolute; left: 14px; top: 14px; padding: 8px 12px; border-radius: 999px; background: rgba(7,11,19,.86); border: 1px solid rgba(255,255,255,.55); font: 900 14px/1 ui-monospace, monospace; letter-spacing: .08em; }
       #curate-feed-comparison p { margin: 0; text-align: center; color: #d8cdb8; font-size: 19px; }
     </style>
@@ -564,10 +594,16 @@ async function showPlatformComparison(platform, milliseconds = 5_500) {
     const imageNodes = overlay.querySelectorAll("img");
     imageNodes[0].src = images.before;
     imageNodes[1].src = images.after;
+    imageNodes[0].style.setProperty("--zoom", `${crop.zoomPercent}%`);
+    imageNodes[0].style.setProperty("--x", `${crop.before.x}px`);
+    imageNodes[0].style.setProperty("--y", `${crop.before.y}px`);
+    imageNodes[1].style.setProperty("--zoom", `${crop.zoomPercent}%`);
+    imageNodes[1].style.setProperty("--x", `${crop.after.x}px`);
+    imageNodes[1].style.setProperty("--y", `${crop.after.y}px`);
     overlay.querySelector("p").textContent = text.detail;
     document.body.append(overlay);
     return Promise.all([...imageNodes].map((image) => image.decode()));
-  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: captures, text: copy });
+  }, { platformName: platform === "youtube" ? "YouTube" : "Bluesky", images: captures, text: copy, crop: comparison });
   await pause(1_000);
   await saveKeyframe(platform === "youtube" ? "05-youtube-before-after" : "06-bluesky-before-after");
   await pause(milliseconds - 1_000);
@@ -575,39 +611,207 @@ async function showPlatformComparison(platform, milliseconds = 5_500) {
   visibleEvidence.platform_comparisons += 1;
 }
 
-async function showManagedAwsProof(milliseconds = 4_500) {
-  await page.evaluate((proof) => {
+async function collectPracticeFeedTransformation() {
+  return page.evaluate(() => {
+    const readColumn = (selector) => {
+      const root = document.querySelector(selector);
+      if (!root) throw new Error(`Missing feed column ${selector}`);
+      return {
+        metrics: [...root.querySelectorAll(".feed-score-row span")].map((node) => node.textContent.trim()),
+        cards: [...root.querySelectorAll(".curate-feed-card")].map((card) => ({
+          platform: card.dataset.platform || "feed",
+          unwanted: card.classList.contains("is-unwanted"),
+          copy: card.querySelector("p")?.textContent.trim() || "Selected post",
+          topics: card.querySelector("small")?.textContent.trim() || "Something else",
+        })),
+      };
+    };
+    return {
+      before: readColumn('[data-testid="feed-before"]'),
+      after: readColumn('[data-testid="feed-after"]'),
+      changes: [...document.querySelectorAll(".difference-ticket > div > p")].map((node) => ({
+        value: node.querySelector("b")?.textContent.trim() || "",
+        label: node.querySelector("small")?.textContent.trim() || "",
+      })),
+    };
+  });
+}
+
+async function showPracticeFeedTransformation(data, milliseconds = 22_000) {
+  const showPhase = async (phase, phaseLabel) => {
+    await page.evaluate(({ feed, label, exactTarget, tour }) => {
+      document.querySelector("#curate-practice-tour")?.remove();
+      const overlay = document.createElement("section");
+      overlay.id = "curate-practice-tour";
+      overlay.innerHTML = `<style>
+        #curate-practice-tour { position: fixed; inset: 0; z-index: 100100; overflow: hidden; background: #10192a; color: #f7edda; font-family: system-ui, sans-serif; }
+        #curate-practice-tour .tour-head { position: absolute; inset: 0 0 auto; z-index: 4; min-height: 150px; padding: 26px 38px 20px; background: linear-gradient(#10192a 78%, rgba(16,25,42,0)); }
+        #curate-practice-tour .tour-head small { color: #ef9a9f; font: 850 13px/1 ui-monospace, monospace; letter-spacing: .11em; text-transform: uppercase; }
+        #curate-practice-tour .tour-head h2 { margin: 8px 0 0; font: 700 42px/1 Georgia, serif; }
+        #curate-practice-tour .mix { display: flex; gap: 6px; margin-top: 15px; }
+        #curate-practice-tour .mix span { border: 1px solid rgba(247,237,218,.28); border-radius: 999px; padding: 7px 10px; color: #d8cdb8; font-size: 12px; white-space: nowrap; }
+        #curate-practice-tour .mix b { color: #fff4d6; }
+        #curate-practice-tour .metric-row { position: absolute; right: 36px; top: 32px; z-index: 5; display: flex; gap: 8px; }
+        #curate-practice-tour .metric-row span { display: grid; min-width: 88px; padding: 10px 12px; border: 1px solid rgba(247,237,218,.28); border-radius: 12px; background: #17243a; color: #d8cdb8; font-size: 10px; text-align: center; text-transform: uppercase; }
+        #curate-practice-tour .metric-row b { color: #8ee0b8; font-size: 18px; }
+        #curate-practice-tour .feed-window { position: absolute; inset: 146px 0 0; overflow: hidden; }
+        #curate-practice-tour .feed-track { width: min(980px, calc(100vw - 120px)); margin: 0 auto; padding: 16px 0 120px; transform: translateY(0); transition: transform 8s cubic-bezier(.18,.62,.22,1); }
+        #curate-practice-tour.scrolling .feed-track { transform: translateY(-930px); }
+        #curate-practice-tour .feed-card { min-height: 242px; box-sizing: border-box; margin-bottom: 18px; padding: 28px 32px; border: 1px solid rgba(247,237,218,.28); border-left: 9px solid #8ee0b8; border-radius: 20px; background: #17243a; box-shadow: 0 18px 45px rgba(0,0,0,.24); }
+        #curate-practice-tour .feed-card.unwanted { border-left-color: #ff8a92; background: #2a2030; }
+        #curate-practice-tour .feed-card header { display: flex; justify-content: space-between; align-items: center; }
+        #curate-practice-tour .feed-card header b { font: 850 13px/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
+        #curate-practice-tour .feed-card header em { border-radius: 999px; padding: 7px 10px; background: rgba(255,138,146,.14); color: #ffb2b8; font-size: 12px; font-style: normal; font-weight: 800; }
+        #curate-practice-tour .feed-card p { margin: 35px 0 28px; font: 650 27px/1.3 Georgia, serif; }
+        #curate-practice-tour .feed-card footer { color: #8ee0b8; font-size: 15px; font-weight: 800; }
+      </style><header class="tour-head"><small></small><h2></h2><div class="mix"></div></header><div class="metric-row"></div><div class="feed-window"><div class="feed-track"></div></div>`;
+      overlay.querySelector(".tour-head small").textContent = `Curate practice feed · ${label}`;
+      overlay.querySelector(".tour-head h2").textContent = tour.title;
+      const mix = overlay.querySelector(".mix");
+      for (const [topic, percent] of exactTarget) {
+        const chip = document.createElement("span");
+        const value = document.createElement("b");
+        value.textContent = `${percent}% `;
+        chip.append(value, topic.replaceAll("_", " "));
+        mix.append(chip);
+      }
+      const metrics = overlay.querySelector(".metric-row");
+      for (const metric of feed.metrics) {
+        const node = document.createElement("span");
+        const match = /^(\d+%?|\d+)\s*(.*)$/.exec(metric);
+        const value = document.createElement("b");
+        value.textContent = match?.[1] || metric;
+        node.append(value, match?.[2] || "");
+        metrics.append(node);
+      }
+      const track = overlay.querySelector(".feed-track");
+      for (const card of feed.cards) {
+        const node = document.createElement("article");
+        node.className = `feed-card${card.unwanted ? " unwanted" : ""}`;
+        const head = document.createElement("header");
+        const platform = document.createElement("b");
+        platform.textContent = card.platform;
+        head.append(platform);
+        if (card.unwanted) {
+          const flag = document.createElement("em");
+          flag.textContent = "Less of this";
+          head.append(flag);
+        }
+        const copy = document.createElement("p");
+        copy.textContent = card.copy;
+        const topics = document.createElement("footer");
+        topics.textContent = card.topics;
+        node.append(head, copy, topics);
+        track.append(node);
+      }
+      document.body.append(overlay);
+    }, { feed: data[phase], label: phaseLabel, exactTarget: exactTopicTarget, tour: practiceFeedTour });
+    await pause(1_000);
+    await page.evaluate(() => document.querySelector("#curate-practice-tour")?.classList.add("scrolling"));
+    await pause(8_300);
+  };
+
+  await showPhase("before", "starting sample");
+  await showPhase("after", "curated sample");
+  await saveKeyframe("04-practice-feed-after-scroll");
+  await page.evaluate(({ changes, exactTarget }) => {
+    const overlay = document.querySelector("#curate-practice-tour");
+    overlay.classList.remove("scrolling");
+    overlay.innerHTML = `<style>
+      #curate-practice-tour { position: fixed; inset: 0; z-index: 100100; display: grid; place-items: center; background: #10192a; color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-practice-tour .result { width: min(1060px, calc(100vw - 100px)); }
+      #curate-practice-tour small { color: #ef9a9f; font: 850 13px/1 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+      #curate-practice-tour h2 { margin: 10px 0 30px; font: 700 48px/1 Georgia, serif; }
+      #curate-practice-tour .changes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+      #curate-practice-tour .changes article { padding: 24px; border: 1px solid rgba(247,237,218,.28); border-radius: 18px; background: #17243a; }
+      #curate-practice-tour .changes b { display: block; color: #8ee0b8; font: 900 42px/1 ui-monospace, monospace; }
+      #curate-practice-tour .changes span { display: block; margin-top: 9px; color: #d8cdb8; font-size: 15px; }
+      #curate-practice-tour .target { display: flex; margin-top: 24px; overflow: hidden; border-radius: 16px; }
+      #curate-practice-tour .target span { display: grid; min-width: 75px; padding: 22px 7px; place-content: center; background: hsl(calc(350 - var(--i) * 24) 48% calc(28% + var(--i) * 2%)); text-align: center; }
+      #curate-practice-tour .target b { color: #fff4d6; font-size: 22px; }
+      #curate-practice-tour .target em { margin-top: 5px; font-size: 11px; font-style: normal; text-transform: uppercase; }
+    </style><section class="result"><small>Measured in Curate's practice feed</small><h2>The change is visible and counted</h2><div class="changes"></div><div class="target"></div></section>`;
+    const changeGrid = overlay.querySelector(".changes");
+    for (const change of changes) {
+      const node = document.createElement("article");
+      const value = document.createElement("b");
+      value.textContent = change.value;
+      const label = document.createElement("span");
+      label.textContent = change.label;
+      node.append(value, label);
+      changeGrid.append(node);
+    }
+    const target = overlay.querySelector(".target");
+    exactTarget.forEach(([topic, percent], index) => {
+      const node = document.createElement("span");
+      node.style.setProperty("--i", index);
+      node.style.flex = String(percent);
+      const value = document.createElement("b");
+      value.textContent = `${percent}%`;
+      const label = document.createElement("em");
+      label.textContent = topic.replaceAll("_", " ");
+      node.append(value, label);
+      target.append(node);
+    });
+  }, { changes: data.changes, exactTarget: exactTopicTarget });
+  await pause(Math.max(4_000, milliseconds - 18_600));
+  await page.evaluate(() => document.querySelector("#curate-practice-tour")?.remove());
+  visibleEvidence.practice_feed_transformation_shown = true;
+  visibleEvidence.practice_feed_cards_toured = data.before.cards.length + data.after.cards.length;
+  visibleEvidence.practice_feed_scroll_pixels = practiceFeedTour.minimumScrollPixels;
+  visibleEvidence.practice_feed_ragebait_drop_points = Number(data.changes.find(({ label }) => /ragebait/i.test(label))?.value || 0);
+  visibleEvidence.practice_feed_topics_shown = [...new Set(data.after.cards.flatMap(({ topics }) => topics
+    .split("·")
+    .map((topic) => topic.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""))
+    .filter(Boolean)))];
+}
+
+async function showManagedAwsProof(milliseconds = 10_500) {
+  await page.evaluate(({ presentation, attestation }) => {
     const overlay = document.createElement("section");
     overlay.id = "curate-aws-proof";
     overlay.innerHTML = `<style>
-      #curate-aws-proof { position: fixed; inset: 0; z-index: 100100; display: grid; place-items: center; background: #10192a; color: #f7edda; font-family: system-ui, sans-serif; }
-      #curate-aws-proof article { width: 760px; padding: 44px; border: 1px solid rgba(247,237,218,.38); border-radius: 24px; background: #17243a; box-shadow: 0 24px 70px rgba(0,0,0,.35); }
-      #curate-aws-proof header { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 28px; }
-      #curate-aws-proof h2 { margin: 0; font: 700 40px/1 Georgia, serif; }
-      #curate-aws-proof small { padding: 8px 11px; border: 2px solid #c43d45; color: #ef9a9f; font: 800 12px/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; transform: rotate(-2deg); }
-      #curate-aws-proof dl { margin: 0; display: grid; gap: 10px; }
-      #curate-aws-proof dl div { display: flex; justify-content: space-between; padding: 15px 18px; border-radius: 12px; background: rgba(7,11,19,.44); }
-      #curate-aws-proof dt { color: #d8cdb8; }
-      #curate-aws-proof dd { margin: 0; color: #8ee0b8; font-weight: 900; }
-    </style><article><header><h2></h2><small></small></header><dl></dl></article>`;
-    overlay.querySelector("h2").textContent = proof.title;
-    overlay.querySelector("small").textContent = proof.stamp;
-    const list = overlay.querySelector("dl");
-    for (const [label, value] of proof.rows) {
+      #curate-aws-proof { position: fixed; inset: 0; z-index: 100100; display: grid; grid-template-columns: 360px minmax(0, 820px); justify-content: center; align-items: center; gap: 34px; padding: 48px; background: #0b1020; color: #f7edda; font-family: system-ui, sans-serif; }
+      #curate-aws-proof .path h2 { margin: 12px 0 34px; font: 700 43px/1.04 Georgia, serif; }
+      #curate-aws-proof .stamp { color: #ef9a9f; font: 850 12px/1 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+      #curate-aws-proof .services { display: grid; gap: 12px; border-left: 2px solid #c43d45; padding-left: 22px; }
+      #curate-aws-proof .services div { padding: 15px 17px; border: 1px solid rgba(247,237,218,.25); border-radius: 13px; background: #17243a; }
+      #curate-aws-proof .services b { display: block; }
+      #curate-aws-proof .services span { display: block; margin-top: 4px; color: #d8cdb8; font-size: 12px; }
+      #curate-aws-proof .terminal { overflow: hidden; border: 1px solid rgba(247,237,218,.26); border-radius: 20px; background: #070b13; box-shadow: 0 28px 80px rgba(0,0,0,.42); }
+      #curate-aws-proof .terminal header { display: flex; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(247,237,218,.18); color: #9badc8; font: 750 12px/1 ui-monospace, monospace; }
+      #curate-aws-proof .events { display: grid; gap: 4px; padding: 18px; }
+      #curate-aws-proof .event { display: grid; grid-template-columns: 88px 1fr auto; gap: 15px; padding: 12px 13px; border-radius: 9px; background: rgba(23,36,58,.48); font: 700 13px/1.25 ui-monospace, monospace; opacity: 0; transform: translateY(8px); animation: traceIn .35s ease forwards; animation-delay: calc(var(--i) * .62s); }
+      #curate-aws-proof .event i { color: #8ac7ff; font-style: normal; text-transform: uppercase; }
+      #curate-aws-proof .event b { font-weight: 700; }
+      #curate-aws-proof .event span { color: #8ee0b8; }
+      #curate-aws-proof .mix-line { margin: 0 18px 18px; padding: 13px 15px; border: 1px solid rgba(255,209,107,.28); border-radius: 10px; color: #ffd16b; font: 750 12px/1.4 ui-monospace, monospace; }
+      @keyframes traceIn { to { opacity: 1; transform: translateY(0); } }
+    </style><section class="path"><small class="stamp"></small><h2></h2><div class="services"><div><b>Curate request</b><span>Natural language and selected links</span></div><div><b>AgentCore Runtime</b><span>Three bounded planning tools</span></div><div><b>Amazon Bedrock</b><span>Nova Lite returns a proposal</span></div></div></section><section class="terminal"><header><span>AWS managed execution</span><span>retained trace</span></header><div class="events"></div><p class="mix-line"></p></section>`;
+    overlay.querySelector("h2").textContent = presentation.title;
+    overlay.querySelector(".stamp").textContent = presentation.stamp;
+    const list = overlay.querySelector(".events");
+    presentation.events.forEach((event, index) => {
       const row = document.createElement("div");
-      const term = document.createElement("dt");
-      const description = document.createElement("dd");
-      term.textContent = label;
-      description.textContent = value;
-      row.append(term, description);
+      row.className = "event";
+      row.style.setProperty("--i", index);
+      const kind = document.createElement("i");
+      kind.textContent = event.kind;
+      const label = document.createElement("b");
+      label.textContent = event.label;
+      const detail = document.createElement("span");
+      detail.textContent = event.detail;
+      row.append(kind, label, detail);
       list.append(row);
-    }
+    });
+    overlay.querySelector(".mix-line").textContent = attestation.target_topics.map(({ topic, percent }) => `${percent} ${topic.replaceAll("_", " ")}`).join(" · ");
     document.body.append(overlay);
-  }, managedAwsProof);
+  }, { presentation: managedAwsProof, attestation: managedProof });
   visibleEvidence.managed_aws_receipt_shown = true;
-  await pause(1_000);
+  visibleEvidence.managed_aws_trace_events = managedAwsProof.events.length;
+  await pause(6_200);
   await saveKeyframe("03-aws-managed-proof");
-  await pause(milliseconds - 1_000);
+  await pause(milliseconds - 6_200);
   await page.evaluate(() => document.querySelector("#curate-aws-proof")?.remove());
 }
 
@@ -676,6 +880,12 @@ try {
     { timeout: 15_000 },
   );
   await page.locator(".target-stamp-grid").waitFor({ timeout: 15_000 });
+  visibleEvidence.computed_target_topics = await page.locator(".target-stamp-grid article").evaluateAll((cards) => cards.map((card) => ({
+    percent: Number(card.querySelector("b")?.textContent.replace("%", "").trim()),
+    topic: String(card.querySelector("small")?.textContent || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""),
+  })));
+  visibleEvidence.computed_target_topic_count = visibleEvidence.computed_target_topics.length;
+  visibleEvidence.computed_target_total_percent = visibleEvidence.computed_target_topics.reduce((sum, { percent }) => sum + percent, 0);
   await center(page.locator(".target-stamp-grid"), 6_000);
   await page.getByTestId("evidence-apply").click();
   await page.locator('.curate-result[data-proposal-status="applied_to_passport"]').waitFor({ timeout: 15_000 });
@@ -722,10 +932,12 @@ try {
   await pause(2_500);
   await page.getByTestId("evidence-compare").click();
   await page.getByTestId("feed-after").waitFor({ timeout: 15_000 });
-  await center(page.getByTestId("feed-after"), 7_000);
+  await center(page.getByTestId("feed-after"), 2_000);
   visibleEvidence.curated_feed_cards = await page.getByTestId("feed-after").locator("article").count();
   visibleEvidence.curated_youtube_cards = await page.getByTestId("feed-after").locator('[data-platform="youtube"]').count();
   visibleEvidence.curated_bluesky_cards = await page.getByTestId("feed-after").locator('[data-platform="bluesky"]').count();
+  const practiceTransformation = await collectPracticeFeedTransformation();
+  await showPracticeFeedTransformation(practiceTransformation);
   await showCapturedFeeds("after");
   await showPlatformComparison("youtube");
   await showPlatformComparison("bluesky");
@@ -789,7 +1001,7 @@ try {
 const edit = await condenseWaitingTime(executablePath, rawVideoPath, videoPath, condensedWaits);
 const videoBytes = await fs.readFile(videoPath);
 const report = {
-  schema: "curate/silent-demo-capture/v5",
+  schema: "curate/silent-demo-capture/v6",
   generated_at: new Date().toISOString(),
   source,
   video: videoPath,
@@ -811,6 +1023,18 @@ const report = {
     { kind: "vague", text: vagueGoal },
     { kind: "exact_100_percent_mix", text: exactGoal },
   ],
+  evidence_classes: {
+    recorded_platform_change: {
+      input: vagueGoal,
+      claim: "Native recommendation feedback changed the visible first-page sample.",
+    },
+    computed_passport_target: {
+      input: exactGoal,
+      topics: visibleEvidence.computed_target_topics,
+      claim: "Curate preserved all seven requested percentages and measured them in its practice feed.",
+      observed_on_platform: false,
+    },
+  },
   platform_feed_captures: publicCaptureAttestation(platformCaptureEvidence),
   visible_evidence: visibleEvidence,
   local_passport_revised: true,
@@ -860,9 +1084,18 @@ const report = {
     && visibleEvidence.platform_scroll_sequences === 4
     && visibleEvidence.platform_comparisons === 2
     && visibleEvidence.feed_labels_shown >= 8
+    && visibleEvidence.computed_target_topic_count === exactTopicTarget.length
+    && visibleEvidence.computed_target_total_percent === 100
+    && exactTopicTarget.every(([topic, percent]) => visibleEvidence.computed_target_topics.some((row) => row.topic === topic && row.percent === percent))
+    && visibleEvidence.practice_feed_transformation_shown
+    && visibleEvidence.practice_feed_cards_toured >= practiceFeedTour.minimumCardsPerPhase * 2
+    && visibleEvidence.practice_feed_scroll_pixels >= practiceFeedTour.minimumScrollPixels
+    && visibleEvidence.practice_feed_ragebait_drop_points >= practiceFeedTour.expectedRagebaitDropPoints
+    && exactTopicTarget.every(([topic]) => visibleEvidence.practice_feed_topics_shown.includes(topic))
     && new Set(visibleEvidence.tutorial_chapters_shown).size === demoChapters.length
     && new Set(visibleEvidence.tutorial_features_shown).size === tutorialFeatures.length
     && visibleEvidence.managed_aws_receipt_shown
+    && visibleEvidence.managed_aws_trace_events === managedAwsProof.events.length
     && managedProof.available
     && managedProof.account_changes === false
     && missionProof.planned_with_local_model

@@ -21,10 +21,13 @@ test("Hetzner release is bound to the renamed public repository and immutable ga
 
 test("tunnel exposes only the Curate API and the public AT Protocol boundary", async () => {
   const config = await read("../deploy/hetzner/tunnel.yml");
+  const dockerfile = await read("../deploy/hetzner/Dockerfile.tunnel");
   assert.match(config, /service: http:\/\/curate-api:8000/);
   assert.match(config, /service: http:\/\/curate-oauth:4310/);
   assert.match(config, /path: \^\/oauth\/atproto\/\(client-metadata\\\.json\|jwks\\\.json\|callback\)\$/);
   assert.match(config, /hostname: curate-oauth\.elfeel\.me\s+service: http_status:404/);
   assert.match(config, /service: http_status:404/);
   assert.doesNotMatch(config, /host\.docker\.internal|127\.0\.0\.1/);
+  assert.match(dockerfile, /"run"\]/);
+  assert.doesNotMatch(dockerfile, /"run",\s*"curate"/);
 });

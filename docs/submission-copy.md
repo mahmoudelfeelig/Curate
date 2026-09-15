@@ -75,7 +75,7 @@ Curate turns natural-language feed intent into a portable Passport. This three-m
 
 Try the judge build: https://curate.elfeel.me/
 
-Source: https://github.com/mahmoudelfeelig/curate
+Source: https://github.com/mahmoudelfeelig/Curate
 
 ## Suggested screenshot captions
 

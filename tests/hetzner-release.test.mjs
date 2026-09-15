@@ -8,7 +8,7 @@ test("Hetzner release is bound to the renamed public repository and immutable ga
   const manifest = JSON.parse(await read("../.github/hetzner-release.json"));
   const workflow = await read("../.github/workflows/deploy-production.yml");
   assert.equal(manifest.id, "curate");
-  assert.equal(manifest.source.repository, "mahmoudelfeelig/curate");
+  assert.equal(manifest.source.repository, "mahmoudelfeelig/Curate");
   assert.deepEqual(manifest.source.required_workflows, ["Curate CI"]);
   assert.deepEqual(manifest.release.components.map(({ name }) => name), ["api", "oauth", "tunnel"]);
   for (const component of manifest.release.components) {

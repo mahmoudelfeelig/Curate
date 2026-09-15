@@ -2,7 +2,7 @@
   "version": 1,
   "id": "curate",
   "source": {
-    "repository": "mahmoudelfeelig/curate",
+    "repository": "mahmoudelfeelig/Curate",
     "default_branch": "main",
     "required_workflows": ["Curate CI"]
   },
